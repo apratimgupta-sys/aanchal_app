@@ -29,3 +29,7 @@ Independent review found no important persistence/date-calculation defects. Sele
 Deployed date update as Cloudflare version `5f1cd373-b59c-49aa-9bea-1fc1d306dbba`. Type checking, 12 domain tests, 13 Workers integration tests and all 5 local browser scenarios passed before deployment.
 
 Final deployed version: `f587746c-d3e3-4d89-b762-7aa2b845f74c`. All five hosted Chromium scenarios passed, including back-entry, correction history, commit-to-dashboard propagation within two seconds, and reconnect recovery. Setup reads now use one D1 join rather than sequential queries per configured office. Hosted verification uses Anchal 6 to avoid altering Anchal 1's existing demonstration entries.
+
+## UX4G navy redesign — 3 October 2026
+
+Branch `feature/ux4g-design` integrates the supplied UX4G skill with the official pinned npm package. Government navy primary actions, white/grey surfaces and neutral text are applied through root theme tokens. Forms, cards, lists, tables, navigation, progress and feedback use verified UX4G classes. Eight local browser scenarios, type checking and production build pass. New accessibility tests cover light/dark contrast, four responsive modes, keyboard skip/focus, 44px targets and canceled draft selection. Detailed component/token/custom-CSS inventory and package limitations are recorded in `docs/ux4g-integration.md`. No backend or database changes; deployment and push remain pending.

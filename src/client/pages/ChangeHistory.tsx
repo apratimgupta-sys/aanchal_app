@@ -1,3 +1,4 @@
+import { Panel, Notice } from "../ui";
 import { useEffect, useState, useContext } from "react";
 import type { Audit } from "../../shared/types";
 import { api } from "../api";
@@ -14,10 +15,14 @@ export default function ChangeHistory() {
   }, []);
   return (
     <>
-      <div className="page-heading">
+      <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
         <div>
-          <div className="eyebrow">{t("ACCOUNTABILITY", "जवाबदेही")}</div>
-          <h1>{t("Change history", "परिवर्तन इतिहास")}</h1>
+          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
+            {t("ACCOUNTABILITY", "जवाबदेही")}
+          </div>
+          <h1 className="ux4g-heading-xl-strong">
+            {t("Change history", "परिवर्तन इतिहास")}
+          </h1>
           <p>
             {t(
               "Latest 200 recorded actions. Shared logins identify the office account, not individual staff.",
@@ -27,12 +32,12 @@ export default function ChangeHistory() {
         </div>
       </div>
       {error && (
-        <p className="message" role="alert">
+        <Notice className="message" role="alert">
           {runtimeText(error, lang)}
-        </p>
+        </Notice>
       )}
-      <section className="panel table-wrap">
-        <table>
+      <Panel className="panel table-wrap">
+        <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
           <thead>
             <tr>
               {[
@@ -63,7 +68,7 @@ export default function ChangeHistory() {
                 <td>{r.reason || "—"}</td>
                 <td>
                   <details>
-                    <summary>
+                    <summary className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-l">
                       {t("View before / after", "पहले / बाद देखें")}
                     </summary>
                     <div className="audit-values">
@@ -83,11 +88,11 @@ export default function ChangeHistory() {
           </tbody>
         </table>
         {!rows.length && (
-          <p className="empty">
+          <p className="empty ux4g-body-m-default ux4g-text-neutral-secondary ux4g-p-xl">
             {t("No actions recorded yet.", "अभी कोई कार्रवाई दर्ज नहीं है।")}
           </p>
         )}
-      </section>
+      </Panel>
     </>
   );
 }

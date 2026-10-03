@@ -1,3 +1,4 @@
+import { Field, Panel, Notice } from "../ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import type { MonitoringRow, EntryView } from "../../shared/types";
 import services from "../../shared/services.json";
@@ -181,12 +182,12 @@ export default function Dashboard() {
   ];
   return (
     <>
-      <div className="page-heading">
+      <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
         <div>
-          <div className="eyebrow">
+          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
             {t("COMMISSIONER REVIEW", "आयुक्त समीक्षा")}
           </div>
-          <h1>
+          <h1 className="ux4g-heading-xl-strong">
             {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
           </h1>
           <p>
@@ -196,8 +197,8 @@ export default function Dashboard() {
             )}
           </p>
         </div>
-        <div className="live-status">
-          <span className="live-dot" />{" "}
+        <div className="live-status ux4g-tag-tonal-success ux4g-body-xs-default">
+          <span className="live-dot ux4g-bg-success-strong ux4g-radius-full" />{" "}
           {t(
             status,
             status === "Connected"
@@ -206,7 +207,7 @@ export default function Dashboard() {
                 ? "जुड़ रहा है"
                 : "पुनः जुड़ रहा है",
           )}
-          <small>
+          <small className="ux4g-d-block ux4g-mt-xs">
             {updated
               ? t("Updated ", "अपडेट ") +
                 new Date(updated).toLocaleTimeString("en-IN", {
@@ -216,8 +217,8 @@ export default function Dashboard() {
           </small>
         </div>
       </div>
-      <section className="panel filters">
-        <label>
+      <Panel className="panel filters">
+        <Field>
           {t("View", "दृश्य")}
           <select
             aria-label={t("View", "दृश्य")}
@@ -236,9 +237,9 @@ export default function Dashboard() {
             <option value="range">{t("Date range", "तिथि सीमा")}</option>
             <option value="month">{t("Monthly", "मासिक")}</option>
           </select>
-        </label>
+        </Field>
         {mode === "month" ? (
-          <label>
+          <Field>
             {t("Month", "महीना")}
             <input
               type="month"
@@ -260,10 +261,10 @@ export default function Dashboard() {
                 );
               }}
             />
-          </label>
+          </Field>
         ) : (
           <>
-            <label>
+            <Field>
               {t(
                 mode === "day" ? "Service date" : "From date",
                 mode === "day" ? "सेवा तिथि" : "प्रारंभ तिथि",
@@ -277,9 +278,9 @@ export default function Dashboard() {
                   if (mode === "day") setTo(e.target.value);
                 }}
               />
-            </label>
+            </Field>
             {mode === "range" && (
-              <label>
+              <Field>
                 {t("To date", "अंतिम तिथि")}
                 <input
                   type="date"
@@ -288,11 +289,11 @@ export default function Dashboard() {
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                 />
-              </label>
+              </Field>
             )}
           </>
         )}
-        <label>
+        <Field>
           {t("Anchal", "अंचल")}
           <select value={office} onChange={(e) => setOffice(e.target.value)}>
             <option value="">{t("All offices", "सभी कार्यालय")}</option>
@@ -302,8 +303,8 @@ export default function Dashboard() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="service-filter">
+        </Field>
+        <Field className="service-filter">
           {t("Service", "सेवा")}
           <select value={service} onChange={(e) => setService(e.target.value)}>
             <option value="">{t("All 25 services", "सभी 25 सेवाएँ")}</option>
@@ -313,30 +314,35 @@ export default function Dashboard() {
               </option>
             ))}
           </select>
-        </label>
-        <button onClick={() => loadRef.current()}>
+        </Field>
+        <button
+          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+          onClick={() => loadRef.current()}
+        >
           {t("Refresh", "रिफ्रेश")}
         </button>
-      </section>
+      </Panel>
       {error && (
-        <p role="alert" className="message">
+        <Notice role="alert" className="message">
           {runtimeText(error, lang)}
-        </p>
+        </Notice>
       )}
       <div className="metrics">
         {metrics.map(([label, value, note]) => (
-          <section key={label} className="metric">
+          <Panel key={label} className="metric">
             <span>{label}</span>
-            <strong>{value}</strong>
-            <small>{note}</small>
-          </section>
+            <strong className="ux4g-heading-xl-strong">{value}</strong>
+            <small className="ux4g-d-block ux4g-mt-xs">{note}</small>
+          </Panel>
         ))}
       </div>
-      <section className="panel">
-        <div className="section-heading">
+      <Panel className="panel">
+        <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
           <div>
-            <h2>{t("Anchal-wise performance", "अंचलवार प्रदर्शन")}</h2>
-            <p className="small">
+            <h2 className="ux4g-heading-m-strong">
+              {t("Anchal-wise performance", "अंचलवार प्रदर्शन")}
+            </h2>
+            <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
               {from}
               {from !== to ? " — " + to : ""} ·{" "}
               {t(
@@ -345,12 +351,12 @@ export default function Dashboard() {
               )}
             </p>
           </div>
-          <span className="status-tag">
+          <span className="status-tag ux4g-tag-tonal-neutral">
             {totals.submitted} / {totals.expected} {t("reports", "रिपोर्ट")}
           </span>
         </div>
-        <div className="table-wrap">
-          <table className="monitoring-table">
+        <div className="table-wrap ux4g-table-responsive">
+          <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows monitoring-table">
             <thead>
               <tr>
                 {[
@@ -376,7 +382,7 @@ export default function Dashboard() {
                     <strong>
                       {t("Anchal", "अंचल")} {r.officeId}
                     </strong>
-                    <small>
+                    <small className="ux4g-d-block ux4g-mt-xs">
                       {r.configured
                         ? `${r.submitted} / ${r.expected} ${t("submitted", "जमा")}`
                         : t("Setup missing", "सेटअप शेष")}
@@ -393,7 +399,7 @@ export default function Dashboard() {
                   <td className="review-cell">
                     {r.reviewReasons.length ? (
                       <details>
-                        <summary>
+                        <summary className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-l">
                           {t("REVIEW", "समीक्षा")} ({r.reviewReasons.length})
                         </summary>
                         {r.reviewReasons.map((reason) => (
@@ -404,7 +410,7 @@ export default function Dashboard() {
                       t("No threshold flags", "कोई सीमा चेतावनी नहीं")
                     )}
                     {r.submitted < r.expected && (
-                      <small>
+                      <small className="ux4g-d-block ux4g-mt-xs">
                         {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
                       </small>
                     )}
@@ -428,7 +434,7 @@ export default function Dashboard() {
             </tfoot>
           </table>
         </div>
-        <div className="table-notes">
+        <div className="table-notes ux4g-body-xs-default ux4g-text-neutral-secondary">
           <p>
             {t(
               "Disposal = completed ÷ received. Clearing earlier backlog may exceed 100%. “—” means not applicable.",
@@ -443,6 +449,7 @@ export default function Dashboard() {
           </p>
         </div>
         <button
+          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
           onClick={async () => {
             try {
               const requestedQuery = query;
@@ -463,12 +470,15 @@ export default function Dashboard() {
             "सेवा प्रविष्टियाँ और टिप्पणियाँ देखें →",
           )}
         </button>
-      </section>
+      </Panel>
       {details && (
-        <section className="panel details-panel">
-          <div className="section-heading">
-            <h2>{t("Service entry register", "सेवा प्रविष्टि रजिस्टर")}</h2>
+        <Panel className="panel details-panel">
+          <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
+            <h2 className="ux4g-heading-m-strong">
+              {t("Service entry register", "सेवा प्रविष्टि रजिस्टर")}
+            </h2>
             <button
+              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
               onClick={() => {
                 detailsOpen.current = false;
                 setDetails(null);
@@ -477,8 +487,8 @@ export default function Dashboard() {
               {t("Close", "बंद करें")}
             </button>
           </div>
-          <div className="table-wrap">
-            <table>
+          <div className="table-wrap ux4g-table-responsive">
+            <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
               <thead>
                 <tr>
                   {[
@@ -540,7 +550,7 @@ export default function Dashboard() {
               </tbody>
             </table>
             {!details.length && (
-              <p className="empty">
+              <p className="empty ux4g-body-m-default ux4g-text-neutral-secondary ux4g-p-xl">
                 {t(
                   "No entries submitted for this period.",
                   "इस अवधि के लिए कोई प्रविष्टि जमा नहीं है।",
@@ -548,7 +558,7 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-        </section>
+        </Panel>
       )}
     </>
   );

@@ -31,7 +31,10 @@ export default function App() {
   }, [lang]);
   return (
     <Language.Provider value={lang}>
-      <div className="utility">
+      <a href="#main-content" className="skip-link">
+        {text("Skip to main content", "मुख्य सामग्री पर जाएँ")}
+      </a>
+      <div className="utility ux4g-bg-neutral-subtle ux4g-body-xs-default ux4g-d-flex ux4g-jc-between ux4g-gap-x-l">
         <span>
           {text(
             "Government of Jharkhand · Urban Development",
@@ -42,14 +45,16 @@ export default function App() {
           {text("First iteration · Demonstration", "प्रथम संस्करण · प्रदर्शन")}
         </span>
       </div>
-      <header className="masthead">
-        <div className="wordmark">
-          <span className="monogram">RMC</span>
+      <header className="masthead ux4g-bg-neutral-elevated ux4g-d-flex ux4g-jc-between ux4g-ai-center ux4g-gap-x-l">
+        <div className="wordmark ux4g-title-s-strong ux4g-d-flex ux4g-ai-center ux4g-gap-x-l">
+          <span className="monogram ux4g-bg-primary-strong ux4g-text-neutral-inverse ux4g-heading-s-strong ux4g-radius-m">
+            RMC
+          </span>
           <div>
-            <strong>
+            <strong className="ux4g-d-block">
               {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
             </strong>
-            <span>
+            <span className="ux4g-d-block ux4g-body-xs-default">
               {text(
                 "Anchal Office Monitoring Portal",
                 "अंचल कार्यालय निगरानी पोर्टल",
@@ -57,18 +62,22 @@ export default function App() {
             </span>
           </div>
         </div>
-        <div className="header-actions">
-          <button onClick={() => setLang(lang === "en" ? "hi" : "en")}>
+        <div className="header-actions ux4g-d-flex ux4g-ai-center ux4g-flex-wrap ux4g-gap-x-s">
+          <button
+            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+            onClick={() => setLang(lang === "en" ? "hi" : "en")}
+          >
             {lang === "en" ? "हिन्दी" : "English"}
           </button>
           {session && (
             <>
-              <span className="account">
+              <span className="account ux4g-label-l-default">
                 {session.role === "commissioner"
                   ? text("Commissioner", "आयुक्त")
                   : `${text("Anchal", "अंचल")} ${session.officeId}`}
               </span>
               <button
+                className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                 onClick={async () => {
                   await api("/logout", "POST", {});
                   setSession(null);
@@ -82,36 +91,43 @@ export default function App() {
         </div>
       </header>
       {loading ? (
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <p>{text("Loading portal…", "पोर्टल लोड हो रहा है…")}</p>
         </main>
       ) : !session ? (
         <Login onLogin={() => void refresh()} />
       ) : (
         <>
-          <nav>
-            <button
-              className={page === "main" ? "active" : ""}
-              onClick={() => setPage("main")}
-            >
-              {session.role === "commissioner"
-                ? text("Commissioner dashboard", "आयुक्त डैशबोर्ड")
-                : text("Daily entry", "दैनिक प्रविष्टि")}
-            </button>
-            <button
-              className={page === "history" ? "active" : ""}
-              onClick={() => setPage("history")}
-            >
-              {text("Change history", "परिवर्तन इतिहास")}
-            </button>
-            <span>
-              {text(
-                "RMC / Office monitoring",
-                "रांची नगर निगम / कार्यालय निगरानी",
-              )}
-            </span>
+          <nav
+            className="ux4g-navbar portal-nav"
+            aria-label={text("Portal navigation", "पोर्टल नेविगेशन")}
+          >
+            <div className="ux4g-navbar-wrap portal-nav-wrap ux4g-flex-wrap ux4g-jc-start ux4g-w-100">
+              <button
+                className={`ux4g-btn ux4g-btn-l ${page === "main" ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
+                aria-current={page === "main" ? "page" : undefined}
+                onClick={() => setPage("main")}
+              >
+                {session.role === "commissioner"
+                  ? text("Commissioner dashboard", "आयुक्त डैशबोर्ड")
+                  : text("Daily entry", "दैनिक प्रविष्टि")}
+              </button>
+              <button
+                className={`ux4g-btn ux4g-btn-l ${page === "history" ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
+                aria-current={page === "history" ? "page" : undefined}
+                onClick={() => setPage("history")}
+              >
+                {text("Change history", "परिवर्तन इतिहास")}
+              </button>
+              <span>
+                {text(
+                  "RMC / Office monitoring",
+                  "रांची नगर निगम / कार्यालय निगरानी",
+                )}
+              </span>
+            </div>
           </nav>
-          <main className="workspace">
+          <main id="main-content" tabIndex={-1} className="workspace">
             {page === "history" ? (
               <ChangeHistory />
             ) : session.role === "commissioner" ? (
@@ -122,17 +138,19 @@ export default function App() {
           </main>
         </>
       )}
-      <footer>
-        <span>
-          © {new Date().getFullYear()}{" "}
-          {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
-        </span>
-        <span>
-          {text(
-            "Anchal Office Monitoring · First iteration",
-            "अंचल कार्यालय निगरानी · प्रथम संस्करण",
-          )}
-        </span>
+      <footer className="ux4g-footer ux4g-bg-neutral-subtle">
+        <div className="portal-footer ux4g-footer-row ux4g-body-xs-default ux4g-d-flex ux4g-flex-wrap ux4g-gap-x-l">
+          <span>
+            © {new Date().getFullYear()}{" "}
+            {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
+          </span>
+          <span>
+            {text(
+              "Anchal Office Monitoring · First iteration",
+              "अंचल कार्यालय निगरानी · प्रथम संस्करण",
+            )}
+          </span>
+        </div>
       </footer>
     </Language.Provider>
   );

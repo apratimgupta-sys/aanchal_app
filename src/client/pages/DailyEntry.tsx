@@ -1,3 +1,4 @@
+import { Field, Panel, Notice, ReportProgress } from "../ui";
 import { useContext, useEffect, useState, useRef } from "react";
 import type {
   Balances,
@@ -108,17 +109,20 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
   }
   if (!data)
     return (
-      <section className="panel">
+      <Panel className="panel">
         <p>
           {error ||
             t("Loading office report…", "कार्यालय रिपोर्ट लोड हो रही है…")}
         </p>
         {error && (
-          <button onClick={() => void load()}>
+          <button
+            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+            onClick={() => void load()}
+          >
             {t("Retry", "पुनः प्रयास")}
           </button>
         )}
-      </section>
+      </Panel>
     );
   if (!data.setup || editingSetup)
     return (
@@ -135,13 +139,15 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
   const service = services.find((s) => s.id === selected)!;
   return (
     <>
-      <div className="page-heading">
+      <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
         <div>
-          <div className="eyebrow">
+          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
             {t("ANCHAL", "अंचल")} {officeId} /{" "}
             {t("DAILY REPORTING", "दैनिक रिपोर्टिंग")}
           </div>
-          <h1>{t("Daily service entry", "दैनिक सेवा प्रविष्टि")}</h1>
+          <h1 className="ux4g-heading-xl-strong">
+            {t("Daily service entry", "दैनिक सेवा प्रविष्टि")}
+          </h1>
           <p>
             {t(
               "One entry per service. Every submission updates the commissioner dashboard.",
@@ -149,12 +155,15 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
             )}
           </p>
         </div>
-        <button onClick={() => switchSelection(() => setEditingSetup(true))}>
+        <button
+          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+          onClick={() => switchSelection(() => setEditingSetup(true))}
+        >
           {t("Opening balances", "प्रारंभिक शेष")}
         </button>
       </div>
-      <div className="report-toolbar panel">
-        <label>
+      <Panel className="report-toolbar panel">
+        <Field>
           {t("View service date", "सेवा तिथि देखें")}
           <input
             type="date"
@@ -168,73 +177,88 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               })
             }
           />
-        </label>
+        </Field>
         <div className="report-progress">
-          <strong>
+          <strong className="ux4g-heading-m-strong">
             {data.entries.length}
             <span> / 25</span>
           </strong>
           <div>{t("services submitted", "सेवाएँ जमा")}</div>
-          <progress value={data.entries.length} max={25} />
+          <ReportProgress value={data.entries.length} max={25} />
         </div>
-        <p className="small">
+        <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
           {t(
             "Zero activity must be submitted explicitly. Missing entries remain unreported.",
             "शून्य गतिविधि भी जमा करनी होगी। अनुपस्थित प्रविष्टियाँ अप्रतिवेदित रहेंगी।",
           )}
         </p>
-      </div>
+      </Panel>
       <div className="entry-layout">
-        <aside className="panel service-list">
-          <div className="list-header">
+        <Panel className="panel service-list">
+          <div className="list-header ux4g-label-m-strong ux4g-p-m ux4g-bg-neutral-soft ux4g-d-flex ux4g-jc-between">
             {t("SERVICE REGISTER", "सेवा सूची")} <span>25</span>
           </div>
-          {services.map((s) => (
-            <button
-              key={s.id}
-              className={selected === s.id ? "selected" : ""}
-              onClick={() =>
-                switchSelection(() => {
-                  setSelected(s.id);
-                  setMessage("");
-                  setError("");
-                })
-              }
-            >
-              <span className="service-number">
-                {String(s.id).padStart(2, "0")}
-              </span>
-              <span>{lang === "hi" ? s.name : s.en}</span>
-              <span
-                className="service-status"
-                aria-label={
-                  data.entries.some((e) => e.serviceId === s.id)
-                    ? "Submitted"
-                    : "Not submitted"
-                }
-              >
-                {data.entries.some((e) => e.serviceId === s.id) ? "✓" : "○"}
-              </span>
-            </button>
-          ))}
-        </aside>
-        <section className="panel entry-panel">
-          <div className="section-heading">
+          <ul
+            className="ux4g-list ux4g-list-default ux4g-list-m"
+            aria-label={t("Municipal services", "नगर निगम सेवाएँ")}
+          >
+            {services.map((s) => (
+              <li className="ux4g-list-item" key={s.id}>
+                <button
+                  key={s.id}
+                  className={`ux4g-list-item-row ux4g-min-h-48 ${selected === s.id ? "ux4g-bg-primary-soft" : ""}`}
+                  aria-current={selected === s.id ? "true" : undefined}
+                  onClickCapture={(event) => {
+                    // React owns selection and the draft guard. Intercept before
+                    // UX4G's target listener can mutate its independent .active state.
+                    event.stopPropagation();
+                    switchSelection(() => {
+                      setSelected(s.id);
+                      setMessage("");
+                      setError("");
+                    });
+                  }}
+                >
+                  <span className="service-number ux4g-label-m-default ux4g-text-neutral-secondary">
+                    {String(s.id).padStart(2, "0")}
+                  </span>
+                  <span>{lang === "hi" ? s.name : s.en}</span>
+                  <span
+                    className="service-status ux4g-icon-outlined ux4g-text-neutral-secondary"
+                    aria-label={
+                      data.entries.some((e) => e.serviceId === s.id)
+                        ? "Submitted"
+                        : "Not submitted"
+                    }
+                  >
+                    {data.entries.some((e) => e.serviceId === s.id)
+                      ? "check_circle"
+                      : "radio_button_unchecked"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+        <Panel className="panel entry-panel">
+          <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
             <div>
-              <div className="eyebrow">
+              <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
                 {t("SERVICE", "सेवा")} {String(selected).padStart(2, "0")} ·{" "}
                 {service.category}
               </div>
-              <h2>{lang === "hi" ? service.name : service.en}</h2>
-              <p className="small">
+              <h2 className="ux4g-heading-m-strong">
+                {lang === "hi" ? service.name : service.en}
+              </h2>
+              <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
                 {lang === "hi" ? service.en : service.name}
               </p>
             </div>
-            <span className="status-tag">
+            <span className="status-tag ux4g-tag-tonal-neutral">
               {saved ? t("Submitted", "जमा") : t("Not submitted", "जमा नहीं")}
             </span>
           </div>
-          <div className="balance-strip">
+          <div className="balance-strip ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-gap-m">
             {(["service", "complaints", "field"] as const).map((k, i) => (
               <div key={k}>
                 <span>
@@ -298,7 +322,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
             }}
           >
             <div className="form-grid">
-              <label>
+              <Field>
                 {t("Service date", "सेवा तिथि")}
                 <input
                   type="date"
@@ -314,14 +338,14 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                     })
                   }
                 />
-                <small>
+                <small className="ux4g-d-block ux4g-mt-xs">
                   {t(
                     "Select the day this service activity relates to.",
                     "इस सेवा गतिविधि की तिथि चुनें।",
                   )}
                 </small>
-              </label>
-              <label>
+              </Field>
+              <Field>
                 {t(
                   "Reporting / registration date",
                   "रिपोर्टिंग / पंजीकरण तिथि",
@@ -335,7 +359,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                   )}
                   value={saved?.reportingDate ?? todayIST()}
                 />
-                <small>
+                <small className="ux4g-d-block ux4g-mt-xs">
                   {saved
                     ? t("Registered at: ", "पंजीकरण समय: ") +
                       new Date(saved.createdAt).toLocaleString(
@@ -347,8 +371,8 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                         "प्रथम जमा पर स्वतः दर्ज होगी।",
                       )}
                 </small>
-              </label>
-              <label className="wide">
+              </Field>
+              <Field className="wide">
                 {t("Ward number / name", "वार्ड संख्या / नाम")}
                 <input
                   required
@@ -357,13 +381,13 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                   onChange={(e) => patch("ward", e.target.value)}
                 />
                 {fields.ward && (
-                  <span className="field-error">
+                  <span className="field-error ux4g-text-error">
                     {runtimeText(fields.ward, lang)}
                   </span>
                 )}
-              </label>
+              </Field>
               {numeric.map(([k, en, hi]) => (
-                <label key={k}>
+                <Field key={k}>
                   {t(en, hi)}
                   <input
                     type="number"
@@ -380,13 +404,13 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                     }
                   />
                   {fields[k] && (
-                    <span className="field-error">
+                    <span className="field-error ux4g-text-error">
                       {runtimeText(fields[k], lang)}
                     </span>
                   )}
-                </label>
+                </Field>
               ))}
-              <label>
+              <Field>
                 {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
                 <input
                   type="text"
@@ -398,8 +422,8 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                     setDirty(true);
                   }}
                 />
-              </label>
-              <label>
+              </Field>
+              <Field>
                 {t("Avg Disposal Days", "औसत निस्तारण दिन")}
                 <input
                   type="number"
@@ -415,21 +439,21 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                   }
                 />
                 {fields.avgDisposalDays && (
-                  <span className="field-error">
+                  <span className="field-error ux4g-text-error">
                     {runtimeText(fields.avgDisposalDays, lang)}
                   </span>
                 )}
-              </label>
-              <label className="wide">
+              </Field>
+              <Field className="wide">
                 {t("Remarks", "टिप्पणियाँ")}
                 <textarea
                   maxLength={2000}
                   value={input.remarks}
                   onChange={(e) => patch("remarks", e.target.value)}
                 />
-              </label>
+              </Field>
               {saved && (
-                <label className="wide">
+                <Field className="wide">
                   {t("Correction reason", "सुधार का कारण")}
                   <textarea
                     required
@@ -437,10 +461,10 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                   />
-                </label>
+                </Field>
               )}
             </div>
-            <div className="closing-strip">
+            <div className="closing-strip ux4g-body-s-default ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-d-flex ux4g-flex-wrap ux4g-ai-center ux4g-gap-x-l ux4g-mt-l">
               <span>{t("Closing balances", "अंतिम शेष")}</span>
               <strong>
                 {t("Work", "कार्य")}:{" "}
@@ -456,9 +480,10 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               </strong>
             </div>
             {error && (
-              <div className="message" role="alert">
+              <Notice className="message" role="alert">
                 {runtimeText(error, lang)}
                 <button
+                  className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                   type="button"
                   onClick={() => {
                     setDirty(false);
@@ -467,15 +492,16 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                 >
                   {t("Reload latest entry", "नवीनतम प्रविष्टि लोड करें")}
                 </button>
-              </div>
+              </Notice>
             )}
             {message && (
-              <p className="message" role="status">
+              <Notice className="message" role="status">
                 ✓ {message}
-              </p>
+              </Notice>
             )}
-            <div className="form-actions">
+            <div className="form-actions ux4g-d-flex ux4g-flex-wrap ux4g-jc-between ux4g-gap-x-l ux4g-mt-l">
               <button
+                className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                 type="button"
                 onClick={() => {
                   setInput((p) => ({
@@ -496,7 +522,10 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               >
                 {t("Set zero activity", "शून्य गतिविधि भरें")}
               </button>
-              <button className="primary" disabled={busy}>
+              <button
+                className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
+                disabled={busy}
+              >
                 {busy
                   ? t("Saving…", "सहेजा जा रहा है…")
                   : saved
@@ -505,7 +534,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               </button>
             </div>
           </form>
-        </section>
+        </Panel>
       </div>
     </>
   );

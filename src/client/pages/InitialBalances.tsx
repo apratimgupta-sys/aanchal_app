@@ -1,3 +1,4 @@
+import { Field, Input, Panel, Notice } from "../ui";
 import { useState, useContext, useRef } from "react";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import services from "../../shared/services.json";
@@ -30,11 +31,13 @@ export default function InitialBalances({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
-    <section className="panel">
-      <div className="section-heading">
+    <Panel className="panel">
+      <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
         <div>
-          <div className="eyebrow">{t("OFFICE SETUP", "कार्यालय सेटअप")}</div>
-          <h2>
+          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
+            {t("OFFICE SETUP", "कार्यालय सेटअप")}
+          </div>
+          <h2 className="ux4g-heading-m-strong">
             {t(
               existing ? "Correct opening balances" : "Set opening balances",
               existing ? "प्रारंभिक शेष सुधारें" : "प्रारंभिक शेष दर्ज करें",
@@ -42,7 +45,12 @@ export default function InitialBalances({
           </h2>
         </div>
         {onCancel && (
-          <button onClick={onCancel}>{t("Cancel", "रद्द करें")}</button>
+          <button
+            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+            onClick={onCancel}
+          >
+            {t("Cancel", "रद्द करें")}
+          </button>
         )}
       </div>
       <p>
@@ -76,7 +84,7 @@ export default function InitialBalances({
           }
         }}
       >
-        <label className="short-field">
+        <Field className="short-field">
           {t("Reporting start date", "रिपोर्टिंग प्रारंभ तिथि")}
           <input
             type="date"
@@ -85,9 +93,9 @@ export default function InitialBalances({
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-        </label>
-        <div className="table-wrap">
-          <table>
+        </Field>
+        <div className="table-wrap ux4g-table-responsive">
+          <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
             <thead>
               <tr>
                 <th>{t("Service", "सेवा")}</th>
@@ -100,14 +108,14 @@ export default function InitialBalances({
               {services.map((s, i) => (
                 <tr key={s.id}>
                   <td>
-                    <span className="service-number">
+                    <span className="service-number ux4g-label-m-default ux4g-text-neutral-secondary">
                       {String(s.id).padStart(2, "0")}
                     </span>
                     {lang === "hi" ? s.name : s.en}
                   </td>
                   {(["service", "complaints", "field"] as const).map((k) => (
                     <td key={k}>
-                      <input
+                      <Input
                         aria-label={`${s.id} ${k}`}
                         type="number"
                         required
@@ -142,16 +150,16 @@ export default function InitialBalances({
           </table>
         </div>
         {existing && (
-          <label>
+          <Field>
             {t("Correction reason", "सुधार का कारण")}
             <textarea
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
-          </label>
+          </Field>
         )}
-        <label className="checkbox">
+        <Field className="checkbox">
           <input
             type="checkbox"
             checked={confirmed}
@@ -161,18 +169,21 @@ export default function InitialBalances({
             "I confirm all opening balances, including zero balances.",
             "मैं शून्य शेष सहित सभी प्रारंभिक शेष की पुष्टि करता/करती हूँ।",
           )}
-        </label>
+        </Field>
         {error && (
-          <p role="alert" className="message">
+          <Notice role="alert" className="message">
             {runtimeText(error, lang)}
-          </p>
+          </Notice>
         )}
-        <button className="primary" disabled={!confirmed || busy}>
+        <button
+          className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
+          disabled={!confirmed || busy}
+        >
           {busy
             ? t("Saving…", "सहेजा जा रहा है…")
             : t("Save opening balances", "प्रारंभिक शेष सहेजें")}
         </button>
       </form>
-    </section>
+    </Panel>
   );
 }
