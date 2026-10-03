@@ -15,6 +15,10 @@ const runtimeHindi: Record<string, string> = {
   "Entry submitted": "प्रविष्टि जमा की गई",
   "Entry corrected": "प्रविष्टि सुधारी गई",
   "Initial balances configured": "प्रारंभिक शेष दर्ज किए गए",
+  "Reporting start extended for back-entry":
+    "पूर्व तिथि प्रविष्टि के लिए रिपोर्टिंग प्रारंभ बढ़ाया गया",
+  "Existing opening balances reused for earlier service date":
+    "पूर्व सेवा तिथि के लिए मौजूदा प्रारंभिक शेष उपयोग किया गया",
   "Initial balances corrected": "प्रारंभिक शेष सुधारे गए",
   "Please correct the highlighted fields": "चिह्नित फ़ील्ड सुधारें",
   "Invalid username or password": "उपयोगकर्ता नाम या पासवर्ड गलत है",

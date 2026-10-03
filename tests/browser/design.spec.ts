@@ -135,6 +135,8 @@ test("canceling a service switch preserves both the draft and selected service",
   await expect(
     page.getByLabel("Ward number / name", { exact: true }),
   ).toBeVisible();
+  const edit = page.getByRole("button", { name: "Edit entry", exact: true });
+  if (await edit.isVisible()) await edit.click();
   const rows = page.locator(".service-list button");
   await page
     .getByLabel("Ward number / name", { exact: true })
@@ -149,4 +151,29 @@ test("canceling a service switch preserves both the draft and selected service",
   page.once("dialog", (dialog) => dialog.accept());
   await rows.nth(1).click();
   await expect(rows.nth(1)).toHaveAttribute("aria-current", "true");
+});
+test("submitted entries stay read-only until Edit and Cancel restores saved values", async ({
+  page,
+}) => {
+  await signIn(page, process.env.RMC_TEST_URL ? "anchal6" : "anchal1");
+  const ward = page.getByLabel("Ward number / name", { exact: true });
+  await expect(
+    page.getByRole("button", { name: "Edit entry", exact: true }),
+  ).toBeVisible();
+  await expect(ward).toHaveAttribute("readonly", "");
+  await expect(
+    page.getByRole("button", { name: "Submit entry →", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("View service date", { exact: true }),
+  ).toHaveCount(0);
+  const saved = await ward.inputValue();
+  await page.getByRole("button", { name: "Edit entry", exact: true }).click();
+  await expect(ward).not.toHaveAttribute("readonly", "");
+  await ward.fill("Canceled edit");
+  await page
+    .getByRole("button", { name: "Cancel editing", exact: true })
+    .click();
+  await expect(ward).toHaveValue(saved);
+  await expect(ward).toHaveAttribute("readonly", "");
 });

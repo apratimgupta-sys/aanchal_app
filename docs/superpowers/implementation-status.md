@@ -33,3 +33,9 @@ Final deployed version: `f587746c-d3e3-4d89-b762-7aa2b845f74c`. All five hosted 
 ## UX4G navy redesign — 3 October 2026
 
 Branch `feature/ux4g-design` integrates the supplied UX4G skill with the official pinned npm package. Government navy primary actions, white/grey surfaces and neutral text are applied through root theme tokens. Forms, cards, lists, tables, navigation, progress and feedback use verified UX4G classes. Eight local browser scenarios, type checking and production build pass. New accessibility tests cover light/dark contrast, four responsive modes, keyboard skip/focus, 44px targets and canceled draft selection. Detailed component/token/custom-CSS inventory and package limitations are recorded in `docs/ux4g-integration.md`. No backend or database changes; deployment and push remain pending.
+
+## Office entry refinements — 3 October 2026
+
+Removed the duplicate View service date control and the two explanatory paragraphs identified by the user. A single Service date selector navigates records outside the submitted form. Saved values are read-only until Edit entry; Cancel editing restores persisted values. Corrections continue to require reasons and preserve first registration.
+
+User explicitly chose to reuse existing opening balances for service dates before the current reporting start. A successful earlier back-entry atomically extends office_setup.start_date, increments its version and records a separate before/after audit event in the same D1 batch. Historical balance validation runs before any changes; retries do not duplicate the extension audit. All nine local browser scenarios, 15 Workers integration tests, type checking and build pass.

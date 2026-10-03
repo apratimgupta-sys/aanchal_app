@@ -49,6 +49,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
     [selected, setSelected] = useState(1),
     [data, setData] = useState<Payload | null>(null),
     [editingSetup, setEditingSetup] = useState(false),
+    [editingEntry, setEditingEntry] = useState(false),
     [input, setInput] = useState<EntryInput>(blank(date, selected)),
     [money, setMoney] = useState("0.00"),
     [reason, setReason] = useState(""),
@@ -94,6 +95,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
     setReason("");
     setFields({});
     setDirty(false);
+    setEditingEntry(false);
   }, [saved, date, selected]);
   function patch(key: string, value: unknown) {
     setDirty(true);
@@ -148,12 +150,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
           <h1 className="ux4g-heading-xl-strong">
             {t("Daily service entry", "दैनिक सेवा प्रविष्टि")}
           </h1>
-          <p>
-            {t(
-              "One entry per service. Every submission updates the commissioner dashboard.",
-              "प्रत्येक सेवा की एक प्रविष्टि। हर जमा रिपोर्ट से आयुक्त डैशबोर्ड अपडेट होता है।",
-            )}
-          </p>
         </div>
         <button
           className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
@@ -163,21 +159,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
         </button>
       </div>
       <Panel className="report-toolbar panel">
-        <Field>
-          {t("View service date", "सेवा तिथि देखें")}
-          <input
-            type="date"
-            value={date}
-            max={todayIST()}
-            min={data.setup.startDate}
-            onChange={(e) =>
-              switchSelection(() => {
-                setDate(e.target.value);
-                setData(null);
-              })
-            }
-          />
-        </Field>
         <div className="report-progress">
           <strong className="ux4g-heading-m-strong">
             {data.entries.length}
@@ -186,12 +167,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
           <div>{t("services submitted", "सेवाएँ जमा")}</div>
           <ReportProgress value={data.entries.length} max={25} />
         </div>
-        <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
-          {t(
-            "Zero activity must be submitted explicitly. Missing entries remain unreported.",
-            "शून्य गतिविधि भी जमा करनी होगी। अनुपस्थित प्रविष्टियाँ अप्रतिवेदित रहेंगी।",
-          )}
-        </p>
       </Panel>
       <div className="entry-layout">
         <Panel className="panel service-list">
@@ -279,9 +254,31 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               </div>
             ))}
           </div>
+          <Field className="short-field">
+            {t("Service date", "सेवा तिथि")}
+            <input
+              type="date"
+              aria-label={t("Service date", "सेवा तिथि")}
+              value={input.serviceDate}
+              max={todayIST()}
+              onChange={(e) =>
+                switchSelection(() => {
+                  setDate(e.target.value);
+                  setData(null);
+                })
+              }
+            />
+            <small className="ux4g-d-block ux4g-mt-xs">
+              {t(
+                "Select the day this service activity relates to.",
+                "इस सेवा गतिविधि की तिथि चुनें।",
+              )}
+            </small>
+          </Field>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              if (saved && !editingEntry) return;
               setBusy(true);
               setError("");
               setFields({});
@@ -305,6 +302,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                   payload,
                 );
                 setDirty(false);
+                setEditingEntry(false);
                 await load();
                 setMessage(
                   t(
@@ -322,29 +320,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
             }}
           >
             <div className="form-grid">
-              <Field>
-                {t("Service date", "सेवा तिथि")}
-                <input
-                  type="date"
-                  required
-                  aria-label={t("Service date", "सेवा तिथि")}
-                  value={input.serviceDate}
-                  max={todayIST()}
-                  min={data.setup.startDate}
-                  onChange={(e) =>
-                    switchSelection(() => {
-                      setDate(e.target.value);
-                      setData(null);
-                    })
-                  }
-                />
-                <small className="ux4g-d-block ux4g-mt-xs">
-                  {t(
-                    "Select the day this service activity relates to.",
-                    "इस सेवा गतिविधि की तिथि चुनें।",
-                  )}
-                </small>
-              </Field>
               <Field>
                 {t(
                   "Reporting / registration date",
@@ -375,6 +350,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               <Field className="wide">
                 {t("Ward number / name", "वार्ड संख्या / नाम")}
                 <input
+                  readOnly={!!saved && !editingEntry}
                   required
                   maxLength={200}
                   value={input.ward}
@@ -390,6 +366,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                 <Field key={k}>
                   {t(en, hi)}
                   <input
+                    readOnly={!!saved && !editingEntry}
                     type="number"
                     min="0"
                     max="1000000000"
@@ -413,6 +390,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               <Field>
                 {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
                 <input
+                  readOnly={!!saved && !editingEntry}
                   type="text"
                   inputMode="decimal"
                   required
@@ -426,6 +404,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               <Field>
                 {t("Avg Disposal Days", "औसत निस्तारण दिन")}
                 <input
+                  readOnly={!!saved && !editingEntry}
                   type="number"
                   min="0"
                   step="0.01"
@@ -447,19 +426,24 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               <Field className="wide">
                 {t("Remarks", "टिप्पणियाँ")}
                 <textarea
+                  readOnly={!!saved && !editingEntry}
                   maxLength={2000}
                   value={input.remarks}
                   onChange={(e) => patch("remarks", e.target.value)}
                 />
               </Field>
-              {saved && (
+              {saved && editingEntry && (
                 <Field className="wide">
                   {t("Correction reason", "सुधार का कारण")}
                   <textarea
+                    readOnly={!!saved && !editingEntry}
                     required
                     maxLength={1000}
                     value={reason}
-                    onChange={(e) => setReason(e.target.value)}
+                    onChange={(e) => {
+                      setReason(e.target.value);
+                      setDirty(true);
+                    }}
                   />
                 </Field>
               )}
@@ -499,40 +483,73 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
                 ✓ {message}
               </Notice>
             )}
-            <div className="form-actions ux4g-d-flex ux4g-flex-wrap ux4g-jc-between ux4g-gap-x-l ux4g-mt-l">
+            {(!saved || editingEntry) && (
+              <div className="form-actions ux4g-d-flex ux4g-flex-wrap ux4g-jc-between ux4g-gap-x-l ux4g-mt-l">
+                <button
+                  className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+                  type="button"
+                  onClick={() => {
+                    setInput((p) => ({
+                      ...blank(date, selected),
+                      received: 0,
+                      completed: 0,
+                      slaWithinTime: 0,
+                      complaintsReceived: 0,
+                      complaintsResolved: 0,
+                      fieldReceived: 0,
+                      fieldCompleted: 0,
+                      ward: p.ward,
+                      remarks: p.remarks,
+                    }));
+                    setMoney("0.00");
+                    setDirty(true);
+                  }}
+                >
+                  {t("Set zero activity", "शून्य गतिविधि भरें")}
+                </button>
+                <button
+                  className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
+                  disabled={busy}
+                >
+                  {busy
+                    ? t("Saving…", "सहेजा जा रहा है…")
+                    : saved
+                      ? t("Save correction →", "सुधार सहेजें →")
+                      : t("Submit entry →", "प्रविष्टि जमा करें →")}
+                </button>
+              </div>
+            )}
+            {saved && !editingEntry && (
+              <div className="form-actions ux4g-mt-l">
+                <button
+                  type="button"
+                  className="ux4g-btn ux4g-btn-primary ux4g-btn-l"
+                  onClick={() => {
+                    setEditingEntry(true);
+                    setMessage("");
+                  }}
+                >
+                  {t("Edit entry", "प्रविष्टि संपादित करें")}
+                </button>
+              </div>
+            )}
+            {saved && editingEntry && (
               <button
-                className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                 type="button"
+                className="ux4g-btn ux4g-btn-outline-neutral ux4g-btn-l ux4g-mt-l"
                 onClick={() => {
-                  setInput((p) => ({
-                    ...blank(date, selected),
-                    received: 0,
-                    completed: 0,
-                    slaWithinTime: 0,
-                    complaintsReceived: 0,
-                    complaintsResolved: 0,
-                    fieldReceived: 0,
-                    fieldCompleted: 0,
-                    ward: p.ward,
-                    remarks: p.remarks,
-                  }));
-                  setMoney("0.00");
-                  setDirty(true);
+                  setInput(saved);
+                  setMoney((saved.amountPaise / 100).toFixed(2));
+                  setReason("");
+                  setFields({});
+                  setError("");
+                  setDirty(false);
+                  setEditingEntry(false);
                 }}
               >
-                {t("Set zero activity", "शून्य गतिविधि भरें")}
+                {t("Cancel editing", "संपादन रद्द करें")}
               </button>
-              <button
-                className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
-                disabled={busy}
-              >
-                {busy
-                  ? t("Saving…", "सहेजा जा रहा है…")
-                  : saved
-                    ? t("Save correction →", "सुधार सहेजें →")
-                    : t("Submit entry →", "प्रविष्टि जमा करें →")}
-              </button>
-            </div>
+            )}
           </form>
         </Panel>
       </div>

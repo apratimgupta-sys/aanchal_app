@@ -416,3 +416,85 @@ it("separates backdated service date from immutable server registration date", a
   expect(updated.reportingDate).toBe(saved.reportingDate);
   expect(updated.createdAt).toBe(saved.createdAt);
 });
+it("extends reporting start for prior-month back-entry atomically and reuses opening balances", async () => {
+  const c = await login();
+  await request("/api/office/setup", "PUT", setup, c);
+  const command = {
+    requestId: "prior-month-123",
+    expectedVersion: null,
+    input: { ...zero, serviceDate: "2026-09-15", received: 2 },
+    reason: null,
+  };
+  const first = await request("/api/office/entries", "POST", command, c);
+  expect(first.status).toBe(200);
+  const entry = (await first.json()) as any;
+  expect(entry.opening.service).toBe(10);
+  expect(entry.closing.service).toBe(12);
+  const extended = await env.DB.prepare(
+    "SELECT start_date,version FROM office_setup WHERE office_id=1",
+  ).first();
+  expect(extended).toEqual({ start_date: "2026-09-15", version: 2 });
+  const audit = await env.DB.prepare(
+    "SELECT before_data,after_data FROM audit_events WHERE action='Reporting start extended for back-entry'",
+  ).first<any>();
+  expect(JSON.parse(audit.before_data).startDate).toBe("2026-10-01");
+  expect(JSON.parse(audit.after_data).balances).toEqual(setup.balances);
+  expect(
+    (await request("/api/office/entries", "POST", command, c)).status,
+  ).toBe(200);
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM audit_events WHERE action='Reporting start extended for back-entry'",
+      ).first<any>()
+    ).count,
+  ).toBe(1);
+});
+it("does not extend start date when a back-entry would invalidate a later balance", async () => {
+  const c = await login();
+  await request("/api/office/setup", "PUT", setup, c);
+  const later = await request(
+    "/api/office/entries",
+    "POST",
+    {
+      requestId: "later-consume-123",
+      expectedVersion: null,
+      input: { ...zero, completed: 10, slaWithinTime: 10, avgDisposalDays: 1 },
+      reason: null,
+    },
+    c,
+  );
+  expect(later.status).toBe(200);
+  const rejected = await request(
+    "/api/office/entries",
+    "POST",
+    {
+      requestId: "earlier-invalid-123",
+      expectedVersion: null,
+      input: {
+        ...zero,
+        serviceDate: "2026-09-15",
+        completed: 1,
+        slaWithinTime: 1,
+        avgDisposalDays: 1,
+      },
+      reason: null,
+    },
+    c,
+  );
+  expect(rejected.status).toBe(422);
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT start_date FROM office_setup WHERE office_id=1",
+      ).first<any>()
+    ).start_date,
+  ).toBe("2026-10-01");
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM audit_events WHERE action='Reporting start extended for back-entry'",
+      ).first<any>()
+    ).count,
+  ).toBe(0);
+});

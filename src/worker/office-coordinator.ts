@@ -161,8 +161,6 @@ export class OfficeCoordinator extends DurableObject<Env> {
       if (!c.input || typeof c.input !== "object") fail(422, "Entry required");
       const error = validateEntry(c.input, todayIST());
       if (error) throw new HttpError(422, error);
-      if (c.input.serviceDate < setup.startDate)
-        fail(422, "Date precedes reporting start date");
       const old = id
         ? entries.find((e) => e.id === id)
         : entries.find(
@@ -211,6 +209,30 @@ export class OfficeCoordinator extends DurableObject<Env> {
         ),
         record,
       ]);
+      if (record.serviceDate < setup.startDate) {
+        const extendedSetup = {
+          ...setup,
+          startDate: record.serviceDate,
+          version: setup.version + 1,
+        };
+        statements.push(
+          this.env.DB.prepare(
+            "UPDATE office_setup SET start_date=?,version=? WHERE office_id=?",
+          ).bind(record.serviceDate, extendedSetup.version, office),
+          this.env.DB.prepare(
+            "INSERT INTO audit_events VALUES(?,?,?,?,?,?,?,?)",
+          ).bind(
+            crypto.randomUUID(),
+            office,
+            session.username,
+            now,
+            "Reporting start extended for back-entry",
+            "Existing opening balances reused for earlier service date",
+            JSON.stringify(setup),
+            JSON.stringify(extendedSetup),
+          ),
+        );
+      }
       before = old ?? null;
       after = views.find((e) => e.id === record.id)!;
       action = old ? "Entry corrected" : "Entry submitted";

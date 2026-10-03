@@ -60,6 +60,7 @@ No PostgreSQL server, external identity provider, or Cloudflare KV is required. 
 
 ## Business rules
 
+- Saved reports are read-only until Edit entry is selected. Earlier-month back-entry before the configured start reuses the existing opening balances, extends the start date atomically and records the change in history. Invalid later balances still block the back-entry.
 - Unique report key: office + service + service date; Ward is descriptive text. Each service entry has a selectable Service date for back-entry. Reporting/registration date and exact registered time are recorded automatically on first submission and preserved through corrections. Dashboard periods and balances use the service date.
 - Three balances = configured opening + earlier received − earlier completed/resolved.
 - Dates without submissions carry recorded balances forward but remain missing reports.
