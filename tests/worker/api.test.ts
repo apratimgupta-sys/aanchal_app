@@ -31,7 +31,7 @@ const zero = {
   complaintsResolved: 0,
   fieldReceived: 0,
   fieldCompleted: 0,
-  reportingDate: "2026-10-01",
+  serviceDate: "2026-10-01",
   serviceId: 1,
   ward: "1",
   avgDisposalDays: null,
@@ -171,7 +171,7 @@ it("rejects earlier edits that invalidate later balances without partial audit",
       expectedVersion: null,
       input: {
         ...zero,
-        reportingDate: "2026-10-02",
+        serviceDate: "2026-10-02",
         completed: 6,
         avgDisposalDays: 1,
       },
@@ -361,4 +361,58 @@ it("delivers committed revisions to authenticated websocket subscriber", async (
     revision: 1,
   });
   ws.close();
+});
+it("separates backdated service date from immutable server registration date", async () => {
+  const c = await login();
+  await request("/api/office/setup", "PUT", setup, c);
+  const first = await request(
+    "/api/office/entries",
+    "POST",
+    {
+      requestId: "date-first-123",
+      expectedVersion: null,
+      input: {
+        ...zero,
+        serviceDate: "2026-10-01",
+        reportingDate: "2000-01-01",
+      },
+      reason: null,
+    },
+    c,
+  );
+  expect(first.status).toBe(200);
+  const saved = (await first.json()) as {
+    id: string;
+    serviceDate: string;
+    reportingDate: string;
+    createdAt: string;
+  };
+  expect(saved.serviceDate).toBe("2026-10-01");
+  expect(saved.reportingDate).toBe(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(saved.createdAt)),
+  );
+  const updated = (await (
+    await request(
+      "/api/office/entries/" + saved.id,
+      "PUT",
+      {
+        requestId: "date-correct-123",
+        expectedVersion: 1,
+        input: {
+          ...zero,
+          serviceDate: "2026-10-01",
+          reportingDate: "2001-01-01",
+        },
+        reason: "Correction preserves registration",
+      },
+      c,
+    )
+  ).json()) as typeof saved;
+  expect(updated.reportingDate).toBe(saved.reportingDate);
+  expect(updated.createdAt).toBe(saved.createdAt);
 });

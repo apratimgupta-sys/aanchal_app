@@ -36,24 +36,24 @@ Show the office identity, reporting date, 25-service checklist, and submitted co
 
 Represent all 16 Daily Entry columns:
 
-| Workbook field | Application behavior |
-| --- | --- |
-| Date | Required reporting date |
-| Anchal | Read-only from login |
-| Ward | Required free-text ward number/name; may describe multiple wards |
-| Service No | Read-only from Service Master selection |
-| Service | Service Master selection |
-| Opening Pending | Calculated, read-only after initial setup |
-| Received / Transactions | Required nonnegative integer |
-| Disposed / Completed | Required nonnegative integer |
-| SLA Within Time | Required nonnegative integer, at most completed |
-| Amount Collected (₹) | Required nonnegative amount, stored as integer paise |
-| Complaints Received | Required nonnegative integer |
-| Complaints Resolved | Required nonnegative integer |
-| Field Tasks Received | Required nonnegative integer |
-| Field Tasks Completed | Required nonnegative integer |
-| Avg Disposal Days | Nonnegative decimal; required when completed is positive, otherwise empty |
-| Remarks | Optional plain text |
+| Workbook field          | Application behavior                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| Date                    | Required reporting date                                                   |
+| Anchal                  | Read-only from login                                                      |
+| Ward                    | Required free-text ward number/name; may describe multiple wards          |
+| Service No              | Read-only from Service Master selection                                   |
+| Service                 | Service Master selection                                                  |
+| Opening Pending         | Calculated, read-only after initial setup                                 |
+| Received / Transactions | Required nonnegative integer                                              |
+| Disposed / Completed    | Required nonnegative integer                                              |
+| SLA Within Time         | Required nonnegative integer, at most completed                           |
+| Amount Collected (₹)    | Required nonnegative amount, stored as integer paise                      |
+| Complaints Received     | Required nonnegative integer                                              |
+| Complaints Resolved     | Required nonnegative integer                                              |
+| Field Tasks Received    | Required nonnegative integer                                              |
+| Field Tasks Completed   | Required nonnegative integer                                              |
+| Avg Disposal Days       | Nonnegative decimal; required when completed is positive, otherwise empty |
+| Remarks                 | Optional plain text                                                       |
 
 Opening and closing complaint/field balances are additional calculated displays needed for carry-forward. Ward is descriptive metadata: uniqueness and balances use office + service + date, not ward. Changing Ward therefore does not create another row or balance stream.
 
@@ -124,3 +124,7 @@ Deliver runnable source, database migrations and provisioning instructions, auto
 ## Design review
 
 This document records the agreed scope and proposed implementation details. Written-spec approval precedes the implementation plan under the selected Superpowers architectural workflow. No product code or external Cloudflare resources have been created at this stage.
+
+## Approved date clarification
+
+The user subsequently clarified and approved two separate dates. Service date is selected on each service form and permits back-entry. Reporting/registration date is assigned by the server from the first-submission timestamp in Asia/Kolkata and cannot be backdated or changed by corrections. The exact first-submission timestamp remains recorded as createdAt. Balances, performance periods and daily record identity use service date. Both dates and registration time appear in the commissioner service register.

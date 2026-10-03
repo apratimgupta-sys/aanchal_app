@@ -6,6 +6,8 @@ const credentials: Record<string, string> | null = process.env
   ? JSON.parse(readFileSync(process.env.RMC_CREDENTIALS_FILE, "utf8"))
   : null;
 const password = "Rmc-Demo-2026!";
+const testOfficeId = process.env.RMC_TEST_URL ? 6 : 1;
+const testOfficeAccount = `anchal${testOfficeId}`;
 async function login(page: any, user: string) {
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill(user);
@@ -36,7 +38,7 @@ test("office submission, live dashboard, correction and history", async ({
     b = await browser.newContext();
   const office = await a.newPage(),
     commissioner = await b.newPage();
-  await login(office, "anchal1");
+  await login(office, testOfficeAccount);
   await expect(office.getByRole("heading").first()).toBeVisible();
   if (
     await office
@@ -64,6 +66,11 @@ test("office submission, live dashboard, correction and history", async ({
   await expect(
     commissioner.getByText("Connected", { exact: false }).first(),
   ).toBeVisible();
+  const row = commissioner
+    .locator("tbody tr")
+    .filter({ hasText: `Anchal ${testOfficeId}` })
+    .first();
+  await expect(row).toBeVisible({ timeout: 10000 });
   await office
     .getByRole("button", { name: "Set zero activity", exact: true })
     .click();
@@ -100,10 +107,6 @@ test("office submission, live dashboard, correction and history", async ({
     })
     .click();
   const start = await committed;
-  const row = commissioner
-    .locator("tbody tr")
-    .filter({ hasText: "Anchal 1" })
-    .first();
   await expect(row).toContainText(expectedAmount, { timeout: 2000 });
   expect(Date.now() - start).toBeLessThan(2000);
   await expect(office.getByRole("status")).toContainText("Entry saved");
@@ -172,7 +175,7 @@ test("monthly view includes the full month and refresh preserves the entry regis
 test("new service requires deliberate counts or zero activity", async ({
   page,
 }) => {
-  await login(page, "anchal1");
+  await login(page, testOfficeAccount);
   await expect(
     page.getByRole("heading", { name: "Daily service entry" }),
   ).toBeVisible();
@@ -188,4 +191,50 @@ test("new service requires deliberate counts or zero activity", async ({
   await expect(
     page.getByLabel("Received / Transactions", { exact: true }),
   ).toHaveValue("0");
+});
+test("back-entry displays service date and immutable registration date separately", async ({
+  page,
+}) => {
+  await login(page, testOfficeAccount);
+  await expect(
+    page.getByRole("heading", { name: "Daily service entry" }),
+  ).toBeVisible();
+  const serviceDate = "2026-10-02";
+  await page.getByLabel("Service date", { exact: true }).fill(serviceDate);
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
+    serviceDate,
+  );
+  await expect(
+    page.getByLabel("Reporting / registration date", { exact: true }),
+  ).toHaveValue(todayIST());
+  await expect(
+    page.getByLabel("Reporting / registration date", { exact: true }),
+  ).toHaveAttribute("readonly", "");
+  await page
+    .getByRole("button", { name: "Set zero activity", exact: true })
+    .click();
+  await page.getByLabel("Ward number / name").fill("Ward 1");
+  const correction = await page
+    .getByLabel("Correction reason", { exact: true })
+    .isVisible();
+  if (correction)
+    await page
+      .getByLabel("Correction reason", { exact: true })
+      .fill("Back-entry date verification");
+  await page
+    .getByRole("button", {
+      name: correction ? "Save correction →" : "Submit entry →",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Entry saved");
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
+    serviceDate,
+  );
+  await expect(
+    page.getByLabel("Reporting / registration date", { exact: true }),
+  ).toHaveValue(todayIST());
+  await expect(
+    page.getByText("Registered at:", { exact: false }),
+  ).toBeVisible();
 });

@@ -11,12 +11,13 @@ export type Activity = {
 };
 export type EntryInput = Activity & {
   serviceId: number;
-  reportingDate: string;
+  serviceDate: string;
   ward: string;
   avgDisposalDays: number | null;
   remarks: string;
 };
 export type StoredEntry = EntryInput & {
+  reportingDate: string;
   id: string;
   officeId: number;
   version: number;

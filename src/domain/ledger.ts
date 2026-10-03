@@ -9,13 +9,14 @@ import type {
   MonitoringRow,
   ApiError,
 } from "../shared/types";
-export const todayIST = () =>
+export const dateIST = (date: Date) =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(date);
+export const todayIST = () => dateIST(new Date());
 export function validDate(s: string) {
   return (
     /^\d{4}-\d{2}-\d{2}$/.test(s) &&
@@ -45,8 +46,8 @@ export function validateEntry(e: EntryInput, today: string): ApiError | null {
   ] as (keyof Activity)[])
     if (!Number.isSafeInteger(e[k]) || e[k] < 0 || e[k] > 1_000_000_000)
       errors[k] = "Enter a nonnegative whole number within the allowed limit";
-  if (!validDate(e.reportingDate) || e.reportingDate > today)
-    errors.reportingDate = "Enter a valid date through today";
+  if (!validDate(e.serviceDate) || e.serviceDate > today)
+    errors.serviceDate = "Enter a valid date through today";
   if (!Number.isInteger(e.serviceId) || e.serviceId < 1 || e.serviceId > 25)
     errors.serviceId = "Select a service";
   if (typeof e.ward !== "string" || !e.ward.trim() || e.ward.length > 200)
@@ -85,13 +86,13 @@ export function deriveEntryViews(
 ): EntryView[] {
   let balance = { ...initial };
   return [...entries]
-    .sort((a, b) => a.reportingDate.localeCompare(b.reportingDate))
+    .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate))
     .map((e) => {
       const opening = { ...balance };
       balance = applyActivity(balance, e);
       if (Object.values(balance).some((v) => v < 0 || !Number.isSafeInteger(v)))
         throw new Error(
-          `Invalid pending balance on ${e.reportingDate} (service ${e.serviceId})`,
+          `Invalid pending balance on ${e.serviceDate} (service ${e.serviceId})`,
         );
       return { ...e, opening, closing: { ...balance } };
     });
@@ -141,7 +142,7 @@ export function summarizePeriod(
           (e) =>
             e.officeId === officeId &&
             e.serviceId === b.serviceId &&
-            e.reportingDate <= filter.to,
+            e.serviceDate <= filter.to,
         );
         const views = deriveEntryViews(b.opening, all);
         const close =
@@ -151,7 +152,7 @@ export function summarizePeriod(
         r.pending += close.service;
         r.complaintsPending += close.complaints;
         r.fieldPending += close.field;
-        for (const e of all.filter((e) => e.reportingDate >= filter.from)) {
+        for (const e of all.filter((e) => e.serviceDate >= filter.from)) {
           r.received += e.received;
           r.completed += e.completed;
           r.slaWithinTime += e.slaWithinTime;

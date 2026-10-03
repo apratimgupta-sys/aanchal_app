@@ -4,6 +4,7 @@ import { fail, HttpError } from "./errors";
 import {
   deriveEntryViews,
   todayIST,
+  dateIST,
   validateEntry,
   validDate,
 } from "../domain/ledger";
@@ -120,7 +121,7 @@ export class OfficeCoordinator extends DurableObject<Env> {
           "Initial balances changed. Reload before correcting.",
           "CONFLICT",
         );
-      if (entries.some((e) => e.reportingDate < c.startDate))
+      if (entries.some((e) => e.serviceDate < c.startDate))
         fail(422, "Start date cannot exclude existing reports");
       before = setup;
       after = {
@@ -160,20 +161,20 @@ export class OfficeCoordinator extends DurableObject<Env> {
       if (!c.input || typeof c.input !== "object") fail(422, "Entry required");
       const error = validateEntry(c.input, todayIST());
       if (error) throw new HttpError(422, error);
-      if (c.input.reportingDate < setup.startDate)
+      if (c.input.serviceDate < setup.startDate)
         fail(422, "Date precedes reporting start date");
       const old = id
         ? entries.find((e) => e.id === id)
         : entries.find(
             (e) =>
-              e.reportingDate === c.input.reportingDate &&
+              e.serviceDate === c.input.serviceDate &&
               e.serviceId === c.input.serviceId,
           );
       if (id && !old) fail(404, "Entry not found");
       if (
         id &&
         (old!.serviceId !== c.input.serviceId ||
-          old!.reportingDate !== c.input.reportingDate)
+          old!.serviceDate !== c.input.serviceDate)
       )
         fail(422, "Service/date identity cannot be changed by correction");
       if ((old?.version ?? null) !== c.expectedVersion)
@@ -190,7 +191,8 @@ export class OfficeCoordinator extends DurableObject<Env> {
         fieldReceived: input.fieldReceived,
         fieldCompleted: input.fieldCompleted,
         serviceId: input.serviceId,
-        reportingDate: input.reportingDate,
+        serviceDate: input.serviceDate,
+        reportingDate: old?.reportingDate ?? dateIST(new Date(now)),
         ward: input.ward.trim(),
         avgDisposalDays: input.completed ? input.avgDisposalDays : null,
         remarks: input.remarks.trim(),
@@ -219,7 +221,7 @@ export class OfficeCoordinator extends DurableObject<Env> {
           record.id,
           office,
           record.serviceId,
-          record.reportingDate,
+          record.serviceDate,
           record.version,
           JSON.stringify(record),
         ),

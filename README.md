@@ -60,7 +60,7 @@ No PostgreSQL server, external identity provider, or Cloudflare KV is required. 
 
 ## Business rules
 
-- Unique report key: office + service + date; Ward is descriptive text.
+- Unique report key: office + service + service date; Ward is descriptive text. Each service entry has a selectable Service date for back-entry. Reporting/registration date and exact registered time are recorded automatically on first submission and preserved through corrections. Dashboard periods and balances use the service date.
 - Three balances = configured opening + earlier received − earlier completed/resolved.
 - Dates without submissions carry recorded balances forward but remain missing reports.
 - Historical corrections are rejected if any later closing balance becomes negative.

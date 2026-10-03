@@ -265,8 +265,8 @@ export default function Dashboard() {
           <>
             <label>
               {t(
-                mode === "day" ? "Monitoring date" : "From date",
-                mode === "day" ? "निगरानी तिथि" : "प्रारंभ तिथि",
+                mode === "day" ? "Service date" : "From date",
+                mode === "day" ? "सेवा तिथि" : "प्रारंभ तिथि",
               )}
               <input
                 type="date"
@@ -482,7 +482,9 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   {[
-                    ["Date", "तिथि"],
+                    ["Service date", "सेवा तिथि"],
+                    ["Reporting date", "रिपोर्टिंग तिथि"],
+                    ["Registered at", "पंजीकरण समय"],
                     ["Anchal", "अंचल"],
                     ["Ward", "वार्ड"],
                     ["Service No", "सेवा संख्या"],
@@ -506,7 +508,14 @@ export default function Dashboard() {
               <tbody>
                 {details.map((e) => (
                   <tr key={e.id}>
+                    <td>{e.serviceDate}</td>
                     <td>{e.reportingDate}</td>
+                    <td>
+                      {new Date(e.createdAt).toLocaleString(
+                        lang === "hi" ? "hi-IN" : "en-IN",
+                        { timeZone: "Asia/Kolkata" },
+                      )}
+                    </td>
                     <td>{e.officeId}</td>
                     <td>{e.ward}</td>
                     <td>{e.serviceId}</td>

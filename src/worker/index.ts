@@ -154,7 +154,7 @@ export default {
                 );
             return json({
               setup,
-              entries: views.filter((e) => e.reportingDate === date),
+              entries: views.filter((e) => e.serviceDate === date),
               openings:
                 setup?.balances.map((b) => ({
                   serviceId: b.serviceId,
@@ -163,7 +163,7 @@ export default {
                       b.opening,
                       entries.filter(
                         (e) =>
-                          e.serviceId === b.serviceId && e.reportingDate < date,
+                          e.serviceId === b.serviceId && e.serviceDate < date,
                       ),
                     ).at(-1)?.closing ?? b.opening,
                 })) ?? [],
@@ -223,8 +223,8 @@ export default {
           return json(
             views.filter(
               (e) =>
-                e.reportingDate >= from &&
-                e.reportingDate <= to &&
+                e.serviceDate >= from &&
+                e.serviceDate <= to &&
                 (!officeId || e.officeId === officeId) &&
                 (!serviceId || e.serviceId === serviceId),
             ),

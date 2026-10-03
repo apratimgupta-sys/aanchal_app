@@ -21,7 +21,7 @@ const numeric = [
   ["fieldCompleted", "Field Tasks Completed", "पूर्ण क्षेत्रीय कार्य"],
 ] as const;
 const blank = (date: string, id: number): EntryInput => ({
-  reportingDate: date,
+  serviceDate: date,
   serviceId: id,
   ward: "",
   received: NaN,
@@ -155,7 +155,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
       </div>
       <div className="report-toolbar panel">
         <label>
-          {t("Reporting date", "रिपोर्टिंग तिथि")}
+          {t("View service date", "सेवा तिथि देखें")}
           <input
             type="date"
             value={date}
@@ -298,6 +298,56 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
             }}
           >
             <div className="form-grid">
+              <label>
+                {t("Service date", "सेवा तिथि")}
+                <input
+                  type="date"
+                  required
+                  aria-label={t("Service date", "सेवा तिथि")}
+                  value={input.serviceDate}
+                  max={todayIST()}
+                  min={data.setup.startDate}
+                  onChange={(e) =>
+                    switchSelection(() => {
+                      setDate(e.target.value);
+                      setData(null);
+                    })
+                  }
+                />
+                <small>
+                  {t(
+                    "Select the day this service activity relates to.",
+                    "इस सेवा गतिविधि की तिथि चुनें।",
+                  )}
+                </small>
+              </label>
+              <label>
+                {t(
+                  "Reporting / registration date",
+                  "रिपोर्टिंग / पंजीकरण तिथि",
+                )}
+                <input
+                  type="date"
+                  readOnly
+                  aria-label={t(
+                    "Reporting / registration date",
+                    "रिपोर्टिंग / पंजीकरण तिथि",
+                  )}
+                  value={saved?.reportingDate ?? todayIST()}
+                />
+                <small>
+                  {saved
+                    ? t("Registered at: ", "पंजीकरण समय: ") +
+                      new Date(saved.createdAt).toLocaleString(
+                        lang === "hi" ? "hi-IN" : "en-IN",
+                        { timeZone: "Asia/Kolkata" },
+                      )
+                    : t(
+                        "Recorded automatically on first submission.",
+                        "प्रथम जमा पर स्वतः दर्ज होगी।",
+                      )}
+                </small>
+              </label>
               <label className="wide">
                 {t("Ward number / name", "वार्ड संख्या / नाम")}
                 <input
