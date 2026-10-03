@@ -1,10 +1,17 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { todayIST } from "../../src/domain/ledger";
+const credentials: Record<string, string> | null = process.env
+  .RMC_CREDENTIALS_FILE
+  ? JSON.parse(readFileSync(process.env.RMC_CREDENTIALS_FILE, "utf8"))
+  : null;
 const password = "Rmc-Demo-2026!";
 async function login(page: any, user: string) {
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill(user);
-  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(credentials?.[user] ?? password);
   await page.getByRole("button", { name: "Sign in →", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
@@ -65,28 +72,41 @@ test("office submission, live dashboard, correction and history", async ({
   await office.getByLabel("Disposed / Completed", { exact: true }).fill("2");
   await office.getByLabel("SLA Within Time", { exact: true }).fill("2");
   await office.getByLabel("Avg Disposal Days", { exact: true }).fill("1.5");
-  await office
-    .getByLabel("Amount Collected (₹)", { exact: true })
-    .fill("101.25");
+  const amount = ((10000 + (Date.now() % 100000)) / 100).toFixed(2);
+  const expectedAmount = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(Number(amount));
+  await office.getByLabel("Amount Collected (₹)", { exact: true }).fill(amount);
   const correction = await office
     .getByLabel("Correction reason", { exact: true })
     .isVisible();
   if (correction)
     await office.getByLabel("Correction reason").fill("Browser verification");
-  const start = Date.now();
+  const committed = office
+    .waitForResponse(
+      (r) =>
+        r.url().includes("/api/office/entries") &&
+        ["POST", "PUT"].includes(r.request().method()),
+    )
+    .then((r) => {
+      expect(r.ok()).toBe(true);
+      return Date.now();
+    });
   await office
     .getByRole("button", {
       name: correction ? "Save correction →" : "Submit entry →",
       exact: true,
     })
     .click();
-  await expect(office.getByRole("status")).toContainText("Entry saved");
+  const start = await committed;
   const row = commissioner
     .locator("tbody tr")
     .filter({ hasText: "Anchal 1" })
     .first();
-  await expect(row).toContainText("₹101.25", { timeout: 2000 });
+  await expect(row).toContainText(expectedAmount, { timeout: 2000 });
   expect(Date.now() - start).toBeLessThan(2000);
+  await expect(office.getByRole("status")).toContainText("Entry saved");
   await office.getByLabel("Received / Transactions", { exact: true }).fill("6");
   await office
     .getByLabel("Correction reason", { exact: true })

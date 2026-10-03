@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import { execFileSync } from "node:child_process";
-import { randomBytes, randomUUID, pbkdf2Sync } from "node:crypto";
+import { randomUUID, pbkdf2Sync } from "node:crypto";
 const remote = process.argv.includes("--remote");
-const password = process.env.RMC_DEMO_PASSWORD;
-if (!password || password.length < 12)
-  throw Error("Set RMC_DEMO_PASSWORD (12+ characters) before provisioning.");
+const passwords = process.env.RMC_CREDENTIALS_FILE
+  ? JSON.parse(await fs.readFile(process.env.RMC_CREDENTIALS_FILE, "utf8"))
+  : null;
+const sharedPassword = process.env.RMC_DEMO_PASSWORD;
 const quote = (s) => "'" + String(s).replaceAll("'", "''") + "'";
 const services = JSON.parse(
   await fs.readFile("src/shared/services.json", "utf8"),
@@ -22,6 +23,9 @@ for (const name of [
   "anchal6",
   "commissioner",
 ]) {
+  const password = passwords?.[name] ?? sharedPassword;
+  if (!password || password.length < 12)
+    throw Error("Provide 12+ character credentials for every account.");
   const salt = randomUUID();
   const hash = pbkdf2Sync(password, salt, 100000, 32, "sha256").toString("hex");
   const office = name.startsWith("anchal") ? Number(name.at(-1)) : null;

@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "rmc-monitoring",
-      "database_id": "00000000-0000-0000-0000-000000000001",
+      "database_id": "e4cd14c1-9fbf-48ca-9a7e-5a823ffcda1a",
       "migrations_dir": "migrations",
     },
   ],

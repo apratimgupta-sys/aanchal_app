@@ -45,12 +45,14 @@ The Workers test pool currently supports compatibility date 2026-08-22, so its c
 
 ## Cloudflare deployment
 
-The application is ready for Cloudflare bindings but local verification is not proof of remote deployment. A Cloudflare account must be authenticated (`npx wrangler login` / configured API token).
+The application is ready for Cloudflare bindings but local verification is not proof of remote deployment. Hosted first iteration: https://rmc-monitoring.nick900684.workers.dev. Separate account credentials are stored locally in `.wrangler/remote-demo-credentials.json` (ignored by Git). This is a demonstration environment.
+
+For a new deployment, a Cloudflare account must be authenticated (`npx wrangler login` / configured API token).
 
 1. Create a D1 database with `npx wrangler d1 create rmc-monitoring`.
 2. Replace the local placeholder `database_id` in `wrangler.jsonc` with the returned real ID.
 3. Apply migrations using `npx wrangler d1 migrations apply rmc-monitoring --remote`.
-4. Set a new unique remote provisioning password in your environment and run `node scripts/provision-demo.mjs --remote`. This iteration has no password-management UI. Provision individual account passwords operationally before real use; invalidate existing sessions when rotating credentials.
+4. Supply separate per-account passwords via `RMC_CREDENTIALS_FILE` pointing to a private JSON map of username to password, and run `node scripts/provision-demo.mjs --remote`. Alternatively set `RMC_DEMO_PASSWORD` for a temporary local demonstration. This iteration has no password-management UI. Provision individual account passwords operationally before real use; invalidate existing sessions when rotating credentials.
 5. Run `npm run deploy`; Durable Object classes are created through the configured migration.
 6. Verify login, office isolation, cross-session updates and persistence on the deployed URL. Decide institutional hosting and data policy before live rollout.
 

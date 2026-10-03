@@ -38,7 +38,9 @@ export default function App() {
             "झारखण्ड सरकार · नगर विकास",
           )}
         </span>
-        <span>{text("First iteration", "प्रथम संस्करण")}</span>
+        <span>
+          {text("First iteration · Demonstration", "प्रथम संस्करण · प्रदर्शन")}
+        </span>
       </div>
       <header className="masthead">
         <div className="wordmark">
