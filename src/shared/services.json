@@ -1,0 +1,227 @@
+[
+  {
+    "id": 1,
+    "name": "नए होल्डिंग प्राप्त करने हेतु आवेदन",
+    "en": "New holding application",
+    "category": "Citizen Service",
+    "unit": "Applications",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 2,
+    "name": "Holding Tax का भुगतान",
+    "en": "Holding tax payment",
+    "category": "Revenue",
+    "unit": "Transactions / ₹",
+    "evidence": "Receipt / online transaction report",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 3,
+    "name": "Municipal Trade Licence के लिए आवेदन",
+    "en": "Municipal trade licence application",
+    "category": "Licence",
+    "unit": "Applications / Licences",
+    "evidence": "Application register + issued licence",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 4,
+    "name": "New जल संयोजन के लिए आवेदन",
+    "en": "New water connection application",
+    "category": "Water",
+    "unit": "Applications / Connections",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 5,
+    "name": "Water User Charge का भुगतान",
+    "en": "Water user charge payment",
+    "category": "Revenue",
+    "unit": "Transactions / ₹",
+    "evidence": "Receipt / online transaction report",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 6,
+    "name": "Waste User Charge का भुगतान",
+    "en": "Waste user charge payment",
+    "category": "Revenue",
+    "unit": "Transactions / ₹",
+    "evidence": "Receipt / online transaction report",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 7,
+    "name": "होल्डिंग में त्रुटि सुधार",
+    "en": "Holding correction",
+    "category": "Property",
+    "unit": "Cases",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 8,
+    "name": "घर पर कचरा वाहन की सेवा से संबंधित",
+    "en": "Waste vehicle service",
+    "category": "Solid Waste",
+    "unit": "Requests / Trips",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 9,
+    "name": "Fogging से संबंधित",
+    "en": "Fogging",
+    "category": "Public Health",
+    "unit": "Requests / Activities",
+    "evidence": "Route/activity log + photo",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 10,
+    "name": "Street Dog से संबंधित",
+    "en": "Street dog service",
+    "category": "Public Health",
+    "unit": "Requests / Activities",
+    "evidence": "Route/activity log + photo",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 11,
+    "name": "जन्म एवं मृत्यु निबंधन",
+    "en": "Birth and death registration",
+    "category": "Registration",
+    "unit": "Registrations",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 12,
+    "name": "जन शिकायत",
+    "en": "Public grievance",
+    "category": "Grievance",
+    "unit": "Complaints",
+    "evidence": "Complaint ID + disposal note",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 13,
+    "name": "पथ बत्ती",
+    "en": "Street lighting",
+    "category": "Street Lighting",
+    "unit": "Complaints / Repairs",
+    "evidence": "Complaint ID + repair photo",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 14,
+    "name": "सड़क एवं नाली निर्माण से संबंधित",
+    "en": "Road and drain construction",
+    "category": "Engineering",
+    "unit": "Works / Complaints",
+    "evidence": "Work order + geo/photo evidence",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 15,
+    "name": "Grass Cutting",
+    "en": "Grass cutting",
+    "category": "Horticulture",
+    "unit": "Field Works",
+    "evidence": "Before/after photo + work log",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 16,
+    "name": "Tree Pruning",
+    "en": "Tree pruning",
+    "category": "Horticulture",
+    "unit": "Field Works",
+    "evidence": "Before/after photo + work log",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 17,
+    "name": "Water Bodies के सफाई से संबंधित",
+    "en": "Water body cleaning",
+    "category": "Public Health",
+    "unit": "Requests / Activities",
+    "evidence": "Route/activity log + photo",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 18,
+    "name": "प्रधान मंत्री आवास योजना",
+    "en": "Pradhan Mantri Awas Yojana",
+    "category": "Scheme",
+    "unit": "Beneficiaries / Applications",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 19,
+    "name": "SSG Group",
+    "en": "SSG Group",
+    "category": "Livelihood",
+    "unit": "Beneficiaries / Licences",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 20,
+    "name": "Vendor Licence",
+    "en": "Vendor licence",
+    "category": "Licence",
+    "unit": "Applications / Licences",
+    "evidence": "Application register + issued licence",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 21,
+    "name": "PM SVANidhi Licence",
+    "en": "PM SVANidhi licence",
+    "category": "Livelihood",
+    "unit": "Beneficiaries / Licences",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 22,
+    "name": "Revolving Fund",
+    "en": "Revolving fund",
+    "category": "Livelihood",
+    "unit": "Beneficiaries / Licences",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 23,
+    "name": "Self Employment Programme",
+    "en": "Self employment programme",
+    "category": "Livelihood",
+    "unit": "Beneficiaries / Licences",
+    "evidence": "Register / MIS entry / supporting document",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 24,
+    "name": "Lodge/Hostel/Banquet Hall Licence",
+    "en": "Lodge/Hostel/Banquet Hall licence",
+    "category": "Licence",
+    "unit": "Applications / Licences",
+    "evidence": "Application register + issued licence",
+    "sla": "As per notified service standard / local work schedule"
+  },
+  {
+    "id": 25,
+    "name": "Community Hall Booking",
+    "en": "Community hall booking",
+    "category": "Booking",
+    "unit": "Bookings",
+    "evidence": "Booking register + receipt",
+    "sla": "As per notified service standard / local work schedule"
+  }
+]
