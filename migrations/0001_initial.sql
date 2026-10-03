@@ -1,0 +1,13 @@
+CREATE TABLE offices(id INTEGER PRIMARY KEY CHECK(id BETWEEN 1 AND 6),name TEXT NOT NULL);
+INSERT INTO offices VALUES(1,'Anchal 1'),(2,'Anchal 2'),(3,'Anchal 3'),(4,'Anchal 4'),(5,'Anchal 5'),(6,'Anchal 6');
+CREATE TABLE services(id INTEGER PRIMARY KEY CHECK(id BETWEEN 1 AND 25),name TEXT NOT NULL);
+CREATE TABLE users(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,role TEXT NOT NULL CHECK(role IN ('office','commissioner')),office_id INTEGER REFERENCES offices(id),password_hash TEXT NOT NULL);
+CREATE TABLE sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires_at INTEGER NOT NULL);
+CREATE TABLE office_setup(office_id INTEGER PRIMARY KEY REFERENCES offices(id),start_date TEXT NOT NULL,version INTEGER NOT NULL);
+CREATE TABLE initial_balances(office_id INTEGER NOT NULL REFERENCES offices(id),service_id INTEGER NOT NULL REFERENCES services(id),service INTEGER NOT NULL CHECK(service>=0),complaints INTEGER NOT NULL CHECK(complaints>=0),field INTEGER NOT NULL CHECK(field>=0),PRIMARY KEY(office_id,service_id));
+CREATE TABLE daily_entries(id TEXT PRIMARY KEY,office_id INTEGER NOT NULL REFERENCES offices(id),service_id INTEGER NOT NULL REFERENCES services(id),reporting_date TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(office_id,service_id,reporting_date));
+CREATE INDEX entries_office_date ON daily_entries(office_id,reporting_date);
+CREATE TABLE audit_events(id TEXT PRIMARY KEY,office_id INTEGER NOT NULL REFERENCES offices(id),actor TEXT NOT NULL,at TEXT NOT NULL,action TEXT NOT NULL,reason TEXT,before_data TEXT,after_data TEXT NOT NULL);
+CREATE INDEX audit_office_at ON audit_events(office_id,at);
+CREATE TABLE office_revisions(office_id INTEGER PRIMARY KEY REFERENCES offices(id),revision INTEGER NOT NULL);
+CREATE TABLE mutation_receipts(office_id INTEGER NOT NULL REFERENCES offices(id),request_id TEXT NOT NULL,fingerprint TEXT NOT NULL,response TEXT NOT NULL,PRIMARY KEY(office_id,request_id));

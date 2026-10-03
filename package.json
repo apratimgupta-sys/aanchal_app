@@ -1,1 +1,38 @@
-{"name":"rmc-monitoring","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","dev:worker":"wrangler dev --port 8787","build":"vite build","typecheck":"tsc --noEmit","test":"vitest run","test:domain":"vitest run tests/domain","test:worker":"vitest run --config vitest.worker.config.ts","test:browser":"playwright test","db:migrate:local":"wrangler d1 migrations apply rmc-monitoring --local","provision:local":"node scripts/provision-demo.mjs","deploy":"npm run build && wrangler deploy"},"dependencies":{"react":"^19.3.0","react-dom":"^19.3.0"},"devDependencies":{"@cloudflare/vitest-pool-workers":"^0.8.71","@cloudflare/workers-types":"^5.20261003.1","@playwright/test":"^1.63.0","@types/react":"^19.3.0","@types/react-dom":"^19.3.0","@vitejs/plugin-react":"^6.1.1","typescript":"^7.0.2","vite":"^8.3.2","vitest":"^3.2.7","wrangler":"^4.147.0"}}
+{
+  "name": "rmc-monitoring",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:worker": "wrangler dev --port 8787",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:domain": "vitest run tests/domain",
+    "test:worker": "vitest run --config vitest.worker.config.ts",
+    "test:browser": "playwright test",
+    "db:migrate:local": "wrangler d1 migrations apply rmc-monitoring --local",
+    "provision:local": "node scripts/provision-demo.mjs",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "^5.20261003.1",
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.147.0"
+  },
+  "overrides": {
+    "undici": "^7.29.1",
+    "sharp": "^0.35.4"
+  }
+}

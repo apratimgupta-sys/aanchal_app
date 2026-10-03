@@ -19,3 +19,4 @@ describe('ledger',()=>{
  expect(rows[1].expected).toBe(0);
  });
 });
+it('preserves zero denominators and strict review thresholds',()=>{const setup={officeId:1,startDate:'2026-10-01',version:1,balances:Array.from({length:25},(_,i)=>({serviceId:i+1,opening:{service:i===0?10:0,complaints:i===0?5:0,field:i===0?10:0}}))};const r=summarizePeriod([setup],[],{from:'2026-09-30',to:'2026-10-01'},'2026-10-03')[0];expect(r.expected).toBe(25);expect(r.reviewReasons).toEqual([]);expect(r.slaPct).toBeNull();});
