@@ -1,26 +1,41 @@
 import { useState, useEffect } from "react";
-import type { UserSession } from "../shared/types";
+import type { Setup, UserSession } from "../shared/types";
 import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import DailyEntry from "./pages/DailyEntry";
 import Dashboard from "./pages/Dashboard";
 import ChangeHistory from "./pages/ChangeHistory";
+import InitialBalances from "./pages/InitialBalances";
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
   );
   const [session, setSession] = useState<UserSession | null>(null),
     [loading, setLoading] = useState(true),
-    [page, setPage] = useState("main");
+    [pathname, setPathname] = useState(window.location.pathname),
+    [setup, setSetup] = useState<Setup | null | undefined>(undefined);
   const text = (en: string, hi: string) => (lang === "hi" ? hi : en);
+  function navigate(path: string, replace = false) {
+    if (window.location.pathname !== path) {
+      if (replace) window.history.replaceState({}, "", path);
+      else window.history.pushState({}, "", path);
+    }
+    setPathname(path);
+  }
   async function refresh() {
     try {
-      setSession(await api<UserSession>("/session"));
+      const next = await api<UserSession>("/session");
+      setSession(next);
+      if (next.role === "office")
+        setSetup(await api<Setup | null>("/office/setup"));
+      else setSetup(null);
     } catch {
       setSession(null);
+      setSetup(undefined);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
   useEffect(() => {
     void refresh();
@@ -29,6 +44,34 @@ export default function App() {
     document.documentElement.lang = lang;
     localStorage.setItem("rmc-language", lang);
   }, [lang]);
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  useEffect(() => {
+    if (loading || !session) return;
+    if (session.role === "office") {
+      if (setup === undefined) return;
+      if (!setup && pathname !== "/office/setup")
+        navigate("/office/setup", true);
+      else if (setup && pathname === "/office/setup")
+        navigate("/office/today", true);
+      else if (
+        setup &&
+        !["/office/today", "/office/backdate", "/office/history"].includes(
+          pathname,
+        )
+      )
+        navigate("/office/today", true);
+    } else if (pathname.startsWith("/office/") || pathname === "/") {
+      navigate("/commissioner/dashboard", true);
+    } else if (
+      !["/commissioner/dashboard", "/commissioner/history"].includes(pathname)
+    ) {
+      navigate("/commissioner/dashboard", true);
+    }
+  }, [loading, session, setup, pathname]);
   return (
     <Language.Provider value={lang}>
       <a href="#main-content" className="skip-link">
@@ -81,7 +124,8 @@ export default function App() {
                 onClick={async () => {
                   await api("/logout", "POST", {});
                   setSession(null);
-                  setPage("main");
+                  setSetup(undefined);
+                  navigate("/", true);
                 }}
               >
                 {text("Sign out", "लॉगआउट")}
@@ -96,6 +140,18 @@ export default function App() {
         </main>
       ) : !session ? (
         <Login onLogin={() => void refresh()} />
+      ) : session.role === "office" && setup === undefined ? (
+        <main id="main-content" tabIndex={-1} className="workspace">
+          <p>
+            {text("Loading office setup…", "कार्यालय सेटअप लोड हो रहा है…")}
+          </p>
+        </main>
+      ) : session.role === "office" && !setup ? (
+        <main id="main-content" tabIndex={-1} className="workspace">
+          {pathname === "/office/setup" && (
+            <InitialSetup onSaved={() => void refresh()} />
+          )}
+        </main>
       ) : (
         <>
           <nav
@@ -103,22 +159,38 @@ export default function App() {
             aria-label={text("Portal navigation", "पोर्टल नेविगेशन")}
           >
             <div className="ux4g-navbar-wrap portal-nav-wrap ux4g-flex-wrap ux4g-jc-start ux4g-w-100">
-              <button
-                className={`ux4g-btn ux4g-btn-l ${page === "main" ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
-                aria-current={page === "main" ? "page" : undefined}
-                onClick={() => setPage("main")}
-              >
-                {session.role === "commissioner"
-                  ? text("Commissioner dashboard", "आयुक्त डैशबोर्ड")
-                  : text("Daily entry", "दैनिक प्रविष्टि")}
-              </button>
-              <button
-                className={`ux4g-btn ux4g-btn-l ${page === "history" ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
-                aria-current={page === "history" ? "page" : undefined}
-                onClick={() => setPage("history")}
-              >
-                {text("Change history", "परिवर्तन इतिहास")}
-              </button>
+              {session.role === "commissioner" ? (
+                <>
+                  <RouteTab
+                    active={pathname === "/commissioner/dashboard"}
+                    onClick={() => navigate("/commissioner/dashboard")}
+                    label={text("Commissioner dashboard", "आयुक्त डैशबोर्ड")}
+                  />
+                  <RouteTab
+                    active={pathname === "/commissioner/history"}
+                    onClick={() => navigate("/commissioner/history")}
+                    label={text("Change history", "परिवर्तन इतिहास")}
+                  />
+                </>
+              ) : (
+                <>
+                  <RouteTab
+                    active={pathname === "/office/today"}
+                    onClick={() => navigate("/office/today")}
+                    label={text("Today’s Entry", "आज की प्रविष्टि")}
+                  />
+                  <RouteTab
+                    active={pathname === "/office/backdate"}
+                    onClick={() => navigate("/office/backdate")}
+                    label={text("Backdate Entry", "पिछली तिथि की प्रविष्टि")}
+                  />
+                  <RouteTab
+                    active={pathname === "/office/history"}
+                    onClick={() => navigate("/office/history")}
+                    label={text("Change History", "परिवर्तन इतिहास")}
+                  />
+                </>
+              )}
               <span>
                 {text(
                   "RMC / Office monitoring",
@@ -128,12 +200,18 @@ export default function App() {
             </div>
           </nav>
           <main id="main-content" tabIndex={-1} className="workspace">
-            {page === "history" ? (
+            {pathname === "/office/history" ||
+            pathname === "/commissioner/history" ? (
               <ChangeHistory />
             ) : session.role === "commissioner" ? (
               <Dashboard />
             ) : (
-              <DailyEntry officeId={session.officeId!} />
+              <DailyEntry
+                key={pathname}
+                officeId={session.officeId!}
+                mode={pathname === "/office/backdate" ? "backdate" : "today"}
+                startDate={setup!.startDate}
+              />
             )}
           </main>
         </>
@@ -154,4 +232,28 @@ export default function App() {
       </footer>
     </Language.Provider>
   );
+}
+
+function RouteTab({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`ux4g-btn ux4g-btn-l ${active ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
+      aria-current={active ? "page" : undefined}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function InitialSetup({ onSaved }: { onSaved: () => void }) {
+  return <InitialBalances onSaved={onSaved} />;
 }

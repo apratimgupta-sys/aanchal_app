@@ -2,32 +2,21 @@ import { Field, Input, Panel, Notice } from "../ui";
 import { useState, useContext, useRef } from "react";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import services from "../../shared/services.json";
-import type { Setup } from "../../shared/types";
 import { todayIST } from "../../domain/ledger";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
-export default function InitialBalances({
-  existing,
-  onSaved,
-  onCancel,
-}: {
-  existing: Setup | null;
-  onSaved: () => void;
-  onCancel?: () => void;
-}) {
+export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
   const t = useText(),
     lang = useContext(Language);
   const intent = useRef<MutationIntent | null>(null);
-  const [date, setDate] = useState(existing?.startDate ?? todayIST()),
+  const [date, setDate] = useState(todayIST()),
     [balances, setBalances] = useState(
-      existing?.balances ??
-        services.map((s) => ({
-          serviceId: s.id,
-          opening: { service: 0, complaints: 0, field: 0 },
-        })),
+      services.map((s) => ({
+        serviceId: s.id,
+        opening: { service: 0, complaints: 0, field: 0 },
+      })),
     ),
     [confirmed, setConfirmed] = useState(false),
-    [reason, setReason] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -38,20 +27,9 @@ export default function InitialBalances({
             {t("OFFICE SETUP", "कार्यालय सेटअप")}
           </div>
           <h2 className="ux4g-heading-m-strong">
-            {t(
-              existing ? "Correct opening balances" : "Set opening balances",
-              existing ? "प्रारंभिक शेष सुधारें" : "प्रारंभिक शेष दर्ज करें",
-            )}
+            {t("Set opening balances", "प्रारंभिक शेष दर्ज करें")}
           </h2>
         </div>
-        {onCancel && (
-          <button
-            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-            onClick={onCancel}
-          >
-            {t("Cancel", "रद्द करें")}
-          </button>
-        )}
       </div>
       <p>
         {t(
@@ -66,10 +44,10 @@ export default function InitialBalances({
           setError("");
           try {
             const command = {
-              expectedVersion: existing?.version ?? null,
+              expectedVersion: null,
               startDate: date,
               balances,
-              reason: existing ? reason : null,
+              reason: null,
             };
             intent.current = mutationIntent(intent.current, command);
             await api("/office/setup", "PUT", {
@@ -149,16 +127,6 @@ export default function InitialBalances({
             </tbody>
           </table>
         </div>
-        {existing && (
-          <Field>
-            {t("Correction reason", "सुधार का कारण")}
-            <textarea
-              required
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-        )}
         <Field className="checkbox">
           <input
             type="checkbox"

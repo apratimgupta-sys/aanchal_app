@@ -11,7 +11,6 @@ import { todayIST, parseMoney, applyActivity } from "../../domain/ledger";
 import { api, RequestError } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
-import InitialBalances from "./InitialBalances";
 const numeric = [
   ["received", "Received / Transactions", "प्राप्त / लेन-देन"],
   ["completed", "Disposed / Completed", "निस्तारित / पूर्ण"],
@@ -41,14 +40,31 @@ type Payload = {
   entries: EntryView[];
   openings: { serviceId: number; opening: Balances }[];
 };
-export default function DailyEntry({ officeId }: { officeId: number }) {
+function yesterdayIST() {
+  const d = new Date(`${todayIST()}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+export default function DailyEntry({
+  officeId,
+  mode,
+  startDate,
+}: {
+  officeId: number;
+  mode: "today" | "backdate";
+  startDate: string;
+}) {
   const lang = useContext(Language),
     t = useText();
   const intent = useRef<MutationIntent | null>(null);
-  const [date, setDate] = useState(todayIST()),
+  const today = todayIST();
+  const latestBackdate = yesterdayIST();
+  const backdateAvailable = startDate <= latestBackdate;
+  const [date, setDate] = useState(
+      mode === "today" ? today : backdateAvailable ? latestBackdate : startDate,
+    ),
     [selected, setSelected] = useState(1),
     [data, setData] = useState<Payload | null>(null),
-    [editingSetup, setEditingSetup] = useState(false),
     [editingEntry, setEditingEntry] = useState(false),
     [input, setInput] = useState<EntryInput>(blank(date, selected)),
     [money, setMoney] = useState("0.00"),
@@ -61,7 +77,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
   async function load() {
     setError("");
     try {
-      const p = await api<Payload>("/office/entries?date=" + date);
+      const p = await api<Payload>(`/office/entries?date=${date}&mode=${mode}`);
       setData(p);
       return p;
     } catch (e) {
@@ -71,7 +87,14 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
   }
   useEffect(() => {
     let active = true;
-    api<Payload>("/office/entries?date=" + date)
+    if (mode === "backdate" && !backdateAvailable) {
+      setData(null);
+      setError("");
+      return () => {
+        active = false;
+      };
+    }
+    api<Payload>(`/office/entries?date=${date}&mode=${mode}`)
       .then((p) => {
         if (active) setData(p);
       })
@@ -81,7 +104,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
     return () => {
       active = false;
     };
-  }, [date]);
+  }, [date, mode]);
   const saved = data?.entries.find((e) => e.serviceId === selected);
   const opening = saved?.opening ??
     data?.openings.find((b) => b.serviceId === selected)?.opening ?? {
@@ -109,6 +132,20 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
     )
       fn();
   }
+  if (mode === "backdate" && !backdateAvailable)
+    return (
+      <Panel className="panel">
+        <h1 className="ux4g-heading-xl-strong">
+          {t("Backdate Entry", "पिछली तिथि की प्रविष्टि")}
+        </h1>
+        <p>
+          {t(
+            "Backdated entry becomes available the day after the reporting start date.",
+            "रिपोर्टिंग प्रारंभ तिथि के अगले दिन से पिछली तिथि की प्रविष्टि उपलब्ध होगी।",
+          )}
+        </p>
+      </Panel>
+    );
   if (!data)
     return (
       <Panel className="panel">
@@ -126,17 +163,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
         )}
       </Panel>
     );
-  if (!data.setup || editingSetup)
-    return (
-      <InitialBalances
-        existing={data.setup}
-        onSaved={() => {
-          setEditingSetup(false);
-          void load();
-        }}
-        onCancel={data.setup ? () => setEditingSetup(false) : undefined}
-      />
-    );
   const close = applyActivity(opening, input);
   const service = services.find((s) => s.id === selected)!;
   return (
@@ -151,12 +177,6 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
             {t("Daily service entry", "दैनिक सेवा प्रविष्टि")}
           </h1>
         </div>
-        <button
-          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-          onClick={() => switchSelection(() => setEditingSetup(true))}
-        >
-          {t("Opening balances", "प्रारंभिक शेष")}
-        </button>
       </div>
       <Panel className="report-toolbar panel">
         <div className="report-progress">
@@ -254,27 +274,30 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               </div>
             ))}
           </div>
-          <Field className="short-field">
-            {t("Service date", "सेवा तिथि")}
-            <input
-              type="date"
-              aria-label={t("Service date", "सेवा तिथि")}
-              value={input.serviceDate}
-              max={todayIST()}
-              onChange={(e) =>
-                switchSelection(() => {
-                  setDate(e.target.value);
-                  setData(null);
-                })
-              }
-            />
-            <small className="ux4g-d-block ux4g-mt-xs">
-              {t(
-                "Select the day this service activity relates to.",
-                "इस सेवा गतिविधि की तिथि चुनें।",
-              )}
-            </small>
-          </Field>
+          {mode === "backdate" && (
+            <Field className="short-field">
+              {t("Service date", "सेवा तिथि")}
+              <input
+                type="date"
+                aria-label={t("Service date", "सेवा तिथि")}
+                min={startDate}
+                max={latestBackdate}
+                value={input.serviceDate}
+                onChange={(e) =>
+                  switchSelection(() => {
+                    setDate(e.target.value);
+                    setData(null);
+                  })
+                }
+              />
+              <small className="ux4g-d-block ux4g-mt-xs">
+                {t(
+                  "Select the day this service activity relates to.",
+                  "इस सेवा गतिविधि की तिथि चुनें।",
+                )}
+              </small>
+            </Field>
+          )}
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -285,6 +308,7 @@ export default function DailyEntry({ officeId }: { officeId: number }) {
               try {
                 const command = {
                   expectedVersion: saved?.version ?? null,
+                  mode,
                   input: { ...input, amountPaise: parseMoney(money) },
                   reason: saved ? reason : null,
                 };
