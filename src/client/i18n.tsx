@@ -46,6 +46,11 @@ const runtimeHindi: Record<string, string> = {
     "प्रारंभिक शेष बदल गए हैं। सुधार से पहले पुनः लोड करें।",
   "A correction reason is required (maximum 1000 characters)":
     "सुधार का कारण आवश्यक है (अधिकतम 1000 अक्षर)",
+  "A correction reason is required": "सुधार का कारण आवश्यक है",
+  "A delayed-reporting reason is required":
+    "विलंबित रिपोर्टिंग का कारण आवश्यक है",
+  "Service date is outside this reporting route":
+    "सेवा तिथि इस रिपोर्टिंग मार्ग के अंतर्गत नहीं है",
   "Date precedes reporting start date": "तिथि रिपोर्टिंग प्रारंभ से पहले है",
   "Invalid reporting filters": "रिपोर्टिंग फ़िल्टर गलत हैं",
   "Unable to complete request. Please retry.":

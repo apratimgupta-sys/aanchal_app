@@ -1,20 +1,57 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
+import { todayIST } from "../../src/domain/ledger";
 const credentials: Record<string, string> | null = process.env
   .RMC_CREDENTIALS_FILE
   ? JSON.parse(readFileSync(process.env.RMC_CREDENTIALS_FILE, "utf8"))
   : null;
+const localSetupFixture =
+  process.env.RMC_TEST_LOCAL === "1" &&
+  !!process.env.RMC_TEST_URL &&
+  ["localhost", "127.0.0.1"].includes(
+    new URL(process.env.RMC_TEST_URL).hostname,
+  );
+const testOfficeAccount = `anchal${Number(
+  process.env.RMC_TEST_OFFICE ?? (process.env.RMC_TEST_URL ? 6 : 1),
+)}`;
 async function signIn(page: import("@playwright/test").Page, user: string) {
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill(user);
   await page
     .getByLabel("Password", { exact: true })
-    .fill(credentials?.[user] ?? "Rmc-Demo-2026!");
+    .fill(
+      credentials?.[user] ?? process.env.RMC_TEST_PASSWORD ?? "Rmc-Demo-2026!",
+    );
   await page.getByRole("button", { name: "Sign in →", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
   ).toBeVisible();
+  if (
+    user.startsWith("anchal") &&
+    (await page
+      .getByRole("heading", { name: "Set opening balances", exact: true })
+      .isVisible())
+  ) {
+    if (!localSetupFixture)
+      test.skip(
+        true,
+        "Office setup is absent; baseline writes are disabled outside the explicit local fixture",
+      );
+    const startDate = new Date(`${todayIST()}T00:00:00Z`);
+    startDate.setUTCDate(startDate.getUTCDate() - 5);
+    await page
+      .getByLabel("Reporting start date", { exact: true })
+      .fill(startDate.toISOString().slice(0, 10));
+    await page
+      .getByText("I confirm all opening balances, including zero balances.", {
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", { name: "Save opening balances", exact: true })
+      .click();
+  }
 }
 async function setTheme(page: import("@playwright/test").Page, theme: string) {
   await page.evaluate(async (theme) => {
@@ -116,7 +153,7 @@ test("UX4G dashboard and entry: responsive tables, labelled controls and colour 
     });
   }
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await signIn(page, process.env.RMC_TEST_URL ? "anchal6" : "anchal1");
+  await signIn(page, testOfficeAccount);
   await expect(
     page.getByRole("heading", { name: "Daily service entry", exact: true }),
   ).toBeVisible();
@@ -131,7 +168,7 @@ test("UX4G dashboard and entry: responsive tables, labelled controls and colour 
 test("canceling a service switch preserves both the draft and selected service", async ({
   page,
 }) => {
-  await signIn(page, process.env.RMC_TEST_URL ? "anchal6" : "anchal1");
+  await signIn(page, testOfficeAccount);
   await expect(
     page.getByLabel("Ward number / name", { exact: true }),
   ).toBeVisible();
@@ -155,11 +192,26 @@ test("canceling a service switch preserves both the draft and selected service",
 test("submitted entries stay read-only until Edit and Cancel restores saved values", async ({
   page,
 }) => {
-  await signIn(page, process.env.RMC_TEST_URL ? "anchal6" : "anchal1");
+  await signIn(page, testOfficeAccount);
   const ward = page.getByLabel("Ward number / name", { exact: true });
-  await expect(
-    page.getByRole("button", { name: "Edit entry", exact: true }),
-  ).toBeVisible();
+  const edit = page.getByRole("button", { name: "Edit entry", exact: true });
+  const submit = page.getByRole("button", {
+    name: "Submit entry →",
+    exact: true,
+  });
+  await expect(edit.or(submit)).toBeVisible();
+  if (!(await edit.isVisible())) {
+    if (!localSetupFixture)
+      test.skip(
+        true,
+        "A saved today entry is required for the read-only check",
+      );
+    await page.getByRole("button", { name: "Set zero activity" }).click();
+    await ward.fill("Ward 1");
+    await submit.click();
+    await expect(page.getByRole("status")).toContainText("Entry saved");
+  }
+  await expect(edit).toBeVisible();
   await expect(ward).toHaveAttribute("readonly", "");
   await expect(
     page.getByRole("button", { name: "Submit entry →", exact: true }),
@@ -168,7 +220,7 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
     page.getByLabel("View service date", { exact: true }),
   ).toHaveCount(0);
   const saved = await ward.inputValue();
-  await page.getByRole("button", { name: "Edit entry", exact: true }).click();
+  await edit.click();
   await expect(ward).not.toHaveAttribute("readonly", "");
   await ward.fill("Canceled edit");
   await page
@@ -176,4 +228,231 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
     .click();
   await expect(ward).toHaveValue(saved);
   await expect(ward).toHaveAttribute("readonly", "");
+});
+
+test("office routes gate first login on setup and separate today from backdating", async ({
+  page,
+}) => {
+  let configured = false;
+  let reportingStartDate = "2026-10-01";
+  let entryReads = 0;
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/session") {
+      await route.fulfill({
+        json: {
+          userId: "anchal-route-test",
+          username: "anchal1",
+          role: "office",
+          officeId: 1,
+          expiresAt: Date.now() + 60_000,
+        },
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/setup") {
+      if (route.request().method() === "PUT") configured = true;
+      await route.fulfill({
+        json: configured
+          ? {
+              officeId: 1,
+              startDate: reportingStartDate,
+              version: 1,
+              balances: Array.from({ length: 25 }, (_, i) => ({
+                serviceId: i + 1,
+                opening: { service: 0, complaints: 0, field: 0 },
+              })),
+            }
+          : null,
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/entries") {
+      entryReads++;
+      await route.fulfill({
+        json: { setup: null, entries: [], openings: [] },
+      });
+      return;
+    }
+    if (url.pathname === "/api/history") {
+      await route.fulfill({ json: [] });
+      return;
+    }
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/office\/setup$/);
+  await expect(
+    page.getByRole("heading", { name: "Set opening balances" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Daily service entry" }),
+  ).toHaveCount(0);
+  const startDate = new Date(`${todayIST()}T00:00:00Z`);
+  startDate.setUTCDate(startDate.getUTCDate() - 3);
+  reportingStartDate = startDate.toISOString().slice(0, 10);
+  await page
+    .getByLabel("Reporting start date", { exact: true })
+    .fill(reportingStartDate);
+  await page
+    .getByText("I confirm all opening balances, including zero balances.", {
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Save opening balances", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByRole("button", { name: "Change History", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await page.goto("/office/setup");
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByRole("button", { name: "Today’s Entry", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Backdate Entry", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/office\/backdate$/);
+  const serviceDate = page.getByLabel("Service date", { exact: true });
+  await expect(serviceDate).toHaveAttribute("min", reportingStartDate);
+  await expect(serviceDate).toHaveAttribute("max", /.+/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/office\/backdate$/);
+  await page
+    .getByRole("button", { name: "Change History", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/office\/history$/);
+  const readsBeforeUnavailableDate = entryReads;
+  reportingStartDate = todayIST();
+  await page.goto("/office/backdate");
+  await expect(
+    page.getByText(
+      "Backdated entry becomes available the day after the reporting start date.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveCount(0);
+  expect(entryReads).toBe(readsBeforeUnavailableDate);
+});
+
+test("office navigation can be canceled without losing a dirty entry", async ({
+  page,
+}) => {
+  if (!localSetupFixture)
+    test.skip(
+      true,
+      "Office entry navigation writes are tested on the local fixture",
+    );
+  await signIn(page, testOfficeAccount);
+  const edit = page.getByRole("button", { name: "Edit entry", exact: true });
+  const submit = page.getByRole("button", {
+    name: "Submit entry →",
+    exact: true,
+  });
+  await expect(edit.or(submit)).toBeVisible();
+  if (await edit.isVisible()) await edit.click();
+  await page
+    .getByLabel("Ward number / name", { exact: true })
+    .fill("Draft ward retained");
+  await page.getByLabel("Received / Transactions", { exact: true }).fill("17");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Draft ward retained");
+  await expect(
+    page.getByLabel("Received / Transactions", { exact: true }),
+  ).toHaveValue("17");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/office/backdate");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Draft ward retained");
+});
+
+test("an open Today draft rolls forward at IST midnight and can continue as Backdate", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-05T18:29:00.000Z") });
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/session") {
+      await route.fulfill({
+        json: {
+          userId: "anchal-midnight-test",
+          username: "anchal1",
+          role: "office",
+          officeId: 1,
+          expiresAt: Date.now() + 60_000,
+        },
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/setup") {
+      await route.fulfill({
+        json: {
+          officeId: 1,
+          startDate: "2026-10-01",
+          version: 1,
+          balances: Array.from({ length: 25 }, (_, i) => ({
+            serviceId: i + 1,
+            opening: { service: 0, complaints: 0, field: 0 },
+          })),
+        },
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/entries") {
+      await route.fulfill({ json: { setup: null, entries: [], openings: [] } });
+      return;
+    }
+    await route.fulfill({ json: [] });
+  });
+  await page.goto("/office/today");
+  await expect(
+    page.getByRole("heading", { name: "Daily service entry" }),
+  ).toBeVisible();
+  await page.clock.fastForward(60_000);
+  await expect(
+    page.getByLabel("Reporting / registration date", { exact: true }),
+  ).toHaveValue("2026-10-06");
+  await page.getByRole("button", { name: "Set zero activity" }).click();
+  await page
+    .getByLabel("Ward number / name", { exact: true })
+    .fill("Midnight draft");
+  await page.clock.setFixedTime(new Date("2026-10-06T18:30:00.000Z"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("alert")).toContainText(
+    "The IST reporting day has changed.",
+  );
+  await page
+    .getByRole("button", { name: "Continue draft in Backdate Entry" })
+    .click();
+  await expect(page).toHaveURL(/\/office\/backdate$/);
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
+    "2026-10-06",
+  );
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Midnight draft");
+  await expect(
+    page.getByLabel("Reason for delayed reporting", { exact: true }),
+  ).toBeVisible();
 });

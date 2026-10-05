@@ -21,11 +21,12 @@ For frontend development, run `npm run dev` alongside the Worker server. The Vit
 
 ## Demo flow
 
-1. Sign in as an Anchal office and configure initial service, complaint and field-task balances.
-2. Select a date and service, enter Ward and daily figures, and submit. Repeat all 25 services, using explicit zero-activity entries where needed.
-3. In a separate browser profile/incognito session, sign in as commissioner. Submissions update the open dashboard automatically.
-4. Correct an office entry with a reason. View the before/after history. Later balances are derived from corrected movements.
-5. Switch English/Hindi and review daily, date-range, monthly, office and service filters.
+1. Sign in as an Anchal office. On first use, set one reporting-start date and the opening service, complaint and field-task balances for all 25 services. Confirm zero balances where applicable. This setup is locked after the first save.
+2. Use **Today’s Entry** for the current IST date. Enter one row per service and day, including the Ward number/name. Submit zero activity deliberately where there was no work.
+3. Use **Backdate Entry** for a service date from the reporting-start date through yesterday. A new backdated row requires a delayed-reporting reason; its registration date and time are recorded automatically when submitted.
+4. In a separate browser profile/incognito session, sign in as commissioner. Submissions update the open dashboard automatically.
+5. Use **Change History** to review office changes. Saved rows remain read-only until Edit; every correction requires a reason. Later balances are derived from corrected movements.
+6. Switch English/Hindi and review daily, date-range, monthly, office and service filters.
 
 Browser acceptance tests create clearly synthetic entries in the local demonstration database. Use a separate database for real operational data.
 
@@ -60,8 +61,11 @@ No PostgreSQL server, external identity provider, or Cloudflare KV is required. 
 
 ## Business rules
 
-- Saved reports are read-only until Edit entry is selected. Earlier-month back-entry before the configured start reuses the existing opening balances, extends the start date atomically and records the change in history. Invalid later balances still block the back-entry.
-- Unique report key: office + service + service date; Ward is descriptive text. Each service entry has a selectable Service date for back-entry. Reporting/registration date and exact registered time are recorded automatically on first submission and preserved through corrections. Dashboard periods and balances use the service date.
+- Opening setup is required once per Anchal and cannot be edited after saving. All entry reads and writes require completed setup.
+- An office has separate **Today’s Entry**, **Backdate Entry** and **Change History** routes. Today accepts only the current Asia/Kolkata date. Backdate accepts the configured reporting-start date through yesterday; earlier dates are rejected and do not change the start date or baseline.
+- Unique report key: office + service + service date; Ward number/name is descriptive input. Today has no service-date selector; Backdate selects a date within its permitted range. Reporting/registration date and exact registered time are recorded automatically on first submission and preserved through corrections. Dashboard periods and balances use the service date.
+- New backdated reports require a delayed-reporting reason. Every correction requires a correction reason, and saved reports stay read-only until Edit is selected.
+- Leaving an office entry page with unsaved changes asks before discarding them. An open Today form advances with IST midnight; an unsaved previous-day draft can continue in Backdate Entry.
 - Three balances = configured opening + earlier received − earlier completed/resolved.
 - Dates without submissions carry recorded balances forward but remain missing reports.
 - Historical corrections are rejected if any later closing balance becomes negative.

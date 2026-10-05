@@ -5,9 +5,17 @@ const credentials: Record<string, string> | null = process.env
   .RMC_CREDENTIALS_FILE
   ? JSON.parse(readFileSync(process.env.RMC_CREDENTIALS_FILE, "utf8"))
   : null;
-const password = "Rmc-Demo-2026!";
-const testOfficeId = process.env.RMC_TEST_URL ? 6 : 1;
+const password = process.env.RMC_TEST_PASSWORD ?? "Rmc-Demo-2026!";
+const testOfficeId = Number(
+  process.env.RMC_TEST_OFFICE ?? (process.env.RMC_TEST_URL ? 6 : 1),
+);
 const testOfficeAccount = `anchal${testOfficeId}`;
+const localSetupFixture =
+  process.env.RMC_TEST_LOCAL === "1" &&
+  !!process.env.RMC_TEST_URL &&
+  ["localhost", "127.0.0.1"].includes(
+    new URL(process.env.RMC_TEST_URL).hostname,
+  );
 async function login(page: any, user: string) {
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill(user);
@@ -18,6 +26,35 @@ async function login(page: any, user: string) {
   await expect(
     page.getByRole("button", { name: "Sign out", exact: true }),
   ).toBeVisible();
+  if (user.startsWith("anchal")) {
+    if (
+      await page
+        .getByRole("heading", { name: "Set opening balances", exact: true })
+        .isVisible()
+    ) {
+      if (!localSetupFixture)
+        test.skip(
+          true,
+          "Office setup is absent; baseline writes are disabled outside the explicit local fixture",
+        );
+      const startDate = new Date(`${todayIST()}T00:00:00Z`);
+      startDate.setUTCDate(startDate.getUTCDate() - 5);
+      await page
+        .getByLabel("Reporting start date", { exact: true })
+        .fill(startDate.toISOString().slice(0, 10));
+      await page
+        .getByText("I confirm all opening balances, including zero balances.", {
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("button", { name: "Save opening balances", exact: true })
+        .click();
+    }
+    await expect(
+      page.getByRole("button", { name: "Today’s Entry", exact: true }),
+    ).toBeVisible();
+  }
 }
 async function editSaved(page: any) {
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
@@ -44,22 +81,6 @@ test("office submission, live dashboard, correction and history", async ({
     commissioner = await b.newPage();
   await login(office, testOfficeAccount);
   await expect(office.getByRole("heading").first()).toBeVisible();
-  if (
-    await office
-      .getByRole("heading", { name: "Set opening balances", exact: true })
-      .isVisible()
-  ) {
-    await office.getByLabel("Reporting start date").fill("2026-10-01");
-    await office.getByLabel("1 service", { exact: true }).fill("10");
-    await office.getByLabel("1 complaints", { exact: true }).fill("3");
-    await office.getByLabel("1 field", { exact: true }).fill("5");
-    await office
-      .getByLabel("I confirm all opening balances, including zero balances.")
-      .check();
-    await office
-      .getByRole("button", { name: "Save opening balances", exact: true })
-      .click();
-  }
   await expect(
     office.getByRole("heading", { name: "Daily service entry" }),
   ).toBeVisible();
@@ -207,11 +228,19 @@ test("back-entry displays service date and immutable registration date separatel
   await expect(
     page.getByRole("heading", { name: "Daily service entry" }),
   ).toBeVisible();
-  const serviceDate = "2026-09-15";
-  await page.getByLabel("Service date", { exact: true }).fill(serviceDate);
-  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
-    serviceDate,
-  );
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  const serviceDateField = page.getByLabel("Service date", { exact: true });
+  const serviceDate = await serviceDateField.getAttribute("min");
+  expect(serviceDate).toBeTruthy();
+  if (serviceDate! >= todayIST())
+    test.skip(
+      true,
+      "Office reporting start date does not yet allow back-entry",
+    );
+  await serviceDateField.fill(serviceDate!);
+  await expect(serviceDateField).toHaveValue(serviceDate!);
   await expect(
     page.getByLabel("Reporting / registration date", { exact: true }),
   ).toHaveValue(todayIST());
@@ -237,13 +266,70 @@ test("back-entry displays service date and immutable registration date separatel
     })
     .click();
   await expect(page.getByRole("status")).toContainText("Entry saved");
-  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
-    serviceDate,
-  );
+  await expect(serviceDateField).toHaveValue(serviceDate!);
   await expect(
     page.getByLabel("Reporting / registration date", { exact: true }),
   ).toHaveValue(todayIST());
   await expect(
     page.getByText("Registered at:", { exact: false }),
   ).toBeVisible();
+});
+test("backdate reason is required for a new report and absent from Today's Entry", async ({
+  page,
+}) => {
+  if (!localSetupFixture)
+    test.skip(
+      true,
+      "Backdate mutation is restricted to the explicit local fixture",
+    );
+  await login(page, testOfficeAccount);
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  const serviceDate = page.getByLabel("Service date", { exact: true });
+  if ((await serviceDate.getAttribute("min"))! >= todayIST())
+    test.skip(
+      true,
+      "Office reporting start date does not yet allow back-entry",
+    );
+  const unsubmitted = page
+    .locator(".service-status[aria-label='Not submitted']")
+    .first();
+  if (!(await unsubmitted.count()))
+    test.skip(
+      true,
+      "Every service already has a backdated entry in the local fixture",
+    );
+  await unsubmitted.locator("xpath=..").click();
+  await page
+    .getByRole("button", { name: "Set zero activity", exact: true })
+    .click();
+  await page.getByLabel("Ward number / name", { exact: true }).fill("Ward 2");
+  const delayedReason = page.getByLabel("Reason for delayed reporting", {
+    exact: true,
+  });
+  await expect(delayedReason).toBeVisible();
+  await expect(delayedReason).toHaveAttribute("required", "");
+  expect(
+    await delayedReason.evaluate(
+      (element: HTMLTextAreaElement) => !element.checkValidity(),
+    ),
+  ).toBe(true);
+  await delayedReason.fill("Report received after daily close");
+  await page
+    .getByRole("button", { name: "Submit entry →", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Entry saved");
+  await page.getByRole("button", { name: "Edit entry", exact: true }).click();
+  const correctionReason = page.getByLabel("Correction reason", {
+    exact: true,
+  });
+  await expect(correctionReason).toBeVisible();
+  await expect(correctionReason).toHaveAttribute("required", "");
+  await page
+    .getByRole("button", { name: "Today’s Entry", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Reason for delayed reporting", { exact: true }),
+  ).toHaveCount(0);
 });

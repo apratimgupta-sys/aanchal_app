@@ -140,33 +140,44 @@ export default {
             );
           if (request.method === "GET") {
             const setup = await repo.getSetup(office);
+            if (!setup)
+              fail(422, "Configure opening balances before reporting");
             const entries = await repo.getEntries(office);
             const date = url.searchParams.get("date") ?? todayIST();
-            if (!validDate(date)) fail(422, "Invalid date");
+            const mode = url.searchParams.get("mode");
+            if (!validDate(date) || (mode !== "today" && mode !== "backdate"))
+              fail(422, "Select a valid reporting route and date");
+            const yesterday = new Date(`${todayIST()}T00:00:00Z`);
+            yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+            const latestBackdate = yesterday.toISOString().slice(0, 10);
+            if (
+              (mode === "today" && date !== todayIST()) ||
+              (mode === "backdate" &&
+                (date < setup.startDate || date > latestBackdate))
+            )
+              fail(422, "Date is outside this reporting route");
             const views: EntryView[] = [];
-            if (setup)
-              for (const b of setup.balances)
-                views.push(
-                  ...deriveEntryViews(
-                    b.opening,
-                    entries.filter((e) => e.serviceId === b.serviceId),
-                  ),
-                );
+            for (const b of setup.balances)
+              views.push(
+                ...deriveEntryViews(
+                  b.opening,
+                  entries.filter((e) => e.serviceId === b.serviceId),
+                ),
+              );
             return json({
               setup,
               entries: views.filter((e) => e.serviceDate === date),
-              openings:
-                setup?.balances.map((b) => ({
-                  serviceId: b.serviceId,
-                  opening:
-                    deriveEntryViews(
-                      b.opening,
-                      entries.filter(
-                        (e) =>
-                          e.serviceId === b.serviceId && e.serviceDate < date,
-                      ),
-                    ).at(-1)?.closing ?? b.opening,
-                })) ?? [],
+              openings: setup.balances.map((b) => ({
+                serviceId: b.serviceId,
+                opening:
+                  deriveEntryViews(
+                    b.opening,
+                    entries.filter(
+                      (e) =>
+                        e.serviceId === b.serviceId && e.serviceDate < date,
+                    ),
+                  ).at(-1)?.closing ?? b.opening,
+              })),
             });
           }
         }
