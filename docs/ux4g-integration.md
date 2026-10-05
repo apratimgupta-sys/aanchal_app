@@ -140,3 +140,9 @@ The inventory below covers every application rule outside the root theme blocks.
 | `.wordmark`                                                       | @media (max-width: 480px)  | RMC branding, page headings, navigation/footer placement or responsive page frame. |
 | `.balance-strip`                                                  | @media (max-width: 480px)  | Application-specific ledger proportions and responsive information layout.         |
 | `.report-toolbar .ux4g-input-container,   .report-progress`       | @media (max-width: 480px)  | Portal-specific field widths, report arrangement and form feedback spacing.        |
+
+### Readable audit history (5 October 2026)
+
+History now presents service names and dates, and a field/previous/updated comparison for changed business values. Initial submissions show recorded values. Setup changes compare opening balances by service ID. Entry IDs, version counters, timestamps and derived balances absent from the original snapshot are excluded from the comparison; a metadata-only correction says “No entry values changed.” Stored audit snapshots remain unchanged. Invalid snapshots produce a friendly unavailable message.
+
+Uses the installed `ux4g-web-components@3.0.0` and the existing verified medium zebra table, responsive table wrapper, and large text-neutral disclosure presentation. Approved root theme overrides remain in use; no custom CSS was added. The existing native-details contract exception remains. Chromium regression verified keyboard disclosure, readable changed values, light/dark axe WCAG AA scans, and no page overflow at 390px. No screen-reader certification is claimed; existing package debt remains as documented above.

@@ -2,6 +2,12 @@ import { Panel, Notice } from "../ui";
 import { useEffect, useState, useContext } from "react";
 import type { Audit } from "../../shared/types";
 import { api } from "../api";
+import {
+  auditComparison,
+  auditFields,
+  auditValue,
+  serviceName,
+} from "../audit";
 import { useText, Language, runtimeText } from "../i18n";
 export default function ChangeHistory() {
   const t = useText(),
@@ -67,21 +73,7 @@ export default function ChangeHistory() {
                 <td>{runtimeText(r.action, lang)}</td>
                 <td>{r.reason || "—"}</td>
                 <td>
-                  <details>
-                    <summary className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-l">
-                      {t("View before / after", "पहले / बाद देखें")}
-                    </summary>
-                    <div className="audit-values">
-                      <strong>{t("Before", "पहले")}</strong>
-                      <pre>
-                        {r.before
-                          ? JSON.stringify(JSON.parse(r.before), null, 2)
-                          : "—"}
-                      </pre>
-                      <strong>{t("After", "बाद")}</strong>
-                      <pre>{JSON.stringify(JSON.parse(r.after), null, 2)}</pre>
-                    </div>
-                  </details>
+                  <RecordChanges record={r} lang={lang} />
                 </td>
               </tr>
             ))}
@@ -94,5 +86,86 @@ export default function ChangeHistory() {
         )}
       </Panel>
     </>
+  );
+}
+
+function RecordChanges({ record, lang }: { record: Audit; lang: string }) {
+  const t = useText();
+  const comparison = auditComparison(record.before, record.after);
+  if (!comparison.valid)
+    return (
+      <p>
+        {t("Change details unavailable.", "परिवर्तन विवरण उपलब्ध नहीं है।")}
+      </p>
+    );
+  return (
+    <div>
+      {comparison.after?.serviceId != null && (
+        <strong>{serviceName(comparison.after.serviceId, lang)}</strong>
+      )}
+      {comparison.after?.serviceDate != null && (
+        <p>
+          {t("Service date", "सेवा तिथि")}:{" "}
+          {auditValue("serviceDate", comparison.after.serviceDate, lang)}
+        </p>
+      )}
+      {!comparison.changes.length ? (
+        <p>
+          {t(
+            "No entry values changed.",
+            "प्रविष्टि के मानों में कोई परिवर्तन नहीं हुआ।",
+          )}
+        </p>
+      ) : (
+        <details>
+          <summary className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-l">
+            {record.before
+              ? t(
+                  `View ${comparison.changes.length} changed field${comparison.changes.length === 1 ? "" : "s"}`,
+                  `${comparison.changes.length} परिवर्तित विवरण देखें`,
+                )
+              : t("View recorded values", "दर्ज मान देखें")}
+          </summary>
+          <div className="ux4g-table-responsive">
+            <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
+              <caption>{t("Record changes", "रिकॉर्ड परिवर्तन")}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t("Field", "विवरण")}</th>
+                  {record.before && (
+                    <th scope="col">{t("Previous", "पहले")}</th>
+                  )}
+                  <th scope="col">
+                    {record.before
+                      ? t("Updated", "बाद")
+                      : t("Recorded value", "दर्ज मान")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.changes.map((change) => (
+                  <tr key={`${change.serviceId ?? "entry"}.${change.key}`}>
+                    <th scope="row">
+                      {change.serviceId != null && (
+                        <div>{serviceName(change.serviceId, lang)}</div>
+                      )}
+                      {t(...auditFields[change.key])}
+                    </th>
+                    {record.before && (
+                      <td>{auditValue(change.key, change.before, lang)}</td>
+                    )}
+                    <td>
+                      <strong>
+                        {auditValue(change.key, change.after, lang)}
+                      </strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </div>
   );
 }
