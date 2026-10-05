@@ -310,7 +310,7 @@ export default function DailyEntry({
                   expectedVersion: saved?.version ?? null,
                   mode,
                   input: { ...input, amountPaise: parseMoney(money) },
-                  reason: saved ? reason : null,
+                  reason: saved ? reason : mode === "backdate" ? reason : null,
                 };
                 intent.current = mutationIntent(intent.current, {
                   id: saved?.id,
@@ -456,10 +456,16 @@ export default function DailyEntry({
                   onChange={(e) => patch("remarks", e.target.value)}
                 />
               </Field>
-              {saved && editingEntry && (
+              {((saved && editingEntry) || (!saved && mode === "backdate")) && (
                 <Field className="wide">
-                  {t("Correction reason", "सुधार का कारण")}
+                  {saved
+                    ? t("Correction reason", "सुधार का कारण")
+                    : t(
+                        "Reason for delayed reporting",
+                        "विलंबित रिपोर्टिंग का कारण",
+                      )}
                   <textarea
+                    name="reason"
                     readOnly={!!saved && !editingEntry}
                     required
                     maxLength={1000}

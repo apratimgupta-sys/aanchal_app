@@ -274,3 +274,62 @@ test("back-entry displays service date and immutable registration date separatel
     page.getByText("Registered at:", { exact: false }),
   ).toBeVisible();
 });
+test("backdate reason is required for a new report and absent from Today's Entry", async ({
+  page,
+}) => {
+  if (!localSetupFixture)
+    test.skip(
+      true,
+      "Backdate mutation is restricted to the explicit local fixture",
+    );
+  await login(page, testOfficeAccount);
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  const serviceDate = page.getByLabel("Service date", { exact: true });
+  if ((await serviceDate.getAttribute("min"))! >= todayIST())
+    test.skip(
+      true,
+      "Office reporting start date does not yet allow back-entry",
+    );
+  const unsubmitted = page
+    .locator(".service-status[aria-label='Not submitted']")
+    .first();
+  if (!(await unsubmitted.count()))
+    test.skip(
+      true,
+      "Every service already has a backdated entry in the local fixture",
+    );
+  await unsubmitted.locator("xpath=..").click();
+  await page
+    .getByRole("button", { name: "Set zero activity", exact: true })
+    .click();
+  await page.getByLabel("Ward number / name", { exact: true }).fill("Ward 2");
+  const delayedReason = page.getByLabel("Reason for delayed reporting", {
+    exact: true,
+  });
+  await expect(delayedReason).toBeVisible();
+  await expect(delayedReason).toHaveAttribute("required", "");
+  expect(
+    await delayedReason.evaluate(
+      (element: HTMLTextAreaElement) => !element.checkValidity(),
+    ),
+  ).toBe(true);
+  await delayedReason.fill("Report received after daily close");
+  await page
+    .getByRole("button", { name: "Submit entry →", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Entry saved");
+  await page.getByRole("button", { name: "Edit entry", exact: true }).click();
+  const correctionReason = page.getByLabel("Correction reason", {
+    exact: true,
+  });
+  await expect(correctionReason).toBeVisible();
+  await expect(correctionReason).toHaveAttribute("required", "");
+  await page
+    .getByRole("button", { name: "Today’s Entry", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Reason for delayed reporting", { exact: true }),
+  ).toHaveCount(0);
+});
