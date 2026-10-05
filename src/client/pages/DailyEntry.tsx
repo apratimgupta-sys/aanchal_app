@@ -49,15 +49,22 @@ export default function DailyEntry({
   officeId,
   mode,
   startDate,
+  onDirtyChange,
+  preserveDraftSignal,
+  onContinueDraftInBackdate,
 }: {
   officeId: number;
   mode: "today" | "backdate";
   startDate: string;
+  onDirtyChange: (dirty: boolean) => void;
+  preserveDraftSignal: number;
+  onContinueDraftInBackdate: () => void;
 }) {
   const lang = useContext(Language),
     t = useText();
   const intent = useRef<MutationIntent | null>(null);
-  const today = todayIST();
+  const [currentToday, setCurrentToday] = useState(todayIST);
+  const today = currentToday;
   const latestBackdate = yesterdayIST();
   const backdateAvailable = startDate <= latestBackdate;
   const [date, setDate] = useState(
@@ -74,6 +81,46 @@ export default function DailyEntry({
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false);
+  const previousMode = useRef(mode);
+  const consumedPreserveSignal = useRef(preserveDraftSignal);
+  const dayChanged = mode === "today" && date < today;
+  useEffect(() => {
+    const refreshDay = () => setCurrentToday(todayIST());
+    const timer = window.setInterval(refreshDay, 15000);
+    window.addEventListener("focus", refreshDay);
+    document.addEventListener("visibilitychange", refreshDay);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshDay);
+      document.removeEventListener("visibilitychange", refreshDay);
+    };
+  }, []);
+  useEffect(() => {
+    if (previousMode.current === mode) return;
+    previousMode.current = mode;
+    const preserveDraft = preserveDraftSignal > consumedPreserveSignal.current;
+    consumedPreserveSignal.current = preserveDraftSignal;
+    if (preserveDraft) return;
+    setDate(
+      mode === "today"
+        ? today
+        : startDate <= latestBackdate
+          ? latestBackdate
+          : startDate,
+    );
+    setData(null);
+    setDirty(false);
+    onDirtyChange(false);
+  }, [mode]);
+  useEffect(() => {
+    if (mode === "today" && date < today && !dirty) {
+      setDate(today);
+      setData(null);
+    }
+  }, [today, mode, date, dirty]);
+  useEffect(() => {
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
   async function load() {
     setError("");
     try {
@@ -113,13 +160,14 @@ export default function DailyEntry({
       field: 0,
     };
   useEffect(() => {
+    if (dirty) return;
     setInput(saved ?? blank(date, selected));
     setMoney(saved ? (saved.amountPaise / 100).toFixed(2) : "");
     setReason("");
     setFields({});
     setDirty(false);
     setEditingEntry(false);
-  }, [saved, date, selected]);
+  }, [saved, date, selected, dirty]);
   function patch(key: string, value: unknown) {
     setDirty(true);
     setInput((p) => ({ ...p, [key]: value }));
@@ -178,6 +226,44 @@ export default function DailyEntry({
           </h1>
         </div>
       </div>
+      {dayChanged && (
+        <Notice className="message" role="alert">
+          <p>
+            {t(
+              "The IST reporting day has changed. This draft still belongs to the previous service date.",
+              "IST रिपोर्टिंग दिवस बदल गया है। यह प्रारूप पिछली सेवा तिथि का है।",
+            )}
+          </p>
+          {date >= startDate && (
+            <button
+              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+              type="button"
+              onClick={onContinueDraftInBackdate}
+            >
+              {t(
+                "Continue draft in Backdate Entry",
+                "पिछली तिथि की प्रविष्टि में प्रारूप जारी रखें",
+              )}
+            </button>
+          )}
+          <button
+            className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
+            type="button"
+            onClick={() => {
+              setDirty(false);
+              onDirtyChange(false);
+              setDate(today);
+              setData(null);
+              setInput(blank(today, selected));
+              setMoney("");
+              setReason("");
+              setEditingEntry(false);
+            }}
+          >
+            {t("Discard draft and start today", "प्रारूप छोड़कर आज शुरू करें")}
+          </button>
+        </Notice>
+      )}
       <Panel className="report-toolbar panel">
         <div className="report-progress">
           <strong className="ux4g-heading-m-strong">
@@ -302,6 +388,11 @@ export default function DailyEntry({
             onSubmit={async (e) => {
               e.preventDefault();
               if (saved && !editingEntry) return;
+              const liveToday = todayIST();
+              if (mode === "today" && input.serviceDate !== liveToday) {
+                setCurrentToday(liveToday);
+                return;
+              }
               setBusy(true);
               setError("");
               setFields({});
@@ -539,7 +630,7 @@ export default function DailyEntry({
                 </button>
                 <button
                   className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
-                  disabled={busy}
+                  disabled={busy || dayChanged}
                 >
                   {busy
                     ? t("Saving…", "सहेजा जा रहा है…")

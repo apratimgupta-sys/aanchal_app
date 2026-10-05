@@ -45,7 +45,7 @@ Dark root overrides set primary strong/hover/stronger and link/brand text to lig
 ## Verification
 
 - TypeScript checking and production build passed.
-- Eleven focused Chromium scenarios passed, including routed office setup, Today/Backdate separation, delayed-reporting and correction reasons, submission/live update, change history, month filters, deliberate zero activity, and canceled draft navigation.
+- Thirteen focused Chromium scenarios passed, including routed office setup, Today/Backdate separation, delayed-reporting and correction reasons, submission/live update, change history, month filters, deliberate zero activity, canceled route navigation and IST-midnight draft recovery.
 - axe checks with WCAG 2 A/AA and WCAG 2.1 AA tags found no violations in scanned login, commissioner dashboard and daily-entry views, in light and dark themes.
 - Login was checked at 390, 1100, 1500 and 1920px; dashboard and entry at mobile width. Page overflow assertions pass. Wide reports scroll inside their region.
 - Keyboard skip link moves focus to main content; input focus outlines are visible. Native controls and buttons preserve keyboard behavior. Visible buttons, input frames, selects, textareas, summary controls and checkbox targets were checked against 44×44px.

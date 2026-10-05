@@ -47,3 +47,5 @@ Anchal offices now use /office/today, /office/backdate and /office/history. An o
 Today accepts only the current Asia/Kolkata date. Backdate accepts the configured start date through yesterday and requires a delayed-reporting reason on new rows. Each row retains its server-recorded registration date/time. Saved rows remain read-only until Edit; corrections require a reason. The Worker enforces the setup gate, date ranges, immutable setup and office-scoped audit history. Commissioner history and dashboard balance calculations remain organisation-wide.
 
 Verification on the isolated codex/anchal-entry-workflow branch: TypeScript checking, 16 domain tests, 19 Worker integration tests, 11 local browser scenarios and production build pass. Local browser tests use only the local Wrangler Worker and local D1 database. No remote Cloudflare deployment or shared-branch push was performed.
+
+Final review fixes protect dirty office forms when using tabs or browser history, and advance a clean Today form at IST midnight. A dirty previous-day draft can continue on the Backdate route. Final verification: 13 local Chromium scenarios pass, including both recovery cases.

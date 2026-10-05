@@ -14,9 +14,35 @@ export default function App() {
   const [session, setSession] = useState<UserSession | null>(null),
     [loading, setLoading] = useState(true),
     [pathname, setPathname] = useState(window.location.pathname),
-    [setup, setSetup] = useState<Setup | null | undefined>(undefined);
+    [setup, setSetup] = useState<Setup | null | undefined>(undefined),
+    [entryDirty, setEntryDirty] = useState(false),
+    [entryReset, setEntryReset] = useState(0),
+    [preserveDraftSignal, setPreserveDraftSignal] = useState(0);
   const text = (en: string, hi: string) => (lang === "hi" ? hi : en);
-  function navigate(path: string, replace = false) {
+  function mayNavigate(path: string, preserveDraft = false) {
+    if (
+      path !== pathname &&
+      entryDirty &&
+      session?.role === "office" &&
+      !preserveDraft
+    ) {
+      if (
+        !window.confirm(
+          text(
+            "Discard unsaved entry changes and leave this page?",
+            "असहेजी प्रविष्टि छोड़कर इस पृष्ठ से जाएँ?",
+          ),
+        )
+      )
+        return false;
+      setEntryDirty(false);
+      setEntryReset((key) => key + 1);
+    }
+    if (preserveDraft) setPreserveDraftSignal((signal) => signal + 1);
+    return true;
+  }
+  function navigate(path: string, replace = false, preserveDraft = false) {
+    if (!mayNavigate(path, preserveDraft)) return;
     if (window.location.pathname !== path) {
       if (replace) window.history.replaceState({}, "", path);
       else window.history.pushState({}, "", path);
@@ -45,10 +71,17 @@ export default function App() {
     localStorage.setItem("rmc-language", lang);
   }, [lang]);
   useEffect(() => {
-    const onPopState = () => setPathname(window.location.pathname);
+    const onPopState = () => {
+      const next = window.location.pathname;
+      if (!mayNavigate(next)) {
+        window.history.pushState({}, "", pathname);
+        return;
+      }
+      setPathname(next);
+    };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  }, [pathname, entryDirty, session, lang]);
   useEffect(() => {
     if (loading || !session) return;
     if (session.role === "office") {
@@ -122,6 +155,7 @@ export default function App() {
               <button
                 className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                 onClick={async () => {
+                  if (!mayNavigate("/")) return;
                   await api("/logout", "POST", {});
                   setSession(null);
                   setSetup(undefined);
@@ -207,10 +241,15 @@ export default function App() {
               <Dashboard />
             ) : (
               <DailyEntry
-                key={pathname}
+                key={entryReset}
                 officeId={session.officeId!}
                 mode={pathname === "/office/backdate" ? "backdate" : "today"}
                 startDate={setup!.startDate}
+                onDirtyChange={setEntryDirty}
+                preserveDraftSignal={preserveDraftSignal}
+                onContinueDraftInBackdate={() =>
+                  navigate("/office/backdate", false, true)
+                }
               />
             )}
           </main>

@@ -344,3 +344,115 @@ test("office routes gate first login on setup and separate today from backdating
   await expect(page.getByLabel("Service date", { exact: true })).toHaveCount(0);
   expect(entryReads).toBe(readsBeforeUnavailableDate);
 });
+
+test("office navigation can be canceled without losing a dirty entry", async ({
+  page,
+}) => {
+  if (!localSetupFixture)
+    test.skip(
+      true,
+      "Office entry navigation writes are tested on the local fixture",
+    );
+  await signIn(page, testOfficeAccount);
+  const edit = page.getByRole("button", { name: "Edit entry", exact: true });
+  const submit = page.getByRole("button", {
+    name: "Submit entry →",
+    exact: true,
+  });
+  await expect(edit.or(submit)).toBeVisible();
+  if (await edit.isVisible()) await edit.click();
+  await page
+    .getByLabel("Ward number / name", { exact: true })
+    .fill("Draft ward retained");
+  await page.getByLabel("Received / Transactions", { exact: true }).fill("17");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("button", { name: "Backdate Entry", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Draft ward retained");
+  await expect(
+    page.getByLabel("Received / Transactions", { exact: true }),
+  ).toHaveValue("17");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/office/backdate");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page).toHaveURL(/\/office\/today$/);
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Draft ward retained");
+});
+
+test("an open Today draft rolls forward at IST midnight and can continue as Backdate", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-05T18:29:00.000Z") });
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/session") {
+      await route.fulfill({
+        json: {
+          userId: "anchal-midnight-test",
+          username: "anchal1",
+          role: "office",
+          officeId: 1,
+          expiresAt: Date.now() + 60_000,
+        },
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/setup") {
+      await route.fulfill({
+        json: {
+          officeId: 1,
+          startDate: "2026-10-01",
+          version: 1,
+          balances: Array.from({ length: 25 }, (_, i) => ({
+            serviceId: i + 1,
+            opening: { service: 0, complaints: 0, field: 0 },
+          })),
+        },
+      });
+      return;
+    }
+    if (url.pathname === "/api/office/entries") {
+      await route.fulfill({ json: { setup: null, entries: [], openings: [] } });
+      return;
+    }
+    await route.fulfill({ json: [] });
+  });
+  await page.goto("/office/today");
+  await expect(
+    page.getByRole("heading", { name: "Daily service entry" }),
+  ).toBeVisible();
+  await page.clock.fastForward(60_000);
+  await expect(
+    page.getByLabel("Reporting / registration date", { exact: true }),
+  ).toHaveValue("2026-10-06");
+  await page.getByRole("button", { name: "Set zero activity" }).click();
+  await page
+    .getByLabel("Ward number / name", { exact: true })
+    .fill("Midnight draft");
+  await page.clock.setFixedTime(new Date("2026-10-06T18:30:00.000Z"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("alert")).toContainText(
+    "The IST reporting day has changed.",
+  );
+  await page
+    .getByRole("button", { name: "Continue draft in Backdate Entry" })
+    .click();
+  await expect(page).toHaveURL(/\/office\/backdate$/);
+  await expect(page.getByLabel("Service date", { exact: true })).toHaveValue(
+    "2026-10-06",
+  );
+  await expect(
+    page.getByLabel("Ward number / name", { exact: true }),
+  ).toHaveValue("Midnight draft");
+  await expect(
+    page.getByLabel("Reason for delayed reporting", { exact: true }),
+  ).toBeVisible();
+});

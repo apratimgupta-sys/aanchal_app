@@ -65,6 +65,7 @@ No PostgreSQL server, external identity provider, or Cloudflare KV is required. 
 - An office has separate **Today’s Entry**, **Backdate Entry** and **Change History** routes. Today accepts only the current Asia/Kolkata date. Backdate accepts the configured reporting-start date through yesterday; earlier dates are rejected and do not change the start date or baseline.
 - Unique report key: office + service + service date; Ward number/name is descriptive input. Today has no service-date selector; Backdate selects a date within its permitted range. Reporting/registration date and exact registered time are recorded automatically on first submission and preserved through corrections. Dashboard periods and balances use the service date.
 - New backdated reports require a delayed-reporting reason. Every correction requires a correction reason, and saved reports stay read-only until Edit is selected.
+- Leaving an office entry page with unsaved changes asks before discarding them. An open Today form advances with IST midnight; an unsaved previous-day draft can continue in Backdate Entry.
 - Three balances = configured opening + earlier received − earlier completed/resolved.
 - Dates without submissions carry recorded balances forward but remain missing reports.
 - Historical corrections are rejected if any later closing balance becomes negative.
