@@ -16,7 +16,7 @@ Research started at [UX4G ai.txt](https://web.ux4g.gov.in/ai.txt) and followed t
 | Button                  | Outline neutral / L                                             | Language, sign out, refresh, secondary actions                                   |
 | Button                  | Tonal primary and text neutral / L                              | Selected and unselected portal navigation                                        |
 | Input                   | Default and error / L                                           | Text, numeric, money and native date controls; registration date stays read-only |
-| Textarea                | Default and error / L                                           | Remarks and correction reasons                                                   |
+| Textarea                | Default and error / L                                           | Remarks, delayed-reporting reasons and correction reasons                        |
 | Native form select      | L                                                               | Dashboard view, Anchal and service filters                                       |
 | Checkbox                | M, default/checked; 48px labelled target                        | Opening-balance confirmation                                                     |
 | Card                    | Outline, vertical, elevated neutral background; XL body padding | Login, entry, filters, metrics, reports, history                                 |
@@ -24,7 +24,7 @@ Research started at [UX4G ai.txt](https://web.ux4g.gov.in/ai.txt) and followed t
 | List                    | Default / M; 48px row targets                                   | Service selection; React owns selected state                                     |
 | Context alert           | Error and success, contextual width                             | Errors and saved-entry feedback                                                  |
 | Tag                     | Tonal neutral and success, documented default size              | Record status, report count and connection state                                 |
-| Navbar                  | Default, application-owned navigation buttons                   | Daily entry/dashboard and change history                                         |
+| Navbar                  | Default, application-owned navigation buttons                   | Today, Backdate and office history routes; commissioner dashboard/history        |
 | Footer                  | Neutral surface and footer row                                  | RMC ownership and demonstration label                                            |
 | Progress bar            | Sharp, outside label, default size                              | Submitted services out of 25                                                     |
 | Divider                 | Horizontal, default size                                        | Login introduction                                                               |
@@ -45,7 +45,7 @@ Dark root overrides set primary strong/hover/stronger and link/brand text to lig
 ## Verification
 
 - TypeScript checking and production build passed.
-- Eight Chromium scenarios passed, including bilingual login, submission/live update, correction history, month filters, back-entry and fixed registration date, deliberate zero activity, reconnect, and canceled draft navigation.
+- Eleven focused Chromium scenarios passed, including routed office setup, Today/Backdate separation, delayed-reporting and correction reasons, submission/live update, change history, month filters, deliberate zero activity, and canceled draft navigation.
 - axe checks with WCAG 2 A/AA and WCAG 2.1 AA tags found no violations in scanned login, commissioner dashboard and daily-entry views, in light and dark themes.
 - Login was checked at 390, 1100, 1500 and 1920px; dashboard and entry at mobile width. Page overflow assertions pass. Wide reports scroll inside their region.
 - Keyboard skip link moves focus to main content; input focus outlines are visible. Native controls and buttons preserve keyboard behavior. Visible buttons, input frames, selects, textareas, summary controls and checkbox targets were checked against 44×44px.

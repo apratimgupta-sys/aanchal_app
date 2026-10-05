@@ -38,4 +38,12 @@ Branch `feature/ux4g-design` integrates the supplied UX4G skill with the officia
 
 Removed the duplicate View service date control and the two explanatory paragraphs identified by the user. A single Service date selector navigates records outside the submitted form. Saved values are read-only until Edit entry; Cancel editing restores persisted values. Corrections continue to require reasons and preserve first registration.
 
-User explicitly chose to reuse existing opening balances for service dates before the current reporting start. A successful earlier back-entry atomically extends office_setup.start_date, increments its version and records a separate before/after audit event in the same D1 batch. Historical balance validation runs before any changes; retries do not duplicate the extension audit. All nine local browser scenarios, 15 Workers integration tests, type checking and build pass.
+This behavior was superseded on 5 October 2026 by the approved routed workflow below. The configured reporting start is now a fixed boundary; earlier service dates are rejected without changing setup or opening balances.
+
+## Routed Anchal entry workflow — 5 October 2026
+
+Anchal offices now use /office/today, /office/backdate and /office/history. An office without setup is redirected to a dedicated first-login screen to save one reporting-start date and 25 opening-balance triplets. The setup is locked after its first successful save and is hidden from normal office navigation. Existing configured offices pass the gate without re-entering their baseline.
+
+Today accepts only the current Asia/Kolkata date. Backdate accepts the configured start date through yesterday and requires a delayed-reporting reason on new rows. Each row retains its server-recorded registration date/time. Saved rows remain read-only until Edit; corrections require a reason. The Worker enforces the setup gate, date ranges, immutable setup and office-scoped audit history. Commissioner history and dashboard balance calculations remain organisation-wide.
+
+Verification on the isolated codex/anchal-entry-workflow branch: TypeScript checking, 16 domain tests, 19 Worker integration tests, 11 local browser scenarios and production build pass. Local browser tests use only the local Wrangler Worker and local D1 database. No remote Cloudflare deployment or shared-branch push was performed.
