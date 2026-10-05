@@ -1,6 +1,7 @@
 import { env, SELF, reset } from "cloudflare:test";
-import { beforeEach, afterEach, it, expect } from "vitest";
+import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { hashPassword } from "../../src/worker/auth";
+import { todayIST } from "../../src/domain/ledger";
 const base = "https://rmc.test";
 async function request(
   path: string,
@@ -8,6 +9,36 @@ async function request(
   body?: unknown,
   cookie = "",
 ) {
+  if (path.startsWith("/api/office/entries?") && !path.includes("mode=")) {
+    const date = new URL(base + path).searchParams.get("date") ?? todayIST();
+    const yesterday = new Date(`${todayIST()}T00:00:00Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    path += date === todayIST() ? "&mode=today" : "&mode=backdate";
+    if (date > yesterday.toISOString().slice(0, 10))
+      path = path.replace("mode=backdate", "mode=today");
+  }
+  if (
+    path.startsWith("/api/office/entries") &&
+    body &&
+    typeof body === "object" &&
+    "input" in body &&
+    !("mode" in body)
+  ) {
+    const payload = body as {
+      input: { serviceDate: string };
+      reason?: string | null;
+    };
+    const today = todayIST();
+    const mode = payload.input.serviceDate === today ? "today" : "backdate";
+    body = {
+      ...payload,
+      mode,
+      reason:
+        payload.reason == null && mode === "backdate"
+          ? "Test delayed report"
+          : (payload.reason ?? null),
+    };
+  }
   return SELF.fetch(base + path, {
     method,
     headers: { "content-type": "application/json", origin: base, cookie },
@@ -133,6 +164,16 @@ it("requires setup, persists entries, retries safely, and rejects stale correcti
   expect(
     (
       await request(
+        "/api/office/setup",
+        "PUT",
+        { ...setup, requestId: "setup-office2" },
+        other,
+      )
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await request(
         "/api/office/entries?date=2026-10-01",
         "GET",
         undefined,
@@ -141,11 +182,234 @@ it("requires setup, persists entries, retries safely, and rejects stale correcti
     ).status,
   ).toBe(200);
   expect((await request("/api/history", "GET", undefined, c)).status).toBe(200);
+  const officeHistory = (await (
+    await request("/api/history", "GET", undefined, c)
+  ).json()) as { officeId: number }[];
+  expect(officeHistory).toHaveLength(2);
+  expect(officeHistory.every((event) => event.officeId === 1)).toBe(true);
+  const commissionerHistory = (await (
+    await request("/api/history", "GET", undefined, await login("commissioner"))
+  ).json()) as { officeId: number }[];
+  expect(commissionerHistory).toHaveLength(3);
   const count = await env.DB.prepare(
     "SELECT COUNT(*) AS n FROM audit_events",
   ).first<{ n: number }>();
-  expect(count?.n).toBe(2);
+  expect(count?.n).toBe(3);
   expect(e.version).toBe(1);
+});
+it("blocks entry reads until setup is complete and locks the first baseline", async () => {
+  const c = await login();
+  expect(
+    (
+      await request(
+        "/api/office/entries?date=2026-10-01&mode=backdate",
+        "GET",
+        undefined,
+        c,
+      )
+    ).status,
+  ).toBe(422);
+  expect((await request("/api/office/setup", "PUT", setup, c)).status).toBe(
+    200,
+  );
+  const original = await env.DB.prepare(
+    "SELECT start_date,version FROM office_setup WHERE office_id=1",
+  ).first();
+  const firstBalance = await env.DB.prepare(
+    "SELECT service,complaints,field FROM initial_balances WHERE office_id=1 AND service_id=1",
+  ).first();
+  const changed = {
+    ...setup,
+    startDate: "2026-09-01",
+    requestId: "setup-second",
+  };
+  expect((await request("/api/office/setup", "PUT", changed, c)).status).toBe(
+    409,
+  );
+  expect(
+    await env.DB.prepare(
+      "SELECT start_date,version FROM office_setup WHERE office_id=1",
+    ).first(),
+  ).toEqual(original);
+  expect(
+    await env.DB.prepare(
+      "SELECT service,complaints,field FROM initial_balances WHERE office_id=1 AND service_id=1",
+    ).first(),
+  ).toEqual(firstBalance);
+});
+it("serializes competing first-time setup submissions without overwriting the winner", async () => {
+  const c = await login();
+  const alternatives = ["setup-race-123", "setup-race-124"].map(
+    (requestId, index) =>
+      request(
+        "/api/office/setup",
+        "PUT",
+        {
+          ...setup,
+          requestId,
+          balances: setup.balances.map((balance) => ({
+            ...balance,
+            opening: { ...balance.opening, service: index + 1 },
+          })),
+        },
+        c,
+      ),
+  );
+  expect(
+    (await Promise.all(alternatives)).map((response) => response.status).sort(),
+  ).toEqual([200, 409]);
+  const saved = await env.DB.prepare(
+    "SELECT service FROM initial_balances WHERE office_id=1 AND service_id=1",
+  ).first<{ service: number }>();
+  expect([1, 2]).toContain(saved?.service);
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM audit_events",
+      ).first<any>()
+    ).n,
+  ).toBe(1);
+});
+it("enforces Today and Backdate service-date boundaries and late reasons", async () => {
+  const c = await login();
+  const startDate = todayIST() === "2026-10-01" ? "2026-09-30" : "2026-10-01";
+  await request("/api/office/setup", "PUT", { ...setup, startDate }, c);
+  const save = (
+    id: string,
+    mode: string,
+    serviceDate: string,
+    reason: string | null,
+    serviceId = 1,
+  ) =>
+    request(
+      "/api/office/entries",
+      "POST",
+      {
+        requestId: id,
+        expectedVersion: null,
+        mode,
+        input: { ...zero, serviceId, serviceDate },
+        reason,
+      },
+      c,
+    );
+  expect(
+    (await save("today-valid-123", "today", todayIST(), null)).status,
+  ).toBe(200);
+  expect(
+    (await save("today-old-1234", "today", startDate, "late")).status,
+  ).toBe(422);
+  const yesterday = new Date(`${todayIST()}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayDate = yesterday.toISOString().slice(0, 10);
+  expect(
+    (await save("back-start-123", "backdate", startDate, "Late report", 3))
+      .status,
+  ).toBe(200);
+  expect(
+    (await save("back-yest-123", "backdate", yesterdayDate, "Late report"))
+      .status,
+  ).toBe(200);
+  expect(
+    (
+      await request(
+        "/api/office/entries",
+        "POST",
+        {
+          requestId: "back-blank-123",
+          expectedVersion: null,
+          mode: "backdate",
+          input: { ...zero, serviceId: 2, serviceDate: yesterdayDate },
+          reason: "  ",
+        },
+        c,
+      )
+    ).status,
+  ).toBe(422);
+  expect(
+    (
+      await request(
+        `/api/office/entries?date=${todayIST()}&mode=backdate`,
+        "GET",
+        undefined,
+        c,
+      )
+    ).status,
+  ).toBe(422);
+  expect(
+    (
+      await request(
+        `/api/office/entries?date=${yesterdayDate}&mode=today`,
+        "GET",
+        undefined,
+        c,
+      )
+    ).status,
+  ).toBe(422);
+  expect(
+    (
+      await request(
+        `/api/office/entries?date=${startDate}&mode=backdate`,
+        "GET",
+        undefined,
+        c,
+      )
+    ).status,
+  ).toBe(200);
+  expect(
+    (await save("back-today-123", "backdate", todayIST(), "Late report"))
+      .status,
+  ).toBe(422);
+  const audits = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM audit_events",
+  ).first<{ n: number }>();
+  const revisions = await env.DB.prepare(
+    "SELECT revision FROM office_revisions WHERE office_id=1",
+  ).first<{ revision: number }>();
+  expect(audits?.n).toBe(4);
+  expect(revisions?.revision).toBe(4);
+});
+it("uses the Asia/Kolkata reporting day across UTC midnight boundaries", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date("2026-10-04T18:29:59.999Z"));
+    const c = await login();
+    await request("/api/office/setup", "PUT", setup, c);
+    const beforeMidnight = await request("/api/office/entries", "POST", {
+      requestId: "ist-today-123",
+      expectedVersion: null,
+      mode: "today",
+      input: { ...zero, serviceDate: "2026-10-04" },
+      reason: null,
+    }, c);
+    expect(beforeMidnight.status).toBe(200);
+    vi.setSystemTime(new Date("2026-10-04T18:30:00.000Z"));
+    const entry = await beforeMidnight.json() as { id: string; reportingDate: string };
+    expect(entry.reportingDate).toBe("2026-10-04");
+    expect((await request("/api/office/entries/" + entry.id, "PUT", {
+      requestId: "ist-backdate-123",
+      expectedVersion: 1,
+      mode: "backdate",
+      input: { ...zero, serviceDate: "2026-10-04" },
+      reason: "Recorded just after midnight IST",
+    }, c)).status).toBe(200);
+    expect((await request("/api/office/entries", "POST", {
+      requestId: "ist-wrong-day-123",
+      expectedVersion: null,
+      mode: "today",
+      input: { ...zero, serviceId: 2, serviceDate: "2026-10-04" },
+      reason: null,
+    }, c)).status).toBe(422);
+    expect((await request("/api/office/entries", "POST", {
+      requestId: "ist-new-day-123",
+      expectedVersion: null,
+      mode: "today",
+      input: { ...zero, serviceId: 3, serviceDate: "2026-10-05" },
+      reason: null,
+    }, c)).status).toBe(200);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 it("rejects earlier edits that invalidate later balances without partial audit", async () => {
   const c = await login();
@@ -281,6 +545,25 @@ it("updates commissioner metrics, rejects cross-office correction, and records c
     submitted: 1,
     expected: 50,
   });
+  const rejectedCorrection = await request(
+    "/api/office/entries/" + e.id,
+    "PUT",
+    {
+      requestId: "blank-correction",
+      expectedVersion: 1,
+      input: { ...zero, received: 2, completed: 3, avgDisposalDays: 1 },
+      reason: "   ",
+    },
+    c,
+  );
+  expect(rejectedCorrection.status).toBe(422);
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT revision FROM office_revisions WHERE office_id=1",
+      ).first<any>()
+    ).revision,
+  ).toBe(2);
   const correction = await request(
     "/api/office/entries/" + e.id,
     "PUT",
@@ -416,41 +699,30 @@ it("separates backdated service date from immutable server registration date", a
   expect(updated.reportingDate).toBe(saved.reportingDate);
   expect(updated.createdAt).toBe(saved.createdAt);
 });
-it("extends reporting start for prior-month back-entry atomically and reuses opening balances", async () => {
+it("rejects service dates before the immutable reporting start", async () => {
   const c = await login();
   await request("/api/office/setup", "PUT", setup, c);
   const command = {
     requestId: "prior-month-123",
     expectedVersion: null,
     input: { ...zero, serviceDate: "2026-09-15", received: 2 },
-    reason: null,
+    reason: "Late report",
   };
   const first = await request("/api/office/entries", "POST", command, c);
-  expect(first.status).toBe(200);
-  const entry = (await first.json()) as any;
-  expect(entry.opening.service).toBe(10);
-  expect(entry.closing.service).toBe(12);
-  const extended = await env.DB.prepare(
+  expect(first.status).toBe(422);
+  const unchanged = await env.DB.prepare(
     "SELECT start_date,version FROM office_setup WHERE office_id=1",
   ).first();
-  expect(extended).toEqual({ start_date: "2026-09-15", version: 2 });
-  const audit = await env.DB.prepare(
-    "SELECT before_data,after_data FROM audit_events WHERE action='Reporting start extended for back-entry'",
-  ).first<any>();
-  expect(JSON.parse(audit.before_data).startDate).toBe("2026-10-01");
-  expect(JSON.parse(audit.after_data).balances).toEqual(setup.balances);
-  expect(
-    (await request("/api/office/entries", "POST", command, c)).status,
-  ).toBe(200);
+  expect(unchanged).toEqual({ start_date: "2026-10-01", version: 1 });
   expect(
     (
       await env.DB.prepare(
-        "SELECT COUNT(*) AS count FROM audit_events WHERE action='Reporting start extended for back-entry'",
+        "SELECT COUNT(*) AS n FROM daily_entries",
       ).first<any>()
-    ).count,
-  ).toBe(1);
+    ).n,
+  ).toBe(0);
 });
-it("does not extend start date when a back-entry would invalidate a later balance", async () => {
+it("preserves later balance validation when a back-entry would invalidate it", async () => {
   const c = await login();
   await request("/api/office/setup", "PUT", setup, c);
   const later = await request(

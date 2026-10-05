@@ -41,6 +41,7 @@ export type UserSession = {
 export type SaveCommand = {
   requestId: string;
   expectedVersion: number | null;
+  mode: "today" | "backdate";
   input: EntryInput;
   reason: string | null;
 };

@@ -93,6 +93,11 @@ export class OfficeCoordinator extends DurableObject<Env> {
     let action: string;
     if (kind === "setup") {
       const c = command as SetupCommand;
+      if (setup)
+        fail(
+          409,
+          "Opening balances have already been set and cannot be changed",
+        );
       if (!validDate(c.startDate) || c.startDate > todayIST())
         fail(422, "Enter a valid reporting start date through today");
       if (
@@ -115,7 +120,7 @@ export class OfficeCoordinator extends DurableObject<Env> {
         )
       )
         fail(422, "Confirm nonnegative opening balances for all 25 services");
-      if ((setup?.version ?? null) !== c.expectedVersion)
+      if (c.expectedVersion !== null)
         fail(
           409,
           "Initial balances changed. Reload before correcting.",
@@ -123,12 +128,12 @@ export class OfficeCoordinator extends DurableObject<Env> {
         );
       if (entries.some((e) => e.serviceDate < c.startDate))
         fail(422, "Start date cannot exclude existing reports");
-      before = setup;
+      before = null;
       after = {
         officeId: office,
         startDate: c.startDate,
         balances: c.balances,
-        version: (setup?.version ?? 0) + 1,
+        version: 1,
       } satisfies Setup;
       for (const b of c.balances)
         this.checkHistory(
@@ -152,15 +157,23 @@ export class OfficeCoordinator extends DurableObject<Env> {
             b.opening.field,
           ),
         );
-      action = setup
-        ? "Initial balances corrected"
-        : "Initial balances configured";
+      action = "Initial balances configured";
     } else {
       const c = command as SaveCommand;
       if (!setup) fail(422, "Configure opening balances before reporting");
+      if (c.mode !== "today" && c.mode !== "backdate")
+        fail(422, "Select Today’s Entry or Backdate Entry");
       if (!c.input || typeof c.input !== "object") fail(422, "Entry required");
       const error = validateEntry(c.input, todayIST());
       if (error) throw new HttpError(422, error);
+      const today = todayIST();
+      if (
+        (c.mode === "today" && c.input.serviceDate !== today) ||
+        (c.mode === "backdate" &&
+          (c.input.serviceDate < setup.startDate ||
+            c.input.serviceDate >= today))
+      )
+        fail(422, "Service date is outside this reporting route");
       const old = id
         ? entries.find((e) => e.id === id)
         : entries.find(
@@ -177,6 +190,18 @@ export class OfficeCoordinator extends DurableObject<Env> {
         fail(422, "Service/date identity cannot be changed by correction");
       if ((old?.version ?? null) !== c.expectedVersion)
         fail(409, "Entry changed. Reload before correcting.", "CONFLICT");
+      if (
+        (old || (c.mode === "backdate" && c.input.serviceDate < today)) &&
+        (typeof c.reason !== "string" ||
+          !c.reason.trim() ||
+          c.reason.length > 1000)
+      )
+        fail(
+          422,
+          old
+            ? "A correction reason is required"
+            : "A delayed-reporting reason is required",
+        );
       const now = new Date().toISOString();
       const input = c.input;
       const record: StoredEntry = {
@@ -209,30 +234,6 @@ export class OfficeCoordinator extends DurableObject<Env> {
         ),
         record,
       ]);
-      if (record.serviceDate < setup.startDate) {
-        const extendedSetup = {
-          ...setup,
-          startDate: record.serviceDate,
-          version: setup.version + 1,
-        };
-        statements.push(
-          this.env.DB.prepare(
-            "UPDATE office_setup SET start_date=?,version=? WHERE office_id=?",
-          ).bind(record.serviceDate, extendedSetup.version, office),
-          this.env.DB.prepare(
-            "INSERT INTO audit_events VALUES(?,?,?,?,?,?,?,?)",
-          ).bind(
-            crypto.randomUUID(),
-            office,
-            session.username,
-            now,
-            "Reporting start extended for back-entry",
-            "Existing opening balances reused for earlier service date",
-            JSON.stringify(setup),
-            JSON.stringify(extendedSetup),
-          ),
-        );
-      }
       before = old ?? null;
       after = views.find((e) => e.id === record.id)!;
       action = old ? "Entry corrected" : "Entry submitted";
@@ -249,13 +250,6 @@ export class OfficeCoordinator extends DurableObject<Env> {
         ),
       );
     }
-    if (
-      before &&
-      (typeof command.reason !== "string" ||
-        !command.reason.trim() ||
-        command.reason.length > 1000)
-    )
-      fail(422, "A correction reason is required (maximum 1000 characters)");
     const revision =
       (
         await this.env.DB.prepare(
