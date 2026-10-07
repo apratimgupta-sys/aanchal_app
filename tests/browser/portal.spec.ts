@@ -72,7 +72,7 @@ test("bilingual login", async ({ page }) => {
     fullPage: true,
   });
 });
-test("office submission, live dashboard, correction and history", async ({
+test("office submission, polling dashboard, correction and history", async ({
   browser,
 }) => {
   const a = await browser.newContext(),
@@ -89,7 +89,7 @@ test("office submission, live dashboard, correction and history", async ({
     commissioner.getByRole("heading", { name: "Office monitoring dashboard" }),
   ).toBeVisible();
   await expect(
-    commissioner.getByText("Connected", { exact: false }).first(),
+    commissioner.getByText("Polling", { exact: false }).first(),
   ).toBeVisible();
   const row = commissioner
     .locator("tbody tr")
@@ -119,7 +119,7 @@ test("office submission, live dashboard, correction and history", async ({
   const committed = office
     .waitForResponse(
       (r) =>
-        r.url().includes("/api/office/entries") &&
+        r.url().includes("/v1/api/anchal/office/entries") &&
         ["POST", "PUT"].includes(r.request().method()),
     )
     .then((r) => {

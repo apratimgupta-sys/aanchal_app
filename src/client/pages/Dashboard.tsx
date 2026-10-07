@@ -3,7 +3,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import type { MonitoringRow, EntryView } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { api } from "../api";
+import { api, apiRead } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 const currency = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -22,7 +22,7 @@ export default function Dashboard() {
     [service, setService] = useState(""),
     [rows, setRows] = useState<MonitoringRow[]>([]),
     [updated, setUpdated] = useState(""),
-    [status, setStatus] = useState("Connecting"),
+    [status, setStatus] = useState("Polling"),
     [error, setError] = useState(""),
     [details, setDetails] = useState<EntryView[] | null>(null);
   const sequence = useRef(0);
@@ -43,12 +43,13 @@ export default function Dashboard() {
     const refresh = async () => {
       const n = ++sequence.current;
       try {
-        const data = await api<{ rows: MonitoringRow[]; updatedAt: string }>(
+        const read = await apiRead<{ rows: MonitoringRow[]; updatedAt?: string }>(
           "/dashboard?" + query,
         );
         if (active && n === sequence.current) {
-          setRows(data.rows);
-          setUpdated(data.updatedAt);
+          setRows(read.data.rows);
+          setUpdated(read.lastUpdated ?? read.data.updatedAt ?? read.retrievedAt ?? "");
+          setStatus("Polling");
           setError("");
           if (detailsOpen.current) {
             const detailRows = await api<EntryView[]>(
@@ -69,49 +70,14 @@ export default function Dashboard() {
     };
   }, [query]);
   useEffect(() => {
-    let closed = false;
-    let ws: WebSocket;
-    let retry: ReturnType<typeof setTimeout>;
-    let heartbeat: ReturnType<typeof setInterval>;
-    let attempt = 0;
-    const connect = () => {
-      if (closed) return;
-      setStatus("Connecting");
-      ws = new WebSocket(
-        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/live`,
-      );
-      ws.onopen = () => {
-        attempt = 0;
-        setStatus("Connected");
-        loadRef.current();
-      };
-      ws.onmessage = (e) => {
-        if (e.data === "pong") return;
-        loadRef.current();
-      };
-      ws.onclose = () => {
-        if (closed) return;
-        setStatus("Reconnecting");
-        retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
-      };
-      ws.onerror = () => ws.close();
-    };
-    connect();
-    heartbeat = setInterval(() => {
-      if (ws?.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 20000);
-    const fallback = setInterval(() => {
+    const poll = setInterval(() => {
       if (document.visibilityState === "visible") loadRef.current();
     }, 15000);
     const focus = () => loadRef.current();
     window.addEventListener("focus", focus);
     return () => {
-      closed = true;
-      clearTimeout(retry);
-      clearInterval(heartbeat);
-      clearInterval(fallback);
+      clearInterval(poll);
       window.removeEventListener("focus", focus);
-      ws?.close();
     };
   }, []);
   const totals = rows.reduce(
@@ -201,11 +167,7 @@ export default function Dashboard() {
           <span className="live-dot ux4g-bg-success-strong ux4g-radius-full" />{" "}
           {t(
             status,
-            status === "Connected"
-              ? "कनेक्टेड"
-              : status === "Connecting"
-                ? "जुड़ रहा है"
-                : "पुनः जुड़ रहा है",
+            status === "Polling" ? "नियमित रूप से जांच रहा है" : status,
           )}
           <small className="ux4g-d-block ux4g-mt-xs">
             {updated
