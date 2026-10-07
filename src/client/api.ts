@@ -1,7 +1,7 @@
 import type { ApiError } from "../shared/types";
 
-const defaultApiBase =
-  import.meta.env.VITE_ANCHAL_API_BASE_URL?.trim() || "/v1/api/anchal";
+const apiPrefix = "/v1/api/anchal";
+const defaultApiOrigin = import.meta.env.VITE_ANCHAL_API_ORIGIN?.trim() || "";
 
 export type ApiRead<T> = {
   data: T;
@@ -20,23 +20,32 @@ export class RequestError extends Error {
   }
 }
 
-function requestUrl(path: string, apiBase = defaultApiBase) {
-  return `${apiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+function requestUrl(path: string, apiOrigin = defaultApiOrigin) {
+  return `${apiOrigin.replace(/\/$/, "")}${apiPrefix}/${path.replace(/^\//, "")}`;
 }
 
 async function request<T>(
   path: string,
   method = "GET",
   body?: unknown,
-  apiBase?: string,
+  apiOrigin?: string,
 ): Promise<{ response: Response; data: T }> {
-  const response = await fetch(requestUrl(path, apiBase), {
+  const response = await fetch(requestUrl(path, apiOrigin), {
     method,
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = (await response.json()) as T | ApiError;
+  const text = await response.text();
+  let data: T | ApiError;
+  try {
+    data = JSON.parse(text) as T | ApiError;
+  } catch {
+    data = {
+      code: `HTTP_${response.status}`,
+      message: text || "The monitoring service returned an invalid response",
+    };
+  }
   if (!response.ok) throw new RequestError(data as ApiError, response.status);
   return { response, data: data as T };
 }
@@ -45,16 +54,16 @@ export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
-  apiBase?: string,
+  apiOrigin?: string,
 ): Promise<T> {
-  return (await request<T>(path, method, body, apiBase)).data;
+  return (await request<T>(path, method, body, apiOrigin)).data;
 }
 
 export async function apiRead<T>(
   path: string,
-  apiBase?: string,
+  apiOrigin?: string,
 ): Promise<ApiRead<T>> {
-  const { response, data } = await request<T>(path, "GET", undefined, apiBase);
+  const { response, data } = await request<T>(path, "GET", undefined, apiOrigin);
   return {
     data,
     retrievedAt: response.headers.get("X-Monitoring-Retrieved-At"),

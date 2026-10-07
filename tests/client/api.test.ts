@@ -10,12 +10,12 @@ describe("Commissioner Monitoring API transport", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await api("/session", "GET", undefined, "https://api.example.in/root/");
+    await api("/session", "GET", undefined, "https://api.example.in/");
 
-    expect(fetchMock).toHaveBeenCalledWith("https://api.example.in/root/session", {
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.in/v1/api/anchal/session", {
       method: "GET",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: {},
       body: undefined,
     });
   });
@@ -43,6 +43,21 @@ describe("Commissioner Monitoring API transport", () => {
       name: RequestError.name,
       status: 422,
       detail: { code: "VALIDATION", message: "Enter a value" },
+    });
+  });
+
+  it("preserves an HTTP error when a proxy returns non-JSON content", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("Service unavailable", { status: 503 }),
+      ),
+    );
+
+    await expect(api("/session")).rejects.toMatchObject({
+      name: RequestError.name,
+      status: 503,
+      detail: { code: "HTTP_503", message: "Service unavailable" },
     });
   });
 
