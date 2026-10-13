@@ -1,10 +1,13 @@
 import { Field, Panel, Notice } from "../ui";
 import { useContext, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { MonitoringRow, EntryView } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
+import { formatIndiaDateTime } from "../lib/dates";
 const currency = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -25,7 +28,7 @@ export default function Dashboard() {
     [status, setStatus] = useState("Connecting"),
     [error, setError] = useState(""),
     [details, setDetails] = useState<EntryView[] | null>(null);
-  const sequence = useRef(0);
+  const queryClient = useQueryClient();
   const query = new URLSearchParams({
     from,
     to,
@@ -36,38 +39,21 @@ export default function Dashboard() {
   const detailsOpen = useRef(false);
   const activeQuery = useRef(query);
   activeQuery.current = query;
+  const dashboardQuery = useQuery({
+    queryKey: ["dashboard", query],
+    queryFn: () => api<{ rows: MonitoringRow[]; updatedAt: string }>("/dashboard?" + query),
+  });
   useEffect(() => {
     detailsOpen.current = false;
     setDetails(null);
-    let active = true;
-    const refresh = async () => {
-      const n = ++sequence.current;
-      try {
-        const data = await api<{ rows: MonitoringRow[]; updatedAt: string }>(
-          "/dashboard?" + query,
-        );
-        if (active && n === sequence.current) {
-          setRows(data.rows);
-          setUpdated(data.updatedAt);
-          setError("");
-          if (detailsOpen.current) {
-            const detailRows = await api<EntryView[]>(
-              "/dashboard/entries?" + query,
-            );
-            if (active && n === sequence.current && detailsOpen.current)
-              setDetails(detailRows);
-          }
-        }
-      } catch (e) {
-        if (active && n === sequence.current) setError((e as Error).message);
-      }
-    };
-    loadRef.current = () => void refresh();
-    void refresh();
-    return () => {
-      active = false;
-    };
-  }, [query]);
+    if (dashboardQuery.data) {
+      setRows(dashboardQuery.data.rows);
+      setUpdated(dashboardQuery.data.updatedAt);
+      setError("");
+    }
+    if (dashboardQuery.error) setError((dashboardQuery.error as Error).message);
+    loadRef.current = () => void dashboardQuery.refetch();
+  }, [dashboardQuery.data, dashboardQuery.error, dashboardQuery.refetch]);
   useEffect(() => {
     let closed = false;
     let ws: WebSocket;
@@ -83,11 +69,11 @@ export default function Dashboard() {
       ws.onopen = () => {
         attempt = 0;
         setStatus("Connected");
-        loadRef.current();
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       };
       ws.onmessage = (e) => {
         if (e.data === "pong") return;
-        loadRef.current();
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       };
       ws.onclose = () => {
         if (closed) return;
@@ -101,9 +87,9 @@ export default function Dashboard() {
       if (ws?.readyState === WebSocket.OPEN) ws.send("ping");
     }, 20000);
     const fallback = setInterval(() => {
-      if (document.visibilityState === "visible") loadRef.current();
+      if (document.visibilityState === "visible") queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     }, 15000);
-    const focus = () => loadRef.current();
+    const focus = () => queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     window.addEventListener("focus", focus);
     return () => {
       closed = true;
@@ -113,7 +99,7 @@ export default function Dashboard() {
       window.removeEventListener("focus", focus);
       ws?.close();
     };
-  }, []);
+  }, [queryClient]);
   const totals = rows.reduce(
     (a, r) => {
       for (const k of [
@@ -190,31 +176,6 @@ export default function Dashboard() {
           <h1 className="ux4g-heading-xl-strong">
             {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
           </h1>
-          <p>
-            {t(
-              "Service delivery, collections and outstanding work across six Anchal offices.",
-              "छह अंचल कार्यालयों की सेवा वितरण, संग्रह और लंबित कार्य की स्थिति।",
-            )}
-          </p>
-        </div>
-        <div className="live-status ux4g-tag-tonal-success ux4g-body-xs-default">
-          <span className="live-dot ux4g-bg-success-strong ux4g-radius-full" />{" "}
-          {t(
-            status,
-            status === "Connected"
-              ? "कनेक्टेड"
-              : status === "Connecting"
-                ? "जुड़ रहा है"
-                : "पुनः जुड़ रहा है",
-          )}
-          <small className="ux4g-d-block ux4g-mt-xs">
-            {updated
-              ? t("Updated ", "अपडेट ") +
-                new Date(updated).toLocaleTimeString("en-IN", {
-                  timeZone: "Asia/Kolkata",
-                })
-              : t("Awaiting data", "डेटा की प्रतीक्षा")}
-          </small>
         </div>
       </div>
       <Panel className="panel filters">
@@ -339,19 +300,16 @@ export default function Dashboard() {
       <Panel className="panel">
         <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
           <div>
-            <h2 className="ux4g-heading-m-strong">
+            <div className="section-eyebrow">{t("REPORT OVERVIEW", "रिपोर्ट अवलोकन")}</div>
+            <h2 className="ux4g-heading-m-strong section-title">
               {t("Anchal-wise performance", "अंचलवार प्रदर्शन")}
             </h2>
-            <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
-              {from}
-              {from !== to ? " — " + to : ""} ·{" "}
-              {t(
-                "Activity totals and closing balances",
-                "गतिविधि योग और अंतिम शेष",
-              )}
+            <p className="section-subtitle">
+              {t("Activity totals and closing balances", "गतिविधि योग और अंतिम शेष")}
+              <span className="section-date">{from}{from !== to ? " — " + to : ""}</span>
             </p>
           </div>
-          <span className="status-tag ux4g-tag-tonal-neutral">
+          <span className="status-tag report-count">
             {totals.submitted} / {totals.expected} {t("reports", "रिपोर्ट")}
           </span>
         </div>
@@ -382,11 +340,6 @@ export default function Dashboard() {
                     <strong>
                       {t("Anchal", "अंचल")} {r.officeId}
                     </strong>
-                    <small className="ux4g-d-block ux4g-mt-xs">
-                      {r.configured
-                        ? `${r.submitted} / ${r.expected} ${t("submitted", "जमा")}`
-                        : t("Setup missing", "सेटअप शेष")}
-                    </small>
                   </td>
                   <td>{r.received}</td>
                   <td>{r.completed}</td>
@@ -434,22 +387,8 @@ export default function Dashboard() {
             </tfoot>
           </table>
         </div>
-        <div className="table-notes ux4g-body-xs-default ux4g-text-neutral-secondary">
-          <p>
-            {t(
-              "Disposal = completed ÷ received. Clearing earlier backlog may exceed 100%. “—” means not applicable.",
-              "निस्तारण = पूर्ण ÷ प्राप्त। पुराने लंबित कार्य पूर्ण करने पर 100% से अधिक हो सकता है। “—” का अर्थ लागू नहीं है।",
-            )}
-          </p>
-          <p>
-            {t(
-              "Pending values are recorded closing balances; missing reports may hide unreported activity. Review thresholds follow the reference workbook.",
-              "लंबित मान दर्ज अंतिम शेष हैं; अनुपस्थित रिपोर्ट में गतिविधि दर्ज नहीं हो सकती। समीक्षा सीमाएँ संदर्भ कार्यपुस्तिका के अनुसार हैं।",
-            )}
-          </p>
-        </div>
         <button
-          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+          className="ui-button ui-button-secondary details-trigger"
           onClick={async () => {
             try {
               const requestedQuery = query;
@@ -462,6 +401,7 @@ export default function Dashboard() {
               }
             } catch (e) {
               setError((e as Error).message);
+              toast.error(t("Could not load service entries", "सेवा प्रविष्टियाँ लोड नहीं हो सकीं"));
             }
           }}
         >
@@ -521,10 +461,7 @@ export default function Dashboard() {
                     <td>{e.serviceDate}</td>
                     <td>{e.reportingDate}</td>
                     <td>
-                      {new Date(e.createdAt).toLocaleString(
-                        lang === "hi" ? "hi-IN" : "en-IN",
-                        { timeZone: "Asia/Kolkata" },
-                      )}
+                      {formatIndiaDateTime(e.createdAt)}
                     </td>
                     <td>{e.officeId}</td>
                     <td>{e.ward}</td>

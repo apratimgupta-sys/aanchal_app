@@ -1,5 +1,7 @@
 import { Field, Panel, Notice, ReportProgress } from "../ui";
 import { useContext, useEffect, useState, useRef } from "react";
+import { z } from "zod";
+import { toast } from "sonner";
 import type {
   Balances,
   EntryInput,
@@ -11,6 +13,24 @@ import { todayIST, parseMoney, applyActivity } from "../../domain/ledger";
 import { api, RequestError } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
+import { formatIndiaDateTime } from "../lib/dates";
+const entryClientSchema = z.object({
+  ward: z.string().trim().min(1, "Ward number or name is required"),
+  received: z.number().int().min(0),
+  completed: z.number().int().min(0),
+  slaWithinTime: z.number().int().min(0),
+  complaintsReceived: z.number().int().min(0),
+  complaintsResolved: z.number().int().min(0),
+  fieldReceived: z.number().int().min(0),
+  fieldCompleted: z.number().int().min(0),
+  avgDisposalDays: z.number().min(0).nullable(),
+  remarks: z.string().max(2000),
+}).superRefine((value, ctx) => {
+  if (value.completed > value.received) ctx.addIssue({ code: "custom", path: ["completed"], message: "Completed cannot exceed received" });
+  if (value.slaWithinTime > value.completed) ctx.addIssue({ code: "custom", path: ["slaWithinTime"], message: "Within-SLA completions cannot exceed completed" });
+  if (value.complaintsResolved > value.complaintsReceived) ctx.addIssue({ code: "custom", path: ["complaintsResolved"], message: "Resolved complaints cannot exceed received" });
+  if (value.fieldCompleted > value.fieldReceived) ctx.addIssue({ code: "custom", path: ["fieldCompleted"], message: "Completed field tasks cannot exceed received" });
+});
 const numeric = [
   ["received", "Received / Transactions", "प्राप्त / लेन-देन"],
   ["completed", "Disposed / Completed", "निस्तारित / पूर्ण"],
@@ -397,6 +417,17 @@ export default function DailyEntry({
               setError("");
               setFields({});
               try {
+                const checked = entryClientSchema.safeParse(input);
+                if (!checked.success) {
+                  const nextFields: Record<string, string> = {};
+                  checked.error.issues.forEach((issue) => {
+                    const key = String(issue.path[0]);
+                    if (!nextFields[key]) nextFields[key] = issue.message;
+                  });
+                  setFields(nextFields);
+                  setError(t("Please correct the highlighted fields.", "कृपया चिह्नित फ़ील्ड ठीक करें।"));
+                  return;
+                }
                 const command = {
                   expectedVersion: saved?.version ?? null,
                   mode,
@@ -425,8 +456,10 @@ export default function DailyEntry({
                     "प्रविष्टि सहेजी गई। डैशबोर्ड अपडेट हुआ।",
                   ),
                 );
+                toast.success(t("Entry saved", "प्रविष्टि सहेजी गई"));
               } catch (e) {
                 setError((e as Error).message);
+                toast.error(t("Could not save entry", "प्रविष्टि सहेजी नहीं जा सकी"));
                 if (e instanceof RequestError)
                   setFields(e.detail.fieldErrors ?? {});
               } finally {
@@ -452,10 +485,7 @@ export default function DailyEntry({
                 <small className="ux4g-d-block ux4g-mt-xs">
                   {saved
                     ? t("Registered at: ", "पंजीकरण समय: ") +
-                      new Date(saved.createdAt).toLocaleString(
-                        lang === "hi" ? "hi-IN" : "en-IN",
-                        { timeZone: "Asia/Kolkata" },
-                      )
+                      formatIndiaDateTime(saved.createdAt, "dd/MM/yyyy HH:mm")
                     : t(
                         "Recorded automatically on first submission.",
                         "प्रथम जमा पर स्वतः दर्ज होगी।",

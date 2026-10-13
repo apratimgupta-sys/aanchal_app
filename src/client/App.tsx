@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import type { Setup, UserSession } from "../shared/types";
 import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
-import DailyEntry from "./pages/DailyEntry";
-import Dashboard from "./pages/Dashboard";
-import ChangeHistory from "./pages/ChangeHistory";
-import InitialBalances from "./pages/InitialBalances";
+import { AppShell, commissionerNav, officeNav } from "./components/AppShell";
+import rmcLogo from "./assets/rmc-logo.jpg";
+const DailyEntry = lazy(() => import("./pages/DailyEntry"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const InitialBalances = lazy(() => import("./pages/InitialBalances"));
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
@@ -19,6 +20,7 @@ export default function App() {
     [entryReset, setEntryReset] = useState(0),
     [preserveDraftSignal, setPreserveDraftSignal] = useState(0);
   const text = (en: string, hi: string) => (lang === "hi" ? hi : en);
+  const pageFallback = <main id="main-content" tabIndex={-1} className="workspace page-loading"><p>{text("Loading page…", "पृष्ठ लोड हो रहा है…")}</p></main>;
   function mayNavigate(path: string, preserveDraft = false) {
     if (
       path !== pathname &&
@@ -92,16 +94,14 @@ export default function App() {
         navigate("/office/today", true);
       else if (
         setup &&
-        !["/office/today", "/office/backdate", "/office/history"].includes(
+        !["/office/today", "/office/backdate"].includes(
           pathname,
         )
       )
         navigate("/office/today", true);
     } else if (pathname.startsWith("/office/") || pathname === "/") {
       navigate("/commissioner/dashboard", true);
-    } else if (
-      !["/commissioner/dashboard", "/commissioner/history"].includes(pathname)
-    ) {
+    } else if (pathname !== "/commissioner/dashboard") {
       navigate("/commissioner/dashboard", true);
     }
   }, [loading, session, setup, pathname]);
@@ -121,11 +121,9 @@ export default function App() {
           {text("First iteration · Demonstration", "प्रथम संस्करण · प्रदर्शन")}
         </span>
       </div>
-      <header className="masthead ux4g-bg-neutral-elevated ux4g-d-flex ux4g-jc-between ux4g-ai-center ux4g-gap-x-l">
+      <header className="masthead ux4g-bg-neutral-elevated ux4g-d-flex ux4g-jc-between ux4g-ai-center ux4g-gap-x-l legacy-header">
         <div className="wordmark ux4g-title-s-strong ux4g-d-flex ux4g-ai-center ux4g-gap-x-l">
-          <span className="monogram ux4g-bg-primary-strong ux4g-text-neutral-inverse ux4g-heading-s-strong ux4g-radius-m">
-            RMC
-          </span>
+          <img className="rmc-logo" src={rmcLogo} alt="Ranchi Municipal Corporation emblem" />
           <div>
             <strong className="ux4g-d-block">
               {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
@@ -183,61 +181,29 @@ export default function App() {
       ) : session.role === "office" && !setup ? (
         <main id="main-content" tabIndex={-1} className="workspace">
           {pathname === "/office/setup" && (
-            <InitialSetup onSaved={() => void refresh()} />
+            <Suspense fallback={pageFallback}><InitialSetup onSaved={() => void refresh()} /></Suspense>
           )}
         </main>
       ) : (
-        <>
-          <nav
-            className="ux4g-navbar portal-nav"
-            aria-label={text("Portal navigation", "पोर्टल नेविगेशन")}
-          >
-            <div className="ux4g-navbar-wrap portal-nav-wrap ux4g-flex-wrap ux4g-jc-start ux4g-w-100">
-              {session.role === "commissioner" ? (
-                <>
-                  <RouteTab
-                    active={pathname === "/commissioner/dashboard"}
-                    onClick={() => navigate("/commissioner/dashboard")}
-                    label={text("Commissioner dashboard", "आयुक्त डैशबोर्ड")}
-                  />
-                  <RouteTab
-                    active={pathname === "/commissioner/history"}
-                    onClick={() => navigate("/commissioner/history")}
-                    label={text("Change history", "परिवर्तन इतिहास")}
-                  />
-                </>
-              ) : (
-                <>
-                  <RouteTab
-                    active={pathname === "/office/today"}
-                    onClick={() => navigate("/office/today")}
-                    label={text("Today’s Entry", "आज की प्रविष्टि")}
-                  />
-                  <RouteTab
-                    active={pathname === "/office/backdate"}
-                    onClick={() => navigate("/office/backdate")}
-                    label={text("Backdate Entry", "पिछली तिथि की प्रविष्टि")}
-                  />
-                  <RouteTab
-                    active={pathname === "/office/history"}
-                    onClick={() => navigate("/office/history")}
-                    label={text("Change History", "परिवर्तन इतिहास")}
-                  />
-                </>
-              )}
-              <span>
-                {text(
-                  "RMC / Office monitoring",
-                  "रांची नगर निगम / कार्यालय निगरानी",
-                )}
-              </span>
-            </div>
-          </nav>
-          <main id="main-content" tabIndex={-1} className="workspace">
-            {pathname === "/office/history" ||
-            pathname === "/commissioner/history" ? (
-              <ChangeHistory />
-            ) : session.role === "commissioner" ? (
+        <AppShell
+          role={session.role}
+          account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : `${text("Anchal", "अंचल")} ${session.officeId}`}
+          pathname={pathname}
+          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
+          onNavigate={(path) => navigate(path)}
+          onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
+          onSignOut={async () => {
+            if (!mayNavigate("/")) return;
+            await api("/logout", "POST", {});
+            setSession(null);
+            setSetup(undefined);
+            navigate("/", true);
+          }}
+          languageLabel={lang === "en" ? "हिन्दी" : "English"}
+          signOutLabel={text("Sign out", "लॉगआउट")}
+          footer={<footer className="portal-footer-new"><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
+        >
+            <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               <Dashboard />
             ) : (
               <DailyEntry
@@ -251,45 +217,10 @@ export default function App() {
                   navigate("/office/backdate", false, true)
                 }
               />
-            )}
-          </main>
-        </>
+            )}</Suspense>
+        </AppShell>
       )}
-      <footer className="ux4g-footer ux4g-bg-neutral-subtle">
-        <div className="portal-footer ux4g-footer-row ux4g-body-xs-default ux4g-d-flex ux4g-flex-wrap ux4g-gap-x-l">
-          <span>
-            © {new Date().getFullYear()}{" "}
-            {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
-          </span>
-          <span>
-            {text(
-              "Anchal Office Monitoring · First iteration",
-              "अंचल कार्यालय निगरानी · प्रथम संस्करण",
-            )}
-          </span>
-        </div>
-      </footer>
     </Language.Provider>
-  );
-}
-
-function RouteTab({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`ux4g-btn ux4g-btn-l ${active ? "ux4g-btn-tonal-primary" : "ux4g-btn-text-neutral"}`}
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-    >
-      {label}
-    </button>
   );
 }
 
