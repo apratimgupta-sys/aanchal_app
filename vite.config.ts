@@ -6,12 +6,12 @@ export default defineConfig(({ mode }) => {
     env.RMC_BACKEND_URL ?? "https://anchal-backend-staging.onrender.com";
   return {
     plugins: [react()],
+    base: "/anchal/",
     server: {
       proxy: {
-        "/api": {
+        "/v1/api/anchal": {
           target: backendUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, "/v1/api/anchal"),
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq) => {
               proxyReq.setHeader("origin", backendUrl);
