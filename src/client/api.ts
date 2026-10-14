@@ -2,6 +2,7 @@ import type { ApiError } from "../shared/types";
 
 const apiPrefix = "/v1/api/anchal";
 const defaultApiOrigin = import.meta.env.VITE_ANCHAL_API_ORIGIN?.trim() || "";
+const inFlightGets = new Map<string, Promise<unknown>>();
 
 export type ApiRead<T> = {
   data: T;
@@ -56,7 +57,27 @@ export async function api<T>(
   body?: unknown,
   apiOrigin?: string,
 ): Promise<T> {
-  return (await request<T>(path, method, body, apiOrigin)).data;
+  const requestKey =
+    method === "GET" && body === undefined
+      ? `${apiOrigin ?? defaultApiOrigin}\u0000${path}`
+      : null;
+  if (requestKey) {
+    const existing = inFlightGets.get(requestKey);
+    if (existing) return existing as Promise<T>;
+  }
+
+  const pending = request<T>(path, method, body, apiOrigin).then(
+    ({ data }) => data,
+  );
+  if (requestKey) {
+    inFlightGets.set(requestKey, pending);
+    const clearRequest = () => {
+      if (inFlightGets.get(requestKey) === pending)
+        inFlightGets.delete(requestKey);
+    };
+    void pending.then(clearRequest, clearRequest);
+  }
+  return pending;
 }
 
 export async function apiRead<T>(

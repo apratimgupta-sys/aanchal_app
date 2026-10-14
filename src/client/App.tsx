@@ -7,13 +7,14 @@ import DailyEntry from "./pages/DailyEntry";
 import Dashboard from "./pages/Dashboard";
 import ChangeHistory from "./pages/ChangeHistory";
 import InitialBalances from "./pages/InitialBalances";
+import { portalPath, portalRoute } from "./portal-path";
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
   );
   const [session, setSession] = useState<UserSession | null>(null),
     [loading, setLoading] = useState(true),
-    [pathname, setPathname] = useState(window.location.pathname),
+    [pathname, setPathname] = useState(() => portalRoute(window.location.pathname)),
     [setup, setSetup] = useState<Setup | null | undefined>(undefined),
     [entryDirty, setEntryDirty] = useState(false),
     [entryReset, setEntryReset] = useState(0),
@@ -43,9 +44,10 @@ export default function App() {
   }
   function navigate(path: string, replace = false, preserveDraft = false) {
     if (!mayNavigate(path, preserveDraft)) return;
-    if (window.location.pathname !== path) {
-      if (replace) window.history.replaceState({}, "", path);
-      else window.history.pushState({}, "", path);
+    if (pathname !== path) {
+      const nextUrl = portalPath(path);
+      if (replace) window.history.replaceState({}, "", nextUrl);
+      else window.history.pushState({}, "", nextUrl);
     }
     setPathname(path);
   }
@@ -72,9 +74,9 @@ export default function App() {
   }, [lang]);
   useEffect(() => {
     const onPopState = () => {
-      const next = window.location.pathname;
+      const next = portalRoute(window.location.pathname);
       if (!mayNavigate(next)) {
-        window.history.pushState({}, "", pathname);
+        window.history.pushState({}, "", portalPath(pathname));
         return;
       }
       setPathname(next);
