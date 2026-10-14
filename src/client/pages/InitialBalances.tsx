@@ -1,24 +1,52 @@
 import { Field, Input, Panel, Notice } from "../ui";
 import { useState, useContext, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
+const balanceSchema = z.object({
+  date: z.string().min(1, "Reporting start date is required"),
+  confirmed: z.boolean().refine((value) => value, "Please confirm the opening balances"),
+  balances: z.array(z.object({
+    serviceId: z.number(),
+    opening: z.object({
+      service: z.number().int().min(0),
+      complaints: z.number().int().min(0),
+      field: z.number().int().min(0),
+    }),
+  })).length(25),
+});
+type BalanceForm = z.infer<typeof balanceSchema>;
 export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
   const t = useText(),
     lang = useContext(Language);
   const intent = useRef<MutationIntent | null>(null);
-  const [date, setDate] = useState(todayIST()),
-    [balances, setBalances] = useState(
-      services.map((s) => ({
-        serviceId: s.id,
-        opening: { service: 0, complaints: 0, field: 0 },
-      })),
-    ),
-    [confirmed, setConfirmed] = useState(false),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm<BalanceForm>({
+    resolver: zodResolver(balanceSchema),
+    defaultValues: { date: todayIST(), confirmed: false, balances: services.map((s) => ({ serviceId: s.id, opening: { service: 0, complaints: 0, field: 0 } })) },
+  });
+  const date = watch("date");
+  const balances = watch("balances");
+  const confirmed = watch("confirmed");
+  const onSubmit = async (values: BalanceForm) => {
+    setError("");
+    try {
+      const command = { expectedVersion: null, startDate: values.date, balances: values.balances, reason: null };
+      intent.current = mutationIntent(intent.current, command);
+      await api("/office/setup", "PUT", { ...command, requestId: intent.current.requestId });
+      toast.success(t("Opening balances saved", "प्रारंभिक शेष सहेजे गए"));
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+      toast.error(t("Could not save opening balances", "प्रारंभिक शेष सहेजे नहीं जा सके"));
+    }
+  };
   return (
     <Panel className="panel">
       <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
@@ -37,39 +65,14 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
           "रिपोर्टिंग प्रारंभ तिथि से पहले सभी 25 सेवाओं के लंबित कार्य, शिकायतें और क्षेत्रीय कार्य की पुष्टि करें। ये शेष स्वतः आगे बढ़ेंगे।",
         )}
       </p>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError("");
-          try {
-            const command = {
-              expectedVersion: null,
-              startDate: date,
-              balances,
-              reason: null,
-            };
-            intent.current = mutationIntent(intent.current, command);
-            await api("/office/setup", "PUT", {
-              ...command,
-              requestId: intent.current.requestId,
-            });
-            onSaved();
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Field className="short-field">
           {t("Reporting start date", "रिपोर्टिंग प्रारंभ तिथि")}
           <input
             type="date"
             required
             max={todayIST()}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            {...register("date")}
           />
         </Field>
         <div className="table-wrap ux4g-table-responsive">
@@ -100,25 +103,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
                         min="0"
                         max="1000000000"
                         step="1"
-                        value={balances[i].opening[k]}
-                        onChange={(e) =>
-                          setBalances(
-                            balances.map((b, j) =>
-                              j === i
-                                ? {
-                                    ...b,
-                                    opening: {
-                                      ...b.opening,
-                                      [k]:
-                                        e.target.value === ""
-                                          ? NaN
-                                          : Number(e.target.value),
-                                    },
-                                  }
-                                : b,
-                            ),
-                          )
-                        }
+                        {...register(`balances.${i}.opening.${k}`, { valueAsNumber: true })}
                       />
                     </td>
                   ))}
@@ -130,8 +115,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
         <Field className="checkbox">
           <input
             type="checkbox"
-            checked={confirmed}
-            onChange={(e) => setConfirmed(e.target.checked)}
+            {...register("confirmed")}
           />
           {t(
             "I confirm all opening balances, including zero balances.",
@@ -145,9 +129,9 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
         )}
         <button
           className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
-          disabled={!confirmed || busy}
+          disabled={!confirmed || isSubmitting}
         >
-          {busy
+          {isSubmitting
             ? t("Saving…", "सहेजा जा रहा है…")
             : t("Save opening balances", "प्रारंभिक शेष सहेजें")}
         </button>

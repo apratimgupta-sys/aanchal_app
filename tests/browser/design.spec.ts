@@ -306,7 +306,7 @@ test("office routes gate first login on setup and separate today from backdating
   await expect(page).toHaveURL(/\/office\/today$/);
   await expect(
     page.getByRole("button", { name: "Change History", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.reload();
   await expect(page).toHaveURL(/\/office\/today$/);
   await page.goto("/office/setup");
@@ -329,10 +329,6 @@ test("office routes gate first login on setup and separate today from backdating
   await expect(page).toHaveURL(/\/office\/today$/);
   await page.goForward();
   await expect(page).toHaveURL(/\/office\/backdate$/);
-  await page
-    .getByRole("button", { name: "Change History", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/office\/history$/);
   const readsBeforeUnavailableDate = entryReads;
   reportingStartDate = todayIST();
   await page.goto("/office/backdate");

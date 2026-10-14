@@ -1,44 +1,38 @@
 import { Field, Panel, Notice } from "../ui";
-import { useState, useContext } from "react";
+import { useContext } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { api } from "../api";
 import { useText, Language, runtimeText } from "../i18n";
+const loginSchema = z.object({
+  username: z.string().trim().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+type LoginValues = z.infer<typeof loginSchema>;
 export default function Login({ onLogin }: { onLogin: () => void }) {
   const t = useText(),
     lang = useContext(Language);
-  const [username, setUsername] = useState(""),
-    [password, setPassword] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { username: "", password: "" } });
+  const onSubmit = async (values: LoginValues) => {
+    try {
+      await api("/login", "POST", values);
+      toast.success(t("Signed in successfully", "सफलतापूर्वक प्रवेश हुआ"));
+      onLogin();
+    } catch (e) {
+      const message = (e as Error).message;
+      setError("root", { message });
+      toast.error(t("Sign in failed", "प्रवेश असफल"));
+    }
+  };
   return (
     <main id="main-content" tabIndex={-1} className="login-layout">
-      <section className="login-intro">
-        <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
-          RANCHI MUNICIPAL CORPORATION
-        </div>
-        <h1 className="ux4g-display-s-strong">
-          {t(
-            "One place for daily reporting.",
-            "दैनिक रिपोर्टिंग के लिए एक पोर्टल।",
-          )}
-        </h1>
-        <p>{t("Anchal office monitoring", "अंचल कार्यालय निगरानी")}</p>
-        <div className="intro-rule ux4g-divider-horizontal" />
-        <p className="intro-note ux4g-body-m-default ux4g-text-neutral-secondary">
-          {t(
-            "Daily service entries, outstanding work and commissioner review.",
-            "दैनिक सेवा प्रविष्टियाँ, लंबित कार्य और आयुक्त समीक्षा।",
-          )}
-        </p>
-        <div className="intro-meta ux4g-label-l-default ux4g-text-neutral-secondary ux4g-d-flex ux4g-gap-x-l ux4g-mt-l">
-          <span>06 {t("Anchal offices", "अंचल कार्यालय")}</span>
-          <span>25 {t("Municipal services", "नगर निगम सेवाएँ")}</span>
-        </div>
-      </section>
       <Panel className="login-card">
-        <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
+        <div className="eyebrow ui-eyebrow">
           {t("AUTHORIZED OFFICE ACCESS", "अधिकृत कार्यालय प्रवेश")}
         </div>
-        <h2 className="ux4g-heading-m-strong">
+        <h2 className="ui-heading">
           {t("Office sign in", "कार्यालय लॉगिन")}
         </h2>
         <p>
@@ -47,55 +41,39 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             "अपने अंचल कार्यालय या आयुक्त खाते से प्रवेश करें।",
           )}
         </p>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError("");
-            try {
-              await api("/login", "POST", { username, password });
-              onLogin();
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <Field>
             {t("Username", "उपयोगकर्ता नाम")}
             <input
               autoComplete="username"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              {...register("username")}
             />
+            {errors.username && <span className="field-error">{t("Username is required", "उपयोगकर्ता नाम आवश्यक है")}</span>}
           </Field>
           <Field>
             {t("Password", "पासवर्ड")}
             <input
               type="password"
               autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register("password")}
             />
+            {errors.password && <span className="field-error">{t("Password is required", "पासवर्ड आवश्यक है")}</span>}
           </Field>
-          {error && (
+          {errors.root && (
             <Notice className="message" role="alert">
-              {runtimeText(error, lang)}
+              {runtimeText(errors.root.message ?? "", lang)}
             </Notice>
           )}
           <button
-            className="ux4g-btn ux4g-btn-l ux4g-btn-primary full ux4g-w-100"
-            disabled={busy}
+            className="ui-button ui-button-primary full"
+            disabled={isSubmitting}
           >
-            {busy
+            {isSubmitting
               ? t("Signing in…", "प्रवेश जारी…")
               : t("Sign in →", "लॉगिन →")}
           </button>
         </form>
-        <p className="small ux4g-body-xs-default ux4g-text-neutral-secondary">
+        <p className="small ui-muted-copy">
           {t(
             "Each Anchal uses one shared office account. Contact your portal administrator for access.",
             "प्रत्येक अंचल का एक साझा कार्यालय खाता है। प्रवेश के लिए पोर्टल प्रशासक से संपर्क करें।",
