@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/anchal/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/anchal/rmc-logo.jpg",
+      "destination": "/rmc-logo.jpg"
+    },
+    {
       "source": "/((?!api/|assets/).*)",
       "destination": "/index.html"
     }
