@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/v1/api/anchal/:path*",
+      "destination": "https://anchal-backend-staging.onrender.com/v1/api/anchal/:path*"
+    },
+    {
       "source": "/anchal/assets/:path*",
       "destination": "/assets/:path*"
     },

@@ -15,4 +15,11 @@ describe("Vercel subpath deployment", () => {
       destination: "/assets/:path*",
     });
   });
+
+  it("proxies Anchal API requests to the staging backend host", () => {
+    expect(vercelConfig.rewrites).toContainEqual({
+      source: "/v1/api/anchal/:path*",
+      destination: "https://anchal-backend-staging.onrender.com/v1/api/anchal/:path*",
+    });
+  });
 });
