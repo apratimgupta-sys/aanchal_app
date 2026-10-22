@@ -11,6 +11,7 @@ import type {
 import services from "../../shared/services.json";
 import { todayIST, parseMoney, applyActivity } from "../../domain/ledger";
 import { api, RequestError } from "../api";
+import { normalizeFieldErrors } from "../field-errors";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { formatIndiaDateTime } from "../lib/dates";
@@ -97,6 +98,7 @@ export default function DailyEntry({
     [money, setMoney] = useState("0.00"),
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
+    [canReload, setCanReload] = useState(false),
     [fields, setFields] = useState<Record<string, string>>({}),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -149,6 +151,7 @@ export default function DailyEntry({
       return p;
     } catch (e) {
       setError((e as Error).message);
+      setCanReload(true);
       return null;
     }
   }
@@ -166,7 +169,10 @@ export default function DailyEntry({
         if (active) setData(p);
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (active) {
+          setError(e.message);
+          setCanReload(true);
+        }
       });
     return () => {
       active = false;
@@ -415,6 +421,7 @@ export default function DailyEntry({
               }
               setBusy(true);
               setError("");
+              setCanReload(false);
               setFields({});
               try {
                 const checked = entryClientSchema.safeParse(input);
@@ -459,9 +466,14 @@ export default function DailyEntry({
                 toast.success(t("Entry saved", "प्रविष्टि सहेजी गई"));
               } catch (e) {
                 setError((e as Error).message);
+                setCanReload(
+                  e instanceof RequestError
+                    ? Object.keys(e.detail.fieldErrors ?? {}).length === 0
+                    : e instanceof TypeError,
+                );
                 toast.error(t("Could not save entry", "प्रविष्टि सहेजी नहीं जा सकी"));
                 if (e instanceof RequestError)
-                  setFields(e.detail.fieldErrors ?? {});
+                  setFields(normalizeFieldErrors(e.detail.fieldErrors));
               } finally {
                 setBusy(false);
               }
@@ -548,6 +560,7 @@ export default function DailyEntry({
               </Field>
               <Field>
                 {t("Avg Disposal Days", "औसत निस्तारण दिन")}
+                {input.completed > 0 && " *"}
                 <input
                   readOnly={!!saved && !editingEntry}
                   type="number"
@@ -617,16 +630,18 @@ export default function DailyEntry({
             {error && (
               <Notice className="message" role="alert">
                 {runtimeText(error, lang)}
-                <button
-                  className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-                  type="button"
-                  onClick={() => {
-                    setDirty(false);
-                    void load();
-                  }}
-                >
-                  {t("Reload latest entry", "नवीनतम प्रविष्टि लोड करें")}
-                </button>
+                {canReload && (
+                  <button
+                    className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+                    type="button"
+                    onClick={() => {
+                      setDirty(false);
+                      void load();
+                    }}
+                  >
+                    {t("Reload latest entry", "नवीनतम प्रविष्टि लोड करें")}
+                  </button>
+                )}
               </Notice>
             )}
             {message && (

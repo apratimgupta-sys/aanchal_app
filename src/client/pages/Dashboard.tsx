@@ -51,7 +51,14 @@ export default function Dashboard() {
       setUpdated(dashboardQuery.data.updatedAt);
       setError("");
     }
-    if (dashboardQuery.error) setError((dashboardQuery.error as Error).message);
+    if (dashboardQuery.error) {
+      setError((dashboardQuery.error as Error).message);
+      const status = (dashboardQuery.error as { status?: number }).status;
+      if (status !== undefined && status >= 400 && status < 500) {
+        setRows([]);
+        setUpdated("");
+      }
+    }
     loadRef.current = () => void dashboardQuery.refetch();
   }, [dashboardQuery.data, dashboardQuery.error, dashboardQuery.refetch]);
   useEffect(() => {
@@ -285,7 +292,12 @@ export default function Dashboard() {
       </Panel>
       {error && (
         <Notice role="alert" className="message">
-          {runtimeText(error, lang)}
+          {from > to
+            ? t(
+                "Start date must be on or before the end date.",
+                "आरंभ तिथि समाप्ति तिथि से पहले या उसी दिन होनी चाहिए।",
+              )
+            : runtimeText(error, lang)}
         </Notice>
       )}
       <div className="metrics">
@@ -313,7 +325,7 @@ export default function Dashboard() {
             {totals.submitted} / {totals.expected} {t("reports", "रिपोर्ट")}
           </span>
         </div>
-        <div className="table-wrap ux4g-table-responsive">
+        <div className="table-wrap ux4g-table-responsive" tabIndex={0} aria-label={t("Anchal-wise performance table", "अंचलवार प्रदर्शन तालिका")}>
           <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows monitoring-table">
             <thead>
               <tr>
@@ -427,7 +439,7 @@ export default function Dashboard() {
               {t("Close", "बंद करें")}
             </button>
           </div>
-          <div className="table-wrap ux4g-table-responsive">
+          <div className="table-wrap ux4g-table-responsive" tabIndex={0} aria-label={t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका")}>
             <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
               <thead>
                 <tr>

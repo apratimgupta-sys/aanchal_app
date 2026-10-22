@@ -6,3 +6,5 @@ dist/
 .superpowers/
 playwright-report/
 test-results/
+.apna-ranchi-worktrees/
+.playwright-cli/

@@ -173,7 +173,11 @@ export default function App() {
           <p>{text("Loading portal…", "पोर्टल लोड हो रहा है…")}</p>
         </main>
       ) : !session ? (
-        <Login onLogin={() => void refresh()} />
+        <Login
+          onLogin={() => void refresh()}
+          onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
+          languageLabel={lang === "en" ? "हिन्दी" : "English"}
+        />
       ) : session.role === "office" && setup === undefined ? (
         <main id="main-content" tabIndex={-1} className="workspace">
           <p>

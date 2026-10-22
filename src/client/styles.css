@@ -451,7 +451,7 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .page-heading, .section-heading { border-bottom: 1px solid hsl(211 64% 23% / .14); padding-bottom: 1rem; }
 .page-heading h1, .section-heading h2, .login-intro h1 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
 .page-heading h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: .98; }
-.eyebrow, .ui-eyebrow { color: hsl(39 84% 39%); letter-spacing: .14em; }
+.eyebrow, .ui-eyebrow { color: hsl(var(--muted-foreground)); letter-spacing: .14em; }
 .ui-card { border-color: hsl(211 64% 23% / .14); border-radius: .8rem; box-shadow: 0 14px 40px hsl(211 64% 23% / .08); }
 .ui-card-body { padding: clamp(1.4rem, 3vw, 2.5rem); }
 .ui-button-primary, .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-radius: .45rem; box-shadow: 0 8px 16px hsl(211 64% 23% / .16); }
@@ -461,6 +461,8 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .details-trigger { margin-top: 1.5rem; }
 .ui-input, .ui-field input, .ui-field select, .ui-field textarea { background: hsl(0 0% 100% / .78); border-color: hsl(211 64% 23% / .22); border-radius: .45rem; }
 .ui-input:focus, .ui-field input:focus, .ui-field select:focus, .ui-field textarea:focus { border-color: hsl(39 84% 48%); box-shadow: 0 0 0 3px hsl(39 84% 58% / .2); outline: 0; }
+.ui-input:focus-visible, .ui-field input:focus-visible, .ui-field select:focus-visible, .ui-field textarea:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 .login-layout { max-width: 75rem; gap: clamp(2rem, 8vw, 7rem); }
 .login-layout { min-height: calc(100vh - 4rem); display: grid; grid-template-columns: minmax(0, 30rem); place-content: center; margin: 0 auto; padding: 2rem 1rem; }
 .login-intro h1 { font-size: clamp(3rem, 7vw, 6.2rem); max-width: 8ch; }
@@ -594,7 +596,24 @@ select {
 .monitoring-table tbody tr, .details-panel tbody tr { border-bottom: 1px solid hsl(var(--border)); }
 .page-heading p, .section-heading p, .table-notes { margin-top: .75rem; line-height: 1.6; }
 .table-wrap { margin-top: 1.25rem; }
-.section-eyebrow { color: hsl(39 84% 39%); font-size: .7rem; font-weight: 700; letter-spacing: .14em; margin-bottom: .5rem; }
+.section-eyebrow { color: hsl(var(--muted-foreground)); font-size: .7rem; font-weight: 700; letter-spacing: .14em; margin-bottom: .5rem; }
+[data-title=""] { color: hsl(var(--foreground)); }
+.setup-panel { max-width: 100%; }
+.setup-heading { align-items: flex-end; }
+.setup-intro { max-width: 72ch; color: hsl(var(--muted-foreground)); line-height: 1.65; margin: 0 0 1.75rem; }
+.setup-form { display: grid; gap: 1.5rem; }
+.setup-date { max-width: 22rem; }
+.setup-table-wrap { margin: 0; border: 1px solid hsl(var(--border)); border-radius: .75rem; overflow: auto; background: hsl(var(--card)); }
+.setup-table { width: 100%; min-width: 52rem; border-collapse: separate; border-spacing: 0; }
+.setup-table th { background: hsl(211 64% 23%); color: white; font-size: .78rem; letter-spacing: .02em; text-align: left; padding: .9rem 1rem; white-space: nowrap; }
+.setup-table th:first-child { width: 42%; }
+.setup-table td { padding: .55rem 1rem; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; }
+.setup-table tbody tr:nth-child(even) { background: hsl(211 64% 23% / .03); }
+.setup-table .service-number { display: inline-grid; place-items: center; width: 2rem; height: 2rem; margin-right: .7rem; border-radius: .4rem; background: hsl(211 64% 23% / .08); color: hsl(var(--primary)); font: 700 .75rem/1 "IBM Plex Mono", monospace; }
+.setup-table .ui-input { min-width: 8rem; text-align: right; }
+.setup-confirmation { padding: 1rem 1.15rem; border: 1px solid hsl(var(--border)); border-radius: .65rem; background: hsl(var(--muted) / .55); }
+.setup-actions { display: flex; justify-content: flex-end; padding-top: .25rem; }
+@media (max-width: 700px) { .setup-panel .ui-card-body { padding: 1.25rem; } .setup-heading { align-items: start; } .setup-table th, .setup-table td { padding: .65rem .75rem; } }
 .page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .section-title { margin: 0; line-height: 1.15; }
 .section-subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; color: hsl(var(--muted-foreground)); margin: .65rem 0 0; font-size: .9rem; }

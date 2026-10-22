@@ -1,23 +1,36 @@
 import { Field, Input, Panel, Notice } from "../ui";
 import { useState, useContext, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Path } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { api } from "../api";
+import { api, RequestError } from "../api";
+import { setupErrorTarget } from "../field-errors";
 import { Language, useText, runtimeText } from "../i18n";
-const balanceSchema = z.object({
-  date: z.string().min(1, "Reporting start date is required"),
+const validCalendarDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+const balanceNumber = z
+  .number({ message: "Enter a whole number from 0 to 1,000,000,000" })
+  .int("Enter a whole number")
+  .min(0, "Enter a number of 0 or more")
+  .max(1_000_000_000, "Enter a number up to 1,000,000,000");
+export const balanceSchema = z.object({
+  date: z
+    .string()
+    .min(1, "Reporting start date is required")
+    .refine((value) => value === "" || validCalendarDate(value), "Enter a valid date")
+    .refine((value) => !validCalendarDate(value) || value <= todayIST(), "Reporting start date cannot be in the future"),
   confirmed: z.boolean().refine((value) => value, "Please confirm the opening balances"),
   balances: z.array(z.object({
     serviceId: z.number(),
     opening: z.object({
-      service: z.number().int().min(0),
-      complaints: z.number().int().min(0),
-      field: z.number().int().min(0),
+      service: balanceNumber,
+      complaints: balanceNumber,
+      field: balanceNumber,
     }),
   })).length(25),
 });
@@ -27,7 +40,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
     lang = useContext(Language);
   const intent = useRef<MutationIntent | null>(null);
   const [error, setError] = useState("");
-  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm<BalanceForm>({
+  const { register, handleSubmit, watch, setError: setFieldError, formState: { isSubmitting, errors } } = useForm<BalanceForm>({
     resolver: zodResolver(balanceSchema),
     defaultValues: { date: todayIST(), confirmed: false, balances: services.map((s) => ({ serviceId: s.id, opening: { service: 0, complaints: 0, field: 0 } })) },
   });
@@ -44,39 +57,52 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
       onSaved();
     } catch (e) {
       setError((e as Error).message);
+      if (e instanceof RequestError)
+        for (const [key, message] of Object.entries(e.detail.fieldErrors ?? {})) {
+          const target = setupErrorTarget(key);
+          if (target) setFieldError(target as Path<BalanceForm>, { message });
+        }
       toast.error(t("Could not save opening balances", "प्रारंभिक शेष सहेजे नहीं जा सके"));
     }
   };
+  const onInvalid = () => {
+    setError(t("Please correct the highlighted fields.", "कृपया चिह्नित फ़ील्ड ठीक करें।"));
+    toast.error(t("Could not save opening balances", "प्रारंभिक शेष सहेजे नहीं जा सके"));
+  };
   return (
-    <Panel className="panel">
-      <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
+    <Panel className="panel setup-panel">
+      <div className="section-heading setup-heading">
         <div>
-          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
+          <div className="eyebrow">
             {t("OFFICE SETUP", "कार्यालय सेटअप")}
           </div>
-          <h2 className="ux4g-heading-m-strong">
+          <h2 className="section-title">
             {t("Set opening balances", "प्रारंभिक शेष दर्ज करें")}
           </h2>
         </div>
       </div>
-      <p>
+      <p className="setup-intro">
         {t(
           "Confirm pending service work, complaints and field tasks for all 25 services before the reporting start date. These balances carry forward automatically.",
           "रिपोर्टिंग प्रारंभ तिथि से पहले सभी 25 सेवाओं के लंबित कार्य, शिकायतें और क्षेत्रीय कार्य की पुष्टि करें। ये शेष स्वतः आगे बढ़ेंगे।",
         )}
       </p>
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Field className="short-field">
+      <form className="setup-form" onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
+        <Field className="short-field setup-date">
           {t("Reporting start date", "रिपोर्टिंग प्रारंभ तिथि")}
           <input
             type="date"
             required
             max={todayIST()}
+            aria-invalid={errors.date ? true : undefined}
             {...register("date")}
           />
+          {errors.date && (
+            <small className="field-error">{runtimeText(errors.date.message ?? "", lang)}</small>
+          )}
         </Field>
-        <div className="table-wrap ux4g-table-responsive">
-          <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
+        <div className="table-wrap setup-table-wrap" tabIndex={0} aria-label={t("Opening balances table", "प्रारंभिक शेष तालिका")}>
+          <table className="setup-table">
             <thead>
               <tr>
                 <th>{t("Service", "सेवा")}</th>
@@ -89,7 +115,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
               {services.map((s, i) => (
                 <tr key={s.id}>
                   <td>
-                    <span className="service-number ux4g-label-m-default ux4g-text-neutral-secondary">
+                    <span className="service-number">
                       {String(s.id).padStart(2, "0")}
                     </span>
                     {lang === "hi" ? s.name : s.en}
@@ -103,8 +129,14 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
                         min="0"
                         max="1000000000"
                         step="1"
+                        aria-invalid={errors.balances?.[i]?.opening?.[k] ? true : undefined}
                         {...register(`balances.${i}.opening.${k}`, { valueAsNumber: true })}
                       />
+                      {errors.balances?.[i]?.opening?.[k] && (
+                        <small className="field-error">
+                          {runtimeText(errors.balances[i]?.opening?.[k]?.message ?? "", lang)}
+                        </small>
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -112,7 +144,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
             </tbody>
           </table>
         </div>
-        <Field className="checkbox">
+        <Field className="checkbox setup-confirmation">
           <input
             type="checkbox"
             {...register("confirmed")}
@@ -127,14 +159,13 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
             {runtimeText(error, lang)}
           </Notice>
         )}
-        <button
-          className="ux4g-btn ux4g-btn-l ux4g-btn-primary "
-          disabled={!confirmed || isSubmitting}
-        >
+        <div className="setup-actions">
+          <button className="ui-button ui-button-primary" disabled={!confirmed || isSubmitting}>
           {isSubmitting
             ? t("Saving…", "सहेजा जा रहा है…")
             : t("Save opening balances", "प्रारंभिक शेष सहेजें")}
-        </button>
+          </button>
+        </div>
       </form>
     </Panel>
   );

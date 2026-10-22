@@ -7,6 +7,17 @@ export function useText() {
 }
 const runtimeHindi: Record<string, string> = {
   "Initial balances not configured": "प्रारंभिक शेष दर्ज नहीं हैं",
+  "Enter a valid value": "वैध मान दर्ज करें",
+  "Enter a valid date": "वैध तिथि दर्ज करें",
+  "Reporting start date is required": "रिपोर्टिंग प्रारंभ तिथि आवश्यक है",
+  "Reporting start date cannot be in the future": "रिपोर्टिंग प्रारंभ तिथि भविष्य की नहीं हो सकती",
+  "Enter a whole number from 0 to 1,000,000,000": "0 से 1,000,000,000 के बीच पूर्ण संख्या दर्ज करें",
+  "Enter a whole number": "पूर्ण संख्या दर्ज करें",
+  "Enter a number of 0 or more": "0 या उससे अधिक संख्या दर्ज करें",
+  "Enter a number up to 1,000,000,000": "अधिकतम 1,000,000,000 तक संख्या दर्ज करें",
+  "Completed cannot exceed received": "निस्तारित प्राप्त से अधिक नहीं हो सकते",
+  "Resolved complaints cannot exceed received": "निस्तारित शिकायतें प्राप्त शिकायतों से अधिक नहीं हो सकतीं",
+  "Completed field tasks cannot exceed received": "पूर्ण क्षेत्रीय कार्य प्राप्त कार्यों से अधिक नहीं हो सकते",
   "Pending > 10": "लंबित कार्य > 10",
   "Disposal < 90%": "निस्तारण < 90%",
   "SLA < 90%": "समय सीमा में निस्तारण < 90%",
