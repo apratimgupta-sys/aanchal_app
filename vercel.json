@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/v1/api/anchal/:path*",
+      "destination": "https://anchal-backend-staging.onrender.com/v1/api/anchal/:path*"
+    },
+    {
+      "source": "/anchal/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/anchal/rmc-logo.jpg",
+      "destination": "/rmc-logo.jpg"
+    },
+    {
       "source": "/((?!api/|assets/).*)",
       "destination": "/index.html"
     }

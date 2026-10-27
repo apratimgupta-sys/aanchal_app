@@ -11,7 +11,15 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 type LoginValues = z.infer<typeof loginSchema>;
-export default function Login({ onLogin }: { onLogin: () => void }) {
+export default function Login({
+  onLogin,
+  onLanguageToggle,
+  languageLabel,
+}: {
+  onLogin: () => void;
+  onLanguageToggle: () => void;
+  languageLabel: string;
+}) {
   const t = useText(),
     lang = useContext(Language);
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { username: "", password: "" } });
@@ -29,6 +37,15 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   return (
     <main id="main-content" tabIndex={-1} className="login-layout">
       <Panel className="login-card">
+        <div className="login-actions">
+          <button
+            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+            type="button"
+            onClick={onLanguageToggle}
+          >
+            {languageLabel}
+          </button>
+        </div>
         <div className="eyebrow ui-eyebrow">
           {t("AUTHORIZED OFFICE ACCESS", "अधिकृत कार्यालय प्रवेश")}
         </div>
