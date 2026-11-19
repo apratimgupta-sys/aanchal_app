@@ -133,5 +133,28 @@ test.describe("field visit module", () => {
     await page.getByLabel("Reason").fill("Filed against the wrong ward");
     await page.getByRole("button", { name: "Confirm void" }).click();
     await expect(page.getByText(/Voided: Filed against the wrong ward/)).toBeVisible();
+
+    // The spec requires a voided record to read as struck through, not merely
+    // to carry a class name.
+    const row = page.getByTestId("visit-v1");
+    await expect(row).toHaveClass(/is-voided/);
+    const decoration = await row.evaluate(
+      (node) => getComputedStyle(node).textDecorationLine,
+    );
+    expect(decoration).toContain("line-through");
+  });
+
+  test("the void dialog is reachable without hunting for it", async ({ page }) => {
+    await signedInAs(page, COMMISSIONER_SESSION);
+    await page.route("**/v1/api/anchal/field-visits?*", (route) =>
+      route.fulfill({ json: { rows: [storedVisit()], total: 1 } }),
+    );
+    await page.route("**/v1/api/anchal/officers", (route) => route.fulfill({ json: [] }));
+
+    await page.goto("/anchal/commissioner/visits");
+    await page.getByRole("button", { name: "Void", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeInViewport();
+    await expect(dialog.getByLabel("Reason")).toBeFocused();
   });
 });

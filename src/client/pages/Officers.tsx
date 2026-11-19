@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OfficerProfile } from "../../shared/types";
 import {
@@ -6,15 +6,23 @@ import {
   listOfficers,
   resetOfficerPassword,
   setOfficerActive,
+  type NewOfficer,
 } from "../officers";
-import { useText } from "../i18n";
+import { Language, runtimeText, useText } from "../i18n";
 import { Field, Notice, Panel } from "../ui";
+import { RequestError } from "../api";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 
 export default function Officers() {
   const text = useText();
+  const lang = useContext(Language);
   const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const failed = (fallback: string) => (error: unknown) =>
+    setActionError(
+      error instanceof RequestError ? runtimeText(error.detail.message, lang) : fallback,
+    );
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [designation, setDesignation] = useState("");
@@ -22,6 +30,7 @@ export default function Officers() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState<OfficerProfile | null>(null);
+  const [resetting, setResetting] = useState<OfficerProfile | null>(null);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["officers"],
@@ -31,8 +40,10 @@ export default function Officers() {
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["officers"] });
 
   const create = useMutation({
-    mutationFn: createOfficer,
+    mutationFn: (officer: NewOfficer) => createOfficer(officer),
+    onError: failed(text("Could not add the officer. Try again.", "अधिकारी जोड़ा नहीं जा सका। पुनः प्रयास करें।")),
     onSuccess: (result) => {
+      setActionError(null);
       setTemporaryPassword(result.temporaryPassword);
       setUsername("");
       setName("");
@@ -43,15 +54,22 @@ export default function Officers() {
 
   const active = useMutation({
     mutationFn: ({ id, next }: { id: string; next: boolean }) => setOfficerActive(id, next),
+    onError: failed(text("Could not change the officer. Try again.", "अधिकारी नहीं बदला जा सका। पुनः प्रयास करें।")),
     onSuccess: () => {
+      setActionError(null);
       setDeactivating(null);
       refresh();
     },
   });
 
   const reset = useMutation({
-    mutationFn: resetOfficerPassword,
-    onSuccess: (result) => setTemporaryPassword(result.temporaryPassword),
+    mutationFn: (id: string) => resetOfficerPassword(id),
+    onError: failed(text("Could not reset the password. Try again.", "पासवर्ड रीसेट नहीं हो सका। पुनः प्रयास करें।")),
+    onSuccess: (result) => {
+      setActionError(null);
+      setResetting(null);
+      setTemporaryPassword(result.temporaryPassword);
+    },
   });
 
   function add() {
@@ -74,6 +92,8 @@ export default function Officers() {
     <main id="main-content" tabIndex={-1} className="workspace">
       <Panel>
         <h1>{text("Field officers", "क्षेत्रीय अधिकारी")}</h1>
+
+        {actionError && <Notice>{actionError}</Notice>}
 
         {temporaryPassword && (
           <Notice role="status">
@@ -163,13 +183,42 @@ export default function Officers() {
                 <button
                   type="button"
                   className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
-                  onClick={() => reset.mutate(row.id)}
+                  onClick={() => {
+                    setActionError(null);
+                    setResetting(row);
+                  }}
                 >
                   {text("Reset password", "पासवर्ड रीसेट करें")}
                 </button>
               </li>
             ))}
           </ul>
+        )}
+
+        {resetting && (
+          <div className="void-dialog" role="dialog" aria-label={text("Reset password", "पासवर्ड रीसेट करें")}>
+            <p>
+              {text(
+                `${resetting.name} will not be able to sign in with their current password. Hand them the new one.`,
+                `${resetting.name} अपने वर्तमान पासवर्ड से लॉगिन नहीं कर सकेंगे। उन्हें नया पासवर्ड दें।`,
+              )}
+            </p>
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
+              onClick={() => reset.mutate(resetting.id)}
+              disabled={reset.isPending}
+            >
+              {text("Confirm", "पुष्टि करें")}
+            </button>
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+              onClick={() => setResetting(null)}
+            >
+              {text("Cancel", "रद्द करें")}
+            </button>
+          </div>
         )}
 
         {deactivating && (

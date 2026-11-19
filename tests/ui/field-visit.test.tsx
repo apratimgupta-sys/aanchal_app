@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
 import FieldVisit from "../../src/client/pages/FieldVisit";
@@ -33,10 +33,10 @@ const goodReading = {
   capturedAt: "2026-11-19T05:00:00.000Z",
 };
 
-function renderForm(lang: "en" | "hi" = "en") {
+function renderForm(lang: "en" | "hi" = "en", clock?: () => Date) {
   render(
     <Language.Provider value={lang}>
-      <FieldVisit officer={officer} today="2026-11-19" />
+      <FieldVisit officer={officer} today="2026-11-19" clock={clock} />
     </Language.Provider>,
   );
 }
@@ -152,5 +152,124 @@ describe("FieldVisit", () => {
   it("renders its labels in Hindi", () => {
     renderForm("hi");
     expect(screen.getByRole("button", { name: /स्थान कैप्चर करें/ })).toBeTruthy();
+  });
+});
+
+describe("FieldVisit — review findings", () => {
+  it("files one visit when submit is pressed twice in quick succession", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    let resolveCreate: (value: unknown) => void = () => {};
+    createVisit.mockImplementation(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    renderForm();
+    await fillAndCapture(user);
+    const submit = screen.getByRole("button", { name: /submit/i });
+    await user.click(submit);
+    await user.click(submit);
+    resolveCreate({ id: "v1", verifiedOnSite: true });
+
+    await waitFor(() => expect(createVisit).toHaveBeenCalledTimes(1));
+  });
+
+  it("files one visit when two clicks land in the same flush", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockImplementation(() => new Promise(() => {}));
+    renderForm();
+    await fillAndCapture(user);
+    const submit = screen.getByRole("button", { name: /submit/i });
+    // Two taps before React commits the disabled state — the case a request id exists for.
+    await act(async () => {
+      fireEvent.click(submit);
+      fireEvent.click(submit);
+    });
+    if (createVisit.mock.calls.length > 1) {
+      expect(createVisit.mock.calls[0][1]).toBe(createVisit.mock.calls[1][1]);
+    } else {
+      expect(createVisit).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("gives both attempts the same request id if two do get through", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockRejectedValue(new Error("network"));
+    renderForm();
+    await fillAndCapture(user);
+    const submit = screen.getByRole("button", { name: /submit/i });
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalledTimes(1));
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalledTimes(2));
+    expect(createVisit.mock.calls[0][1]).toBe(createVisit.mock.calls[1][1]);
+  });
+
+  it("re-reads the clock for the next visit instead of reusing the first one's time", async () => {
+    const user = userEvent.setup();
+    const times = [new Date("2026-11-19T10:30:00"), new Date("2026-11-19T11:40:00")];
+    let call = 0;
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: true });
+    renderForm("en", () => times[Math.min(call++, times.length - 1)]);
+    expect((screen.getByLabelText(/time of visit/i) as HTMLInputElement).value).toBe("10:30");
+    await fillAndCapture(user);
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() =>
+      expect((screen.getByLabelText(/time of visit/i) as HTMLInputElement).value).toBe("11:40"),
+    );
+  });
+
+  it("says why submit is unavailable before a location is captured", () => {
+    renderForm();
+    expect((screen.getByRole("button", { name: /submit/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/capture the location.*before/i)).toBeTruthy();
+  });
+
+  it("warns the officer when the server could not verify the visit on site", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: false });
+    renderForm();
+    await fillAndCapture(user);
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    expect(await screen.findByText(/not verified on site/i)).toBeTruthy();
+  });
+
+  it("does not warn when the visit was verified", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: true });
+    renderForm();
+    await fillAndCapture(user);
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await screen.findByText(/visit recorded/i);
+    expect(screen.queryByText(/not verified on site/i)).toBeNull();
+  });
+
+  it("shows validation messages in Hindi", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    renderForm("hi");
+    await user.click(screen.getByRole("button", { name: /स्थान कैप्चर करें/ }));
+    await waitFor(() => expect(screen.getByText(/±/)).toBeTruthy());
+    await user.click(screen.getByRole("button", { name: /निरीक्षण जमा करें/ }));
+    // The full error string, not the dropdown placeholder that shares a phrase.
+    expect(await screen.findByText("1 से 53 के बीच वार्ड चुनें")).toBeTruthy();
+    expect(screen.queryByText(/Select a ward from/)).toBeNull();
+  });
+
+  it("keeps a good reading when a later capture fails", async () => {
+    const user = userEvent.setup();
+    const { GeolocationCaptureError } = await vi.importActual<
+      typeof import("../../src/client/lib/geolocation")
+    >("../../src/client/lib/geolocation");
+    capturePosition.mockResolvedValueOnce(goodReading);
+    capturePosition.mockRejectedValueOnce(new GeolocationCaptureError("timeout"));
+    renderForm();
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await waitFor(() => expect(screen.getByText(/±\s*18\s*m/)).toBeTruthy());
+    await user.click(screen.getByRole("button", { name: /capture location again/i }));
+    expect(await screen.findByText(/took too long/i)).toBeTruthy();
+    expect(screen.getByText(/±\s*18\s*m/)).toBeTruthy();
   });
 });

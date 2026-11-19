@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useContext, useState, type FormEvent } from "react";
 import { api, RequestError } from "../api";
-import { useText } from "../i18n";
+import { Language, runtimeText, useText } from "../i18n";
 import { validatePasswordChange } from "../../domain/password";
 import { Field, Input, Notice, Panel } from "../ui";
 
@@ -13,19 +13,8 @@ export default function ChangePassword({ onChanged }: { onChanged: () => void })
   const [serverError, setServerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const messages: Record<string, string> = {
-    "Enter your current password": text("Enter your current password", "अपना वर्तमान पासवर्ड दर्ज करें"),
-    "Choose a password you have not used here before": text(
-      "Choose a password you have not used here before",
-      "ऐसा पासवर्ड चुनें जो आपने यहाँ पहले उपयोग न किया हो",
-    ),
-    "Both passwords must match": text("Both passwords must match", "दोनों पासवर्ड समान होने चाहिए"),
-  };
-  const translate = (message: string) =>
-    messages[message] ??
-    (message.startsWith("Use at least")
-      ? text(message, message.replace(/Use at least (\d+) characters/, "कम से कम $1 अक्षर रखें"))
-      : message);
+  const lang = useContext(Language);
+  const translate = (message: string) => runtimeText(message, lang);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -40,7 +29,7 @@ export default function ChangePassword({ onChanged }: { onChanged: () => void })
     } catch (error) {
       setServerError(
         error instanceof RequestError
-          ? error.detail.message
+          ? translate(error.detail.message)
           : text("Could not change the password. Try again.", "पासवर्ड नहीं बदला जा सका। पुनः प्रयास करें।"),
       );
     } finally {

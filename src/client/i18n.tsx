@@ -74,6 +74,25 @@ const runtimeHindi: Record<string, string> = {
     "आज तक की वैध रिपोर्टिंग प्रारंभ तिथि दर्ज करें",
   "Start date cannot exclude existing reports":
     "प्रारंभ तिथि मौजूदा रिपोर्ट को बाहर नहीं कर सकती",
+  "A visit can only be recorded on the day it was made":
+    "निरीक्षण उसी दिन दर्ज किया जा सकता है जिस दिन वह किया गया",
+  "Enter a valid time": "वैध समय दर्ज करें",
+  "Select an Anchal": "अंचल चुनें",
+  "Select a ward from 1 to 53": "1 से 53 के बीच वार्ड चुनें",
+  "Select an activity": "गतिविधि चुनें",
+  "Describe what was seen and what is to be done (at least 20 characters)":
+    "क्या देखा गया और क्या किया जाना है, लिखें (कम से कम 20 अक्षर)",
+  "Capture the location at the site": "मौके पर स्थान कैप्चर करें",
+  "Enter your current password": "अपना वर्तमान पासवर्ड दर्ज करें",
+  "Use at least 10 characters": "कम से कम 10 अक्षर रखें",
+  "Choose a password you have not used here before":
+    "ऐसा पासवर्ड चुनें जो आपने यहाँ पहले उपयोग न किया हो",
+  "Both passwords must match": "दोनों पासवर्ड समान होने चाहिए",
+  "Give a reason for voiding this visit":
+    "इस निरीक्षण को निरस्त करने का कारण दें",
+  "Enter a username": "उपयोगकर्ता नाम दर्ज करें",
+  "Enter the officer's name": "अधिकारी का नाम दर्ज करें",
+  "Enter a designation": "पदनाम दर्ज करें",
 };
 export function runtimeText(text: string, lang: Lang) {
   if (lang === "en") return text;

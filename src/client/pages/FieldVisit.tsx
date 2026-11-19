@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import services from "../../shared/services.json";
 import type { FieldVisitInput, GpsReading, OfficerProfile } from "../../shared/types";
 import { validateVisitInput, WARD_MAX, WARD_MIN } from "../../domain/visit";
@@ -10,31 +10,35 @@ import {
   capturePosition,
   type GeolocationFailureKind,
 } from "../lib/geolocation";
-import { useText } from "../i18n";
+import { Language, runtimeText, useText } from "../i18n";
 import { Field, Notice, Panel } from "../ui";
 import { mutationIntent, type MutationIntent } from "../mutation";
+import { useContext } from "react";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
 
-function nowTime(): string {
-  const now = new Date();
+function timeOf(now: Date): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
 export default function FieldVisit({
   officer,
   today,
+  clock = () => new Date(),
 }: {
   officer: OfficerProfile;
   today: string;
+  clock?: () => Date;
 }) {
   const text = useText();
+  const lang = useContext(Language);
+  const translate = (message: string) => runtimeText(message, lang);
   const [officeId, setOfficeId] = useState(officer.homeOfficeId);
   const [ward, setWard] = useState<number | "">("");
   const [serviceId, setServiceId] = useState<number | "">("");
   const [issueAction, setIssueAction] = useState("");
-  const [visitTime, setVisitTime] = useState(nowTime);
+  const [visitTime, setVisitTime] = useState(() => timeOf(clock()));
   const [gps, setGps] = useState<GpsReading | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<GeolocationFailureKind | null>(null);
@@ -42,7 +46,11 @@ export default function FieldVisit({
   const [serverError, setServerError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [intent, setIntent] = useState<MutationIntent | null>(null);
+  const [unverified, setUnverified] = useState(false);
+  // Held in a ref, not state: two submits in the same flush must share one
+  // request id, and a state update has not committed by then.
+  const intentRef = useRef<MutationIntent | null>(null);
+  const submittingRef = useRef(false);
 
   const captureMessages: Record<GeolocationFailureKind, string> = {
     denied: text(
@@ -69,7 +77,8 @@ export default function FieldVisit({
     try {
       setGps(await capturePosition());
     } catch (error) {
-      setGps(null);
+      // A failed re-capture leaves the earlier reading in place: a stale but
+      // real fix is worth more than nothing.
       setCaptureError(
         error instanceof GeolocationCaptureError ? error.kind : "unavailable",
       );
@@ -94,30 +103,35 @@ export default function FieldVisit({
     event.preventDefault();
     setServerError(null);
     setSaved(null);
+    if (submittingRef.current) return;
     const input = currentInput();
     const found = validateVisitInput(input, today);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    const next = mutationIntent(intent, input);
-    setIntent(next);
+    const next = mutationIntent(intentRef.current, input);
+    intentRef.current = next;
+    submittingRef.current = true;
     setSaving(true);
     try {
       const stored = await createVisit(input, next.requestId);
       setSaved(stored.id);
+      setUnverified(stored.verifiedOnSite === false);
       setWard("");
       setServiceId("");
       setIssueAction("");
       setGps(null);
-      setIntent(null);
+      setVisitTime(timeOf(clock()));
+      intentRef.current = null;
     } catch (error) {
       if (error instanceof RequestError) {
-        setServerError(error.detail.message);
+        setServerError(translate(error.detail.message));
         setErrors(normalizeFieldErrors(error.detail.fieldErrors));
       } else {
         setServerError(text("Could not record the visit. Try again.", "निरीक्षण दर्ज नहीं हो सका। पुनः प्रयास करें।"));
       }
     } finally {
+      submittingRef.current = false;
       setSaving(false);
     }
   }
@@ -134,6 +148,15 @@ export default function FieldVisit({
         {saved && (
           <Notice role="status">
             {text("Visit recorded.", "निरीक्षण दर्ज हो गया।")}
+            {unverified && (
+              <span>
+                {" "}
+                {text(
+                  "This visit was not verified on site — the location fix was poor or late. Capture again from the site if you can.",
+                  "यह निरीक्षण मौके पर सत्यापित नहीं हुआ — स्थान सटीक नहीं था या देर से मिला। हो सके तो मौके से पुनः कैप्चर करें।",
+                )}
+              </span>
+            )}
           </Notice>
         )}
         {serverError && <Notice>{serverError}</Notice>}
@@ -141,7 +164,7 @@ export default function FieldVisit({
           <Field>
             {text("Time of visit", "निरीक्षण का समय")}
             <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
-            {errors.visitTime && <span className="field-error">{errors.visitTime}</span>}
+            {errors.visitTime && <span className="field-error">{translate(errors.visitTime)}</span>}
           </Field>
           <Field>
             {text("Anchal", "अंचल")}
@@ -150,7 +173,7 @@ export default function FieldVisit({
                 <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
               ))}
             </select>
-            {errors.officeId && <span className="field-error">{errors.officeId}</span>}
+            {errors.officeId && <span className="field-error">{translate(errors.officeId)}</span>}
           </Field>
           <Field>
             {text("Ward", "वार्ड")}
@@ -164,7 +187,7 @@ export default function FieldVisit({
                 <option key={number} value={number}>{number}</option>
               ))}
             </select>
-            {errors.ward && <span className="field-error">{errors.ward}</span>}
+            {errors.ward && <span className="field-error">{translate(errors.ward)}</span>}
           </Field>
           <Field>
             {text("Activity", "गतिविधि")}
@@ -180,7 +203,7 @@ export default function FieldVisit({
                 </option>
               ))}
             </select>
-            {errors.serviceId && <span className="field-error">{errors.serviceId}</span>}
+            {errors.serviceId && <span className="field-error">{translate(errors.serviceId)}</span>}
           </Field>
           <div className="ui-field">
             <span>{text("Location", "स्थान")}</span>
@@ -201,8 +224,10 @@ export default function FieldVisit({
                 {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.accuracyMetres)} m
               </p>
             )}
-            {captureError && <p className="ui-help ui-error">{captureMessages[captureError]}</p>}
-            {errors.gps && <span className="field-error">{errors.gps}</span>}
+            {captureError && (
+              <p className="ui-help ui-error" role="alert">{captureMessages[captureError]}</p>
+            )}
+            {errors.gps && <span className="field-error">{translate(errors.gps)}</span>}
           </div>
           <Field>
             {text("Issue / Action", "समस्या / कार्रवाई")}
@@ -212,8 +237,16 @@ export default function FieldVisit({
               onChange={(e) => setIssueAction(e.target.value)}
               required
             />
-            {errors.issueAction && <span className="field-error">{errors.issueAction}</span>}
+            {errors.issueAction && <span className="field-error">{translate(errors.issueAction)}</span>}
           </Field>
+          {!gps && (
+            <p className="ui-help">
+              {text(
+                "Capture the location at the site before you can submit this visit.",
+                "निरीक्षण जमा करने से पहले मौके पर स्थान कैप्चर करें।",
+              )}
+            </p>
+          )}
           <button
             className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
             type="submit"

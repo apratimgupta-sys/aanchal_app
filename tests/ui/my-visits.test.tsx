@@ -30,15 +30,16 @@ function visit(overrides: Partial<FieldVisitView> = {}): FieldVisitView {
   };
 }
 
-function renderList(lang: "en" | "hi" = "en") {
+function renderList(lang: "en" | "hi" = "en", officerId = "off-1") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <Language.Provider value={lang}>
-        <MyVisits />
+        <MyVisits officerId={officerId} />
       </Language.Provider>
     </QueryClientProvider>,
   );
+  return client;
 }
 
 beforeEach(() => {
@@ -96,5 +97,15 @@ describe("MyVisits", () => {
     listVisits.mockResolvedValue({ rows: [], total: 0 });
     renderList("hi");
     expect(await screen.findByText(/कोई निरीक्षण दर्ज नहीं/)).toBeTruthy();
+  });
+});
+
+describe("MyVisits — review findings", () => {
+  it("caches under the signed-in officer, so another officer's session cannot read it", async () => {
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    const client = renderList("en", "off-7");
+    await screen.findByTestId("visit-v1");
+    const keys = client.getQueryCache().findAll().map((entry) => entry.queryKey);
+    expect(keys.some((key) => key.includes("off-7"))).toBe(true);
   });
 });

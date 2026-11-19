@@ -6,6 +6,8 @@ import Login from "./pages/Login";
 import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
 import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
 import { indiaToday } from "./lib/dates";
+import { clearSessionCaches } from "./session-caches";
+import { queryClient } from "./query";
 import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
 const DailyEntry = lazy(() => import("./pages/DailyEntry"));
@@ -33,7 +35,7 @@ export default function App() {
     if (
       path !== pathname &&
       entryDirty &&
-      session?.role === "office" &&
+      (session?.role === "office" || session?.role === "officer") &&
       !preserveDraft
     ) {
       if (
@@ -173,6 +175,7 @@ export default function App() {
                 onClick={async () => {
                   if (!mayNavigate("/")) return;
                   await api("/logout", "POST", {});
+                  clearSessionCaches(queryClient);
                   setSession(null);
                   setSetup(undefined);
                   navigate("/", true);
@@ -221,6 +224,7 @@ export default function App() {
           onSignOut={async () => {
             if (!mayNavigate("/")) return;
             await api("/logout", "POST", {});
+            clearSessionCaches(queryClient);
             setSession(null);
             setSetup(undefined);
             navigate("/", true);
@@ -259,7 +263,7 @@ function OfficerPages({
   pathname: string;
   officer: OfficerProfile;
 }) {
-  if (pathname === OFFICER_VISITS_ROUTE) return <MyVisits />;
+  if (pathname === OFFICER_VISITS_ROUTE) return <MyVisits officerId={officer.id} />;
   if (pathname === OFFICER_VISIT_ROUTE)
     return <FieldVisit officer={officer} today={indiaToday()} />;
   return <main id="main-content" tabIndex={-1} className="workspace" />;

@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import services from "../../shared/services.json";
 import type { FieldVisitView } from "../../shared/types";
 import { WARD_MAX, WARD_MIN } from "../../domain/visit";
 import { listVisits, voidVisit, type VisitFilters } from "../field-visits";
+import { listOfficers } from "../officers";
+import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
-import { useText } from "../i18n";
+import { Language, runtimeText, useText } from "../i18n";
 import { Field, Notice, Panel } from "../ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
 const DEFAULT_DAYS = 30;
+const PAGE_SIZE = 50;
 
 function daysBefore(date: string, days: number): string {
   const start = new Date(`${date}T00:00:00.000Z`);
@@ -20,28 +23,47 @@ function daysBefore(date: string, days: number): string {
 
 export default function VisitRegister() {
   const text = useText();
+  const lang = useContext(Language);
+  const translate = (message: string) => runtimeText(message, lang);
   const queryClient = useQueryClient();
   const today = indiaToday();
   const [filters, setFilters] = useState<VisitFilters>({
     from: daysBefore(today, DEFAULT_DAYS),
     to: today,
   });
+  const [page, setPage] = useState(1);
   const [voiding, setVoiding] = useState<FieldVisitView | null>(null);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const reasonRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The dialog renders below a long list, so move focus to it on open.
+  useEffect(() => {
+    if (voiding) reasonRef.current?.focus();
+  }, [voiding]);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ["field-visits", "register", filters],
-    queryFn: () => listVisits(filters),
+    queryKey: ["field-visits", "register", filters, page],
+    queryFn: () => listVisits({ ...filters, page }),
   });
+
+  const officers = useQuery({ queryKey: ["officers"], queryFn: listOfficers });
 
   const voidMutation = useMutation({
     mutationFn: ({ id, why }: { id: string; why: string }) => voidVisit(id, why),
     onSuccess: () => {
       setVoiding(null);
       setReason("");
+      setVoidError(null);
       void queryClient.invalidateQueries({ queryKey: ["field-visits"] });
     },
+    onError: (error) =>
+      setVoidError(
+        error instanceof RequestError
+          ? translate(error.detail.message)
+          : text("Could not void this visit. Try again.", "यह निरीक्षण निरस्त नहीं हो सका। पुनः प्रयास करें।"),
+      ),
   });
 
   const serviceName = (id: number) => {
@@ -50,6 +72,8 @@ export default function VisitRegister() {
   };
 
   function setFilter(patch: Partial<VisitFilters>) {
+    // Any change to the filters invalidates the page the reader was on.
+    setPage(1);
     setFilters((current) => ({ ...current, ...patch }));
   }
 
@@ -60,6 +84,8 @@ export default function VisitRegister() {
       return;
     }
     setReasonError(null);
+    setVoidError(null);
+    if (voidMutation.isPending) return;
     voidMutation.mutate({ id: voiding.id, why: reason.trim() });
   }
 
@@ -114,6 +140,20 @@ export default function VisitRegister() {
               ))}
             </select>
           </Field>
+          <Field>
+            {text("Officer", "अधिकारी")}
+            <select
+              value={filters.officerId ?? ""}
+              onChange={(e) => setFilter({ officerId: e.target.value === "" ? undefined : e.target.value })}
+            >
+              <option value="">{text("All officers", "सभी अधिकारी")}</option>
+              {(officers.data ?? []).map((person) => (
+                <option key={person.id} value={person.id}>
+                  {`${person.name} · ${person.designation}`}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
 
         {isPending && <p>{text("Loading…", "लोड हो रहा है…")}</p>}
@@ -124,6 +164,34 @@ export default function VisitRegister() {
           <p>{text("No visits for these filters.", "इन फ़िल्टरों के लिए कोई निरीक्षण नहीं।")}</p>
         )}
 
+        {data && data.rows.length > 0 && (
+          <p className="visit-count">
+            {text(
+              `${data.total} visits · page ${page} of ${Math.max(1, Math.ceil(data.total / PAGE_SIZE))}`,
+              `${data.total} निरीक्षण · पृष्ठ ${page} / ${Math.max(1, Math.ceil(data.total / PAGE_SIZE))}`,
+            )}
+          </p>
+        )}
+        {data && data.total > PAGE_SIZE && (
+          <div className="visit-paging">
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page === 1}
+            >
+              {text("Previous", "पिछला")}
+            </button>
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={page >= Math.ceil(data.total / PAGE_SIZE)}
+            >
+              {text("Next", "अगला")}
+            </button>
+          </div>
+        )}
         {data && data.rows.length > 0 && (
           <ul className="visit-list">
             {data.rows.map((row) => (
@@ -172,10 +240,16 @@ export default function VisitRegister() {
             </p>
             <Field>
               {text("Reason", "कारण")}
-              <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <textarea ref={reasonRef} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
               {reasonError && <span className="field-error">{reasonError}</span>}
             </Field>
-            <button className="ux4g-btn ux4g-btn-l ux4g-btn-primary" type="button" onClick={confirmVoid}>
+            {voidError && <Notice>{voidError}</Notice>}
+            <button
+              className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
+              type="button"
+              onClick={confirmVoid}
+              disabled={voidMutation.isPending}
+            >
               {text("Confirm void", "निरस्तीकरण पुष्टि करें")}
             </button>
             <button

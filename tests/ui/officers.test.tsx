@@ -111,6 +111,7 @@ describe("Officers", () => {
     resetOfficerPassword.mockResolvedValue({ temporaryPassword: "Temp#2026cd" });
     renderPage();
     await user.click(await screen.findByRole("button", { name: /reset password/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
     expect(await screen.findByText("Temp#2026cd")).toBeTruthy();
   });
 
@@ -118,5 +119,65 @@ describe("Officers", () => {
     listOfficers.mockResolvedValue([]);
     renderPage("hi");
     expect(await screen.findByRole("heading", { level: 1, name: "क्षेत्रीय अधिकारी" })).toBeTruthy();
+  });
+});
+
+describe("Officers — review findings", () => {
+  it("reports a refused creation instead of failing silently", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>(
+      "../../src/client/api",
+    );
+    listOfficers.mockResolvedValue([]);
+    createOfficer.mockRejectedValue(
+      new RequestError({ code: "conflict", message: "That username is already taken" }, 409),
+    );
+    renderPage();
+    await user.type(await screen.findByLabelText(/username/i), "je.kadru");
+    await user.type(screen.getByLabelText(/^name/i), "A. Kumar");
+    await user.type(screen.getByLabelText(/designation/i), "Junior Engineer");
+    await user.click(screen.getByRole("button", { name: /add officer/i }));
+    expect(await screen.findByText(/already taken/i)).toBeTruthy();
+  });
+
+  it("reports a refused deactivation", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>(
+      "../../src/client/api",
+    );
+    listOfficers.mockResolvedValue([officer]);
+    setOfficerActive.mockRejectedValue(
+      new RequestError({ code: "unauthorised", message: "Please sign in" }, 401),
+    );
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: /deactivate/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    expect(await screen.findByText(/please sign in/i)).toBeTruthy();
+  });
+
+  it("asks before resetting a working password", async () => {
+    const user = userEvent.setup();
+    listOfficers.mockResolvedValue([officer]);
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: /reset password/i }));
+    expect(resetOfficerPassword).not.toHaveBeenCalled();
+    expect(screen.getByText(/will not be able to sign in with their current password/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    await waitFor(() => expect(resetOfficerPassword).toHaveBeenCalledWith("o1"));
+  });
+
+  it("reports a refused reset", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>(
+      "../../src/client/api",
+    );
+    listOfficers.mockResolvedValue([officer]);
+    resetOfficerPassword.mockRejectedValue(
+      new RequestError({ code: "gone", message: "Officer not found" }, 404),
+    );
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: /reset password/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    expect(await screen.findByText(/officer not found/i)).toBeTruthy();
   });
 });

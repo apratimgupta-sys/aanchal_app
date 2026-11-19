@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Language } from "../../src/client/i18n";
@@ -9,7 +9,9 @@ import type { FieldVisitView } from "../../src/shared/types";
 
 const listVisits = vi.hoisted(() => vi.fn());
 const voidVisit = vi.hoisted(() => vi.fn());
+const listOfficers = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/field-visits", () => ({ listVisits, voidVisit }));
+vi.mock("../../src/client/officers", () => ({ listOfficers }));
 
 function visit(overrides: Partial<FieldVisitView> = {}): FieldVisitView {
   return {
@@ -47,16 +49,22 @@ beforeEach(() => {
   cleanup();
   listVisits.mockReset();
   voidVisit.mockReset();
+  listOfficers.mockReset();
+  listOfficers.mockResolvedValue([
+    { id: "off-1", username: "je.kadru", name: "A. Kumar", designation: "Junior Engineer", homeOfficeId: 3, active: true },
+  ]);
 });
 
 describe("VisitRegister", () => {
   it("shows the officer, place, activity and verification state of each visit", async () => {
     listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
     renderRegister();
-    expect(await screen.findByText(/A\. Kumar/)).toBeTruthy();
-    expect(screen.getByText(/Junior Engineer/)).toBeTruthy();
-    expect(screen.getByText(/Ward 24/)).toBeTruthy();
-    expect(screen.getByText("Fogging")).toBeTruthy();
+    // Scoped to the row: the officer filter lists the same name.
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByText(/A\. Kumar/)).toBeTruthy();
+    expect(within(row).getByText(/Junior Engineer/)).toBeTruthy();
+    expect(within(row).getByText(/Ward 24/)).toBeTruthy();
+    expect(within(row).getByText("Fogging")).toBeTruthy();
   });
 
   it("shows the coordinates so a visit can be checked on a map", async () => {
@@ -111,5 +119,73 @@ describe("VisitRegister", () => {
     listVisits.mockResolvedValue({ rows: [], total: 0 });
     renderRegister();
     expect(await screen.findByText(/no visits/i)).toBeTruthy();
+  });
+});
+
+describe("VisitRegister — review findings", () => {
+  it("pages through a register larger than one server page", async () => {
+    const user = userEvent.setup();
+    listVisits.mockResolvedValue({ rows: [visit()], total: 120 });
+    renderRegister();
+    expect(await screen.findByText(/120/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() => expect(listVisits.mock.calls.at(-1)![0]).toMatchObject({ page: 2 }));
+  });
+
+  it("does not offer paging when everything fits on one page", async () => {
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    renderRegister();
+    await screen.findByTestId("visit-v1");
+    expect(screen.queryByRole("button", { name: /next/i })).toBeNull();
+  });
+
+  it("returns to the first page when a filter changes", async () => {
+    const user = userEvent.setup();
+    listVisits.mockResolvedValue({ rows: [visit()], total: 120 });
+    renderRegister();
+    await user.click(await screen.findByRole("button", { name: /next/i }));
+    await waitFor(() => expect(listVisits.mock.calls.at(-1)![0]).toMatchObject({ page: 2 }));
+    await user.selectOptions(screen.getByLabelText(/anchal/i), "3");
+    await waitFor(() => {
+      const last = listVisits.mock.calls.at(-1)![0];
+      expect(last.officeId).toBe(3);
+      expect(last.page ?? 1).toBe(1);
+    });
+  });
+
+  it("filters by officer", async () => {
+    const user = userEvent.setup();
+    listVisits.mockResolvedValue({ rows: [], total: 0 });
+    renderRegister();
+    await waitFor(() => expect(listOfficers).toHaveBeenCalled());
+    await user.selectOptions(await screen.findByLabelText(/officer/i), "off-1");
+    await waitFor(() => expect(listVisits.mock.calls.at(-1)![0]).toMatchObject({ officerId: "off-1" }));
+  });
+
+  it("reports a failed void instead of leaving the dialog dead", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>(
+      "../../src/client/api",
+    );
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    voidVisit.mockRejectedValue(new RequestError({ code: "unauthorised", message: "Please sign in" }, 401));
+    renderRegister();
+    await user.click(await screen.findByRole("button", { name: /void/i }));
+    await user.type(screen.getByLabelText(/reason/i), "Wrong ward");
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    expect(await screen.findByText(/please sign in/i)).toBeTruthy();
+  });
+
+  it("does not fire a second void while the first is in flight", async () => {
+    const user = userEvent.setup();
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    voidVisit.mockImplementation(() => new Promise(() => {}));
+    renderRegister();
+    await user.click(await screen.findByRole("button", { name: /void/i }));
+    await user.type(screen.getByLabelText(/reason/i), "Wrong ward");
+    const confirm = screen.getByRole("button", { name: /confirm/i });
+    await user.click(confirm);
+    await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(true));
+    expect(voidVisit).toHaveBeenCalledTimes(1);
   });
 });

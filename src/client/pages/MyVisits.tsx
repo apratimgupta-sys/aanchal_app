@@ -3,6 +3,7 @@ import services from "../../shared/services.json";
 import type { FieldVisitView } from "../../shared/types";
 import { listVisits } from "../field-visits";
 import { indiaToday } from "../lib/dates";
+import { myVisitsQueryKey } from "../session-caches";
 import { useText } from "../i18n";
 import { Notice, Panel } from "../ui";
 
@@ -18,12 +19,12 @@ function firstLine(text: string): string {
   return text.split("\n")[0];
 }
 
-export default function MyVisits() {
+export default function MyVisits({ officerId }: { officerId: string }) {
   const text = useText();
   const to = indiaToday();
   const from = daysBefore(to, DAYS_SHOWN);
   const { data, isPending, isError } = useQuery({
-    queryKey: ["field-visits", "mine", from, to],
+    queryKey: myVisitsQueryKey(officerId, from, to),
     queryFn: () => listVisits({ from, to }),
   });
 
