@@ -3,12 +3,14 @@ import type { Setup, UserSession } from "../shared/types";
 import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
-import { AppShell, commissionerNav, officeNav } from "./components/AppShell";
+import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
+import { officerLanding } from "./officer-routes";
 import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
 const DailyEntry = lazy(() => import("./pages/DailyEntry"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const InitialBalances = lazy(() => import("./pages/InitialBalances"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
@@ -88,6 +90,11 @@ export default function App() {
   }, [pathname, entryDirty, session, lang]);
   useEffect(() => {
     if (loading || !session) return;
+    if (session.role === "officer") {
+      const target = officerLanding(session, pathname);
+      if (target) navigate(target, true);
+      return;
+    }
     if (session.role === "office") {
       if (setup === undefined) return;
       if (!setup && pathname !== "/office/setup")
@@ -178,6 +185,10 @@ export default function App() {
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
         />
+      ) : session.role === "officer" && session.mustChangePassword ? (
+        <Suspense fallback={pageFallback}>
+          <ChangePassword onChanged={() => void refresh()} />
+        </Suspense>
       ) : session.role === "office" && setup === undefined ? (
         <main id="main-content" tabIndex={-1} className="workspace">
           <p>
@@ -193,9 +204,9 @@ export default function App() {
       ) : (
         <AppShell
           role={session.role}
-          account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : `${text("Anchal", "अंचल")} ${session.officeId}`}
+          account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : session.role === "officer" ? `${session.officer?.name ?? ""} · ${text("Anchal", "अंचल")} ${session.officer?.homeOfficeId ?? ""}` : `${text("Anchal", "अंचल")} ${session.officeId}`}
           pathname={pathname}
-          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
+          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड") }) : session.role === "officer" ? officerNav({ visit: text("Record a visit", "निरीक्षण दर्ज करें"), mine: text("My visits", "मेरे निरीक्षण") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
           onNavigate={(path) => navigate(path)}
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           onSignOut={async () => {
@@ -211,6 +222,8 @@ export default function App() {
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               <Dashboard />
+            ) : session.role === "officer" ? (
+              <OfficerPages pathname={pathname} />
             ) : (
               <DailyEntry
                 key={entryReset}
@@ -228,6 +241,11 @@ export default function App() {
       )}
     </Language.Provider>
   );
+}
+
+function OfficerPages({ pathname }: { pathname: string }) {
+  // Replaced by the visit form and the officer's own list in the next task.
+  return <main id="main-content" tabIndex={-1} className="workspace"><p>{pathname}</p></main>;
 }
 
 function InitialSetup({ onSaved }: { onSaved: () => void }) {

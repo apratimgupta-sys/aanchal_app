@@ -117,6 +117,11 @@ export const officeNav = (labels: { today: string; backdate: string }): ShellNav
   { href: "/office/backdate", label: labels.backdate, icon: ClipboardList },
 ];
 
+export const officerNav = (labels: { visit: string; mine: string }): ShellNavItem[] => [
+  { href: "/officer/visit", label: labels.visit, icon: ClipboardList },
+  { href: "/officer/visits", label: labels.mine, icon: History },
+];
+
 export const commissionerNav = (labels: { dashboard: string }): ShellNavItem[] => [
   { href: "/commissioner/dashboard", label: labels.dashboard, icon: LayoutDashboard },
 ];
