@@ -4,7 +4,7 @@ import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
-import { OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
+import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
 import { indiaToday } from "./lib/dates";
 import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const InitialBalances = lazy(() => import("./pages/InitialBalances"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const FieldVisit = lazy(() => import("./pages/FieldVisit"));
+const MyVisits = lazy(() => import("./pages/MyVisits"));
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
@@ -252,9 +253,9 @@ function OfficerPages({
   pathname: string;
   officer: OfficerProfile;
 }) {
+  if (pathname === OFFICER_VISITS_ROUTE) return <MyVisits />;
   if (pathname === OFFICER_VISIT_ROUTE)
     return <FieldVisit officer={officer} today={indiaToday()} />;
-  // The officer's own visit list arrives in the next task.
   return <main id="main-content" tabIndex={-1} className="workspace" />;
 }
 
