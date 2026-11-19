@@ -233,6 +233,7 @@ export default function FieldVisit({
             {text("Issue / Action", "समस्या / कार्रवाई")}
             <textarea
               rows={5}
+              maxLength={4000}
               value={issueAction}
               onChange={(e) => setIssueAction(e.target.value)}
               required

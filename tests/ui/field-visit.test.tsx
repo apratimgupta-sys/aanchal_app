@@ -273,3 +273,11 @@ describe("FieldVisit — review findings", () => {
     expect(screen.getByText(/±\s*18\s*m/)).toBeTruthy();
   });
 });
+
+describe("the observation field's ceiling", () => {
+  it("stops typing at the length the server and the column accept", () => {
+    renderForm();
+    const field = screen.getByLabelText(/issue/i);
+    expect(field.getAttribute("maxlength")).toBe("4000");
+  });
+});
