@@ -34,10 +34,50 @@ export type Setup = {
 export type UserSession = {
   userId: string;
   username: string;
-  role: "office" | "commissioner";
+  role: "office" | "commissioner" | "officer";
   officeId: number | null;
   expiresAt: number;
+  officer?: OfficerProfile;
+  mustChangePassword?: boolean;
 };
+export type OfficerProfile = {
+  id: string;
+  username: string;
+  name: string;
+  designation: string;
+  homeOfficeId: number;
+  active: boolean;
+};
+export type GpsReading = {
+  latitude: number;
+  longitude: number;
+  accuracyMetres: number;
+  capturedAt: string;
+};
+export type VerificationResult = {
+  verified: boolean;
+  reason: "ok" | "accuracy" | "stale";
+};
+export type FieldVisitInput = {
+  visitDate: string;
+  visitTime: string;
+  officeId: number;
+  ward: number;
+  serviceId: number;
+  gps: GpsReading;
+  issueAction: string;
+};
+export type StoredFieldVisit = FieldVisitInput & {
+  id: string;
+  officerId: string;
+  officerName: string;
+  officerDesignation: string;
+  receivedAt: string;
+  verifiedOnSite: boolean;
+  voidedAt: string | null;
+  voidReason: string | null;
+};
+export type FieldVisitView = StoredFieldVisit;
 export type SaveCommand = {
   requestId: string;
   expectedVersion: number | null;

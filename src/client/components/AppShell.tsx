@@ -22,7 +22,7 @@ export function AppShell({
   children,
   footer,
 }: {
-  role: "office" | "commissioner";
+  role: "office" | "commissioner" | "officer";
   account: string;
   items: ShellNavItem[];
   pathname: string;
