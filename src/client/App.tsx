@@ -1,16 +1,18 @@
 import { lazy, Suspense, useState, useEffect } from "react";
-import type { Setup, UserSession } from "../shared/types";
+import type { OfficerProfile, Setup, UserSession } from "../shared/types";
 import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
-import { officerLanding } from "./officer-routes";
+import { OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
+import { indiaToday } from "./lib/dates";
 import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
 const DailyEntry = lazy(() => import("./pages/DailyEntry"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const InitialBalances = lazy(() => import("./pages/InitialBalances"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const FieldVisit = lazy(() => import("./pages/FieldVisit"));
 export default function App() {
   const [lang, setLang] = useState<Lang>(() =>
     localStorage.getItem("rmc-language") === "hi" ? "hi" : "en",
@@ -223,7 +225,7 @@ export default function App() {
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               <Dashboard />
             ) : session.role === "officer" ? (
-              <OfficerPages pathname={pathname} />
+              <OfficerPages pathname={pathname} officer={session.officer!} />
             ) : (
               <DailyEntry
                 key={entryReset}
@@ -243,9 +245,17 @@ export default function App() {
   );
 }
 
-function OfficerPages({ pathname }: { pathname: string }) {
-  // Replaced by the visit form and the officer's own list in the next task.
-  return <main id="main-content" tabIndex={-1} className="workspace"><p>{pathname}</p></main>;
+function OfficerPages({
+  pathname,
+  officer,
+}: {
+  pathname: string;
+  officer: OfficerProfile;
+}) {
+  if (pathname === OFFICER_VISIT_ROUTE)
+    return <FieldVisit officer={officer} today={indiaToday()} />;
+  // The officer's own visit list arrives in the next task.
+  return <main id="main-content" tabIndex={-1} className="workspace" />;
 }
 
 function InitialSetup({ onSaved }: { onSaved: () => void }) {
