@@ -28,3 +28,11 @@ export function listVisits(filters: VisitFilters): Promise<VisitPage> {
   }
   return api<VisitPage>(`/field-visits?${query.toString()}`);
 }
+
+export function voidVisit(id: string, reason: string): Promise<FieldVisitView> {
+  return api<FieldVisitView>(
+    `/field-visits/${encodeURIComponent(id)}/void`,
+    "POST",
+    { reason },
+  );
+}

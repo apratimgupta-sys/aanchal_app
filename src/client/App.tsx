@@ -10,6 +10,7 @@ import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
 const DailyEntry = lazy(() => import("./pages/DailyEntry"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const VisitRegister = lazy(() => import("./pages/VisitRegister"));
 const InitialBalances = lazy(() => import("./pages/InitialBalances"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const FieldVisit = lazy(() => import("./pages/FieldVisit"));
@@ -111,9 +112,9 @@ export default function App() {
         )
       )
         navigate("/office/today", true);
-    } else if (pathname.startsWith("/office/") || pathname === "/") {
-      navigate("/commissioner/dashboard", true);
-    } else if (pathname !== "/commissioner/dashboard") {
+    } else if (
+      !["/commissioner/dashboard", "/commissioner/visits"].includes(pathname)
+    ) {
       navigate("/commissioner/dashboard", true);
     }
   }, [loading, session, setup, pathname]);
@@ -209,7 +210,7 @@ export default function App() {
           role={session.role}
           account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : session.role === "officer" ? `${session.officer?.name ?? ""} · ${text("Anchal", "अंचल")} ${session.officer?.homeOfficeId ?? ""}` : `${text("Anchal", "अंचल")} ${session.officeId}`}
           pathname={pathname}
-          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड") }) : session.role === "officer" ? officerNav({ visit: text("Record a visit", "निरीक्षण दर्ज करें"), mine: text("My visits", "मेरे निरीक्षण") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
+          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड"), visits: text("Field visits", "क्षेत्रीय निरीक्षण") }) : session.role === "officer" ? officerNav({ visit: text("Record a visit", "निरीक्षण दर्ज करें"), mine: text("My visits", "मेरे निरीक्षण") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
           onNavigate={(path) => navigate(path)}
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           onSignOut={async () => {
@@ -224,7 +225,7 @@ export default function App() {
           footer={<footer className="portal-footer-new"><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
-              <Dashboard />
+              pathname === "/commissioner/visits" ? <VisitRegister /> : <Dashboard />
             ) : session.role === "officer" ? (
               <OfficerPages pathname={pathname} officer={session.officer!} />
             ) : (

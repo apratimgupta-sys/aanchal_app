@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { officerNav } from "../../src/client/components/AppShell";
+import { commissionerNav, officerNav } from "../../src/client/components/AppShell";
 import {
   OFFICER_VISITS_ROUTE,
   OFFICER_VISIT_ROUTE,
@@ -19,5 +19,15 @@ describe("officerNav", () => {
     for (const item of officerNav({ visit: "a", mine: "b" })) {
       expect(item.icon).toBeTruthy();
     }
+  });
+});
+
+describe("commissionerNav", () => {
+  it("offers the dashboard and the field visit register, in that order", () => {
+    const items = commissionerNav({ dashboard: "Dashboard", visits: "Field visits" });
+    expect(items.map((item) => item.href)).toEqual([
+      "/commissioner/dashboard",
+      "/commissioner/visits",
+    ]);
   });
 });

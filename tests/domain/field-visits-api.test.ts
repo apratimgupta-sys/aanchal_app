@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createVisit, listVisits } from "../../src/client/field-visits";
+import { createVisit, listVisits, voidVisit } from "../../src/client/field-visits";
 import type { FieldVisitInput } from "../../src/shared/types";
 
 const api = vi.hoisted(() => vi.fn());
@@ -63,5 +63,21 @@ describe("listVisits", () => {
     api.mockResolvedValue({ rows: [], total: 0 });
     await listVisits({ from: "2026-11-01", to: "2026-11-19", page: 2 });
     expect(api.mock.calls[0][0]).toContain("page=2");
+  });
+});
+
+describe("voidVisit", () => {
+  it("posts the reason to the visit's void route", async () => {
+    api.mockResolvedValue({ id: "v1", voidedAt: "2026-11-19T07:00:00.000Z" });
+    await voidVisit("v1", "Filed against the wrong ward");
+    expect(api).toHaveBeenCalledWith("/field-visits/v1/void", "POST", {
+      reason: "Filed against the wrong ward",
+    });
+  });
+
+  it("escapes an id rather than pasting it into the path", async () => {
+    api.mockResolvedValue({ id: "a/b" });
+    await voidVisit("a/b", "reason");
+    expect(api.mock.calls[0][0]).toBe("/field-visits/a%2Fb/void");
   });
 });

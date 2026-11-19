@@ -122,6 +122,7 @@ export const officerNav = (labels: { visit: string; mine: string }): ShellNavIte
   { href: "/officer/visits", label: labels.mine, icon: History },
 ];
 
-export const commissionerNav = (labels: { dashboard: string }): ShellNavItem[] => [
+export const commissionerNav = (labels: { dashboard: string; visits: string }): ShellNavItem[] => [
   { href: "/commissioner/dashboard", label: labels.dashboard, icon: LayoutDashboard },
+  { href: "/commissioner/visits", label: labels.visits, icon: History },
 ];
