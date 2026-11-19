@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Menu, X, Languages, LogOut, LayoutDashboard, ClipboardList, History } from "lucide-react";
+import { Menu, X, Languages, LogOut, LayoutDashboard, ClipboardList, History, Users } from "lucide-react";
 import { cn } from "../lib/utils";
 import rmcLogo from "../assets/rmc-logo.jpg";
 
@@ -122,7 +122,12 @@ export const officerNav = (labels: { visit: string; mine: string }): ShellNavIte
   { href: "/officer/visits", label: labels.mine, icon: History },
 ];
 
-export const commissionerNav = (labels: { dashboard: string; visits: string }): ShellNavItem[] => [
+export const commissionerNav = (labels: {
+  dashboard: string;
+  visits: string;
+  officers: string;
+}): ShellNavItem[] => [
   { href: "/commissioner/dashboard", label: labels.dashboard, icon: LayoutDashboard },
   { href: "/commissioner/visits", label: labels.visits, icon: History },
+  { href: "/commissioner/officers", label: labels.officers, icon: Users },
 ];

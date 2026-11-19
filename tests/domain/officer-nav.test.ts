@@ -24,10 +24,15 @@ describe("officerNav", () => {
 
 describe("commissionerNav", () => {
   it("offers the dashboard and the field visit register, in that order", () => {
-    const items = commissionerNav({ dashboard: "Dashboard", visits: "Field visits" });
+    const items = commissionerNav({
+      dashboard: "Dashboard",
+      visits: "Field visits",
+      officers: "Officers",
+    });
     expect(items.map((item) => item.href)).toEqual([
       "/commissioner/dashboard",
       "/commissioner/visits",
+      "/commissioner/officers",
     ]);
   });
 });
