@@ -24,10 +24,25 @@
 #   RMC_DB_USER (postgres)   RMC_BACKEND_REPO (/home/claude/backend)
 #
 # SAFETY. This script runs DROP DATABASE on the target it is given, which cannot
-# be undone. It refuses to run unless RMC_DB_NAME ends in `_shapes` or `_test`
-# and RMC_DB_HOST is loopback, and it validates every variable it will need
-# before it destroys anything. Do not relax those checks to point it at a
-# database that matters.
+# be undone, so it only ever drops a database it created itself.
+#
+# Every database it creates is stamped with a fixed marker, as a COMMENT ON
+# DATABASE. Before dropping, it refuses unless the target either does not exist
+# yet or carries that exact marker. That is the check that holds: a database
+# this script did not create is never dropped, whatever it is called and
+# wherever the host and port really lead.
+#
+# In front of it sit two cheaper checks that catch the obvious mistakes with a
+# clear message: RMC_DB_NAME must be letters, digits and underscores ending in
+# `_shapes` or `_test`, and RMC_DB_HOST must be loopback. Neither proves the
+# target is local or disposable — a tunnel on 127.0.0.1 reaches anywhere, and a
+# real database may happen to end in `_test` — which is why the marker exists.
+#
+# Every variable the run needs is validated before anything is destroyed. Do not
+# relax any of this to point the script at a database that matters.
+#
+# A fixture left over from before the marker existed will be refused. Drop it by
+# hand once, and the script will recreate and stamp it.
 #
 # Usage, with the API stopped (see below):
 #
@@ -60,11 +75,19 @@ die() { echo "reset-live-stack: refusing — $*" >&2; exit 1; }
 # after the drop would leave an empty, unprovisioned database behind.
 # ---------------------------------------------------------------------------
 
-# This is a test fixture and may only ever point at a test database. The name
-# must say so, and the host must be this machine. The connection pins exported
-# further down are derived from these same values, so they agree with whatever
-# they are handed and confirm nothing on their own — this block is the only
-# thing standing between a wrong environment and somebody's real data.
+# First line: the name must look like a fixture and the host must be this
+# machine. Both are cheap, and both are weak — a tunnel on 127.0.0.1 reaches
+# anywhere, and a real database may happen to end in _test. The marker check
+# further down is the one that actually holds; these two only turn the obvious
+# mistakes into a clear message.
+#
+# The name is matched whole, not just by suffix. A glob suffix would accept a
+# name containing a newline, and a name beginning with `-`, which `dropdb` would
+# read as an option rather than a database — the same failure as a wrong target,
+# by a different door.
+if ! [[ $name =~ ^[A-Za-z0-9_]+$ ]]; then
+  die "RMC_DB_NAME must be letters, digits and underscores only; got '$name'"
+fi
 case $name in
   *_shapes|*_test) ;;
   *) die "RMC_DB_NAME must name a test database, ending in _shapes or _test; got '$name'" ;;
@@ -80,6 +103,10 @@ esac
 for tool in psql dropdb createdb dotnet; do
   command -v "$tool" >/dev/null || die "$tool is not on PATH"
 done
+# `command -v dotnet` does not prove the EF tool is installed, and a missing
+# `dotnet ef` would otherwise surface only after the database had been dropped.
+dotnet ef --version >/dev/null 2>&1 ||
+  die "the EF tool is not installed (dotnet tool install --global dotnet-ef)"
 
 [ -n "${PGPASSWORD:-}" ] || die "PGPASSWORD is not set"
 [ -n "$credentials" ] || die "RMC_CREDENTIALS_FILE is not set"
@@ -118,6 +145,29 @@ export CommissionerMonitoring__ExpectedUsername=$user
 # bash will not accept in a variable name, so it is passed through `env`.
 quiet_sql="Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=${RMC_SQL_LOG_LEVEL:-Warning}"
 
+# The check that actually holds. Every database this script creates is stamped
+# with this exact comment, and it refuses to drop one that is not stamped. So a
+# database it did not create is never dropped — whatever it is called, and
+# wherever the host and port really lead.
+marker='rmc-anchal live-spec fixture; created by tests/browser/reset-live-stack.sh; safe to drop'
+
+# No rows means the database does not exist yet, which is fine: it is about to
+# be created. One row means it exists, and then the comment has to match.
+present=$(psql -h "$host" -p "$port" -U "$user" -d postgres -v ON_ERROR_STOP=1 \
+  -t -A -q -v target="$name" <<'SQL'
+select 'PRESENT|' || coalesce(shobj_description(oid, 'pg_database'), '')
+  from pg_database where datname = :'target';
+SQL
+)
+if [ -n "$present" ]; then
+  found=${present#PRESENT|}
+  [ "$found" = "$marker" ] || die "'$name' on $host:$port already exists and does not carry this
+  script's marker, so it was not created here and will not be dropped.
+    expected comment: $marker
+         got comment: ${found:-(none)}
+  If it really is a disposable fixture, drop it by hand first."
+fi
+
 echo "reset-live-stack: recreating $name on $host:$port as $user"
 
 # A client still attached — a Kestrel that was not stopped, an open psql — makes
@@ -132,8 +182,17 @@ select pg_terminate_backend(pid) from pg_stat_activity
   where datname = :'target' and pid <> pg_backend_pid();
 SQL
 
-dropdb -h "$host" -p "$port" -U "$user" --if-exists "$name"
-createdb -h "$host" -p "$port" -U "$user" "$name"
+dropdb -h "$host" -p "$port" -U "$user" --if-exists -- "$name"
+createdb -h "$host" -p "$port" -U "$user" -- "$name"
+
+# Stamp it immediately, so the next run can tell this database apart from one
+# somebody else made. `format('%I'/%L')` quotes the identifier and the literal;
+# COMMENT ON DATABASE takes an identifier, which no psql variable can supply
+# directly, so the statement is built and then run with \gexec.
+psql -h "$host" -p "$port" -U "$user" -d postgres -v ON_ERROR_STOP=1 -q \
+  -v target="$name" -v marker="$marker" >/dev/null <<'SQL'
+select format('comment on database %I is %L', :'target', :'marker') \gexec
+SQL
 
 echo "reset-live-stack: applying migrations"
 env "$quiet_sql" dotnet ef database update \
