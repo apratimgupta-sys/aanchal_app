@@ -15,6 +15,7 @@ import { normalizeFieldErrors } from "../field-errors";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { formatIndiaDateTime } from "../lib/dates";
+import { avgDisposalDaysRequired, entryCrossFieldErrors } from "../../domain/entry-rules";
 const entryClientSchema = z.object({
   ward: z.string().trim().min(1, "Ward number or name is required"),
   received: z.number().int().min(0),
@@ -26,12 +27,14 @@ const entryClientSchema = z.object({
   fieldCompleted: z.number().int().min(0),
   avgDisposalDays: z.number().min(0).nullable(),
   remarks: z.string().max(2000),
-}).superRefine((value, ctx) => {
-  if (value.completed > value.received) ctx.addIssue({ code: "custom", path: ["completed"], message: "Completed cannot exceed received" });
-  if (value.slaWithinTime > value.completed) ctx.addIssue({ code: "custom", path: ["slaWithinTime"], message: "Within-SLA completions cannot exceed completed" });
-  if (value.complaintsResolved > value.complaintsReceived) ctx.addIssue({ code: "custom", path: ["complaintsResolved"], message: "Resolved complaints cannot exceed received" });
-  if (value.fieldCompleted > value.fieldReceived) ctx.addIssue({ code: "custom", path: ["fieldCompleted"], message: "Completed field tasks cannot exceed received" });
 });
+// The cross-field rules depend on what kind of work the service is, so the
+// schema is built per service rather than shared.
+const schemaForService = (serviceId: number) =>
+  entryClientSchema.superRefine((value, ctx) => {
+    for (const [path, message] of Object.entries(entryCrossFieldErrors(serviceId, value)))
+      ctx.addIssue({ code: "custom", path: [path], message });
+  });
 const numeric = [
   ["received", "Received / Transactions", "प्राप्त / लेन-देन"],
   ["completed", "Disposed / Completed", "निस्तारित / पूर्ण"],
@@ -238,6 +241,7 @@ export default function DailyEntry({
       </Panel>
     );
   const close = applyActivity(opening, input);
+  const avgDaysRequired = avgDisposalDaysRequired(input.serviceId, input.completed);
   const service = services.find((s) => s.id === selected)!;
   return (
     <>
@@ -424,7 +428,7 @@ export default function DailyEntry({
               setCanReload(false);
               setFields({});
               try {
-                const checked = entryClientSchema.safeParse(input);
+                const checked = schemaForService(input.serviceId).safeParse(input);
                 if (!checked.success) {
                   const nextFields: Record<string, string> = {};
                   checked.error.issues.forEach((issue) => {
@@ -560,13 +564,13 @@ export default function DailyEntry({
               </Field>
               <Field>
                 {t("Avg Disposal Days", "औसत निस्तारण दिन")}
-                {input.completed > 0 && " *"}
+                {avgDaysRequired && " *"}
                 <input
                   readOnly={!!saved && !editingEntry}
                   type="number"
                   min="0"
                   step="0.01"
-                  required={input.completed > 0}
+                  required={avgDaysRequired}
                   value={input.avgDisposalDays ?? ""}
                   onChange={(e) =>
                     patch(
