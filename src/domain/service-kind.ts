@@ -6,7 +6,14 @@ import services from "../shared/services.json";
 //   counter   — cases that arrive, queue and get disposed
 //   revenue   — payments taken; nothing queues
 //   fieldwork — work done on the ground, often with no request behind it
-//   grievance — complaint handling, which this portal does not record
+//   grievance — complaint handling, which service 12 does record: a complaint
+//               arrives, waits and is disposed of, so it takes the counter
+//               shape and moves the pending balance like any other queue
+//
+// The kind says what a service counts; it does not say what the form asks for.
+// Nothing downstream may be keyed on `kind` — use formShape below, which maps
+// grievance onto counter. Keying the shape predicates on kind is what would
+// quietly stop service 12's balance from moving.
 export type ServiceKind = "counter" | "revenue" | "fieldwork" | "grievance";
 
 const KIND_BY_UNIT: Record<string, ServiceKind> = {
@@ -41,6 +48,15 @@ export function serviceKind(serviceId: number): ServiceKind {
 
 // The three shapes the daily entry form takes. Grievance handling is a queue
 // of cases like any other, so it takes the counter shape.
+//
+// TWIN: MonitoringRules.FormShape in the backend repo
+// (src/Anchal.Domain/CommissionerMonitoring/Rules/MonitoringRules.cs), which
+// hardcodes the same three sets because the backend has no service master.
+// This side derives them from services.json's `unit` column, so the two agree
+// only by hand. An edit to either must be made in both, in the same change: a
+// service that validates and derives under one shape and renders under another
+// re-derives its whole closing history on the next read. Changing a `unit`
+// string is an edit to both.
 export type FormShape = "counter" | "revenue" | "fieldwork";
 
 export function formShape(serviceId: number): FormShape {

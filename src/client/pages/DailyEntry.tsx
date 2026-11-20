@@ -271,8 +271,14 @@ export default function DailyEntry({
     };
   }, [date, mode]);
   const saved = data?.entries.find((e) => e.serviceId === selected);
+  // Everything the entry panel shows, validates and submits is keyed to the
+  // draft's own service rather than to the selection. The two are kept in step
+  // by switchSelection above; keying the panel here as well means that even if
+  // they ever drifted, the office could not read one service's name over
+  // another service's boxes and file the second.
+  const formServiceId = input.serviceId;
   const opening = saved?.opening ??
-    data?.openings.find((b) => b.serviceId === selected)?.opening ?? {
+    data?.openings.find((b) => b.serviceId === formServiceId)?.opening ?? {
       service: 0,
       complaints: 0,
       field: 0,
@@ -295,11 +301,19 @@ export default function DailyEntry({
     setMessage("");
   }
   function switchSelection(fn: () => void) {
-    if (
-      !dirty ||
-      window.confirm(t("Discard unsaved changes?", "असहेजे परिवर्तन छोड़ें?"))
-    )
+    if (!dirty) {
       fn();
+      return;
+    }
+    if (!window.confirm(t("Discard unsaved changes?", "असहेजे परिवर्तन छोड़ें?")))
+      return;
+    // The draft has to go with the selection. While `dirty` stays true the
+    // effect below that re-seeds the form for the newly selected service bails
+    // out, so the panel would describe one service while `input` still held
+    // another's figures — and its serviceId, which is what gets filed.
+    setDirty(false);
+    onDirtyChange(false);
+    fn();
   }
   if (mode === "backdate" && !backdateAvailable)
     return (
@@ -333,9 +347,9 @@ export default function DailyEntry({
       </Panel>
     );
   const close = applyActivity(opening, input);
-  const service = services.find((s) => s.id === selected)!;
-  const shape = formShape(selected);
-  const shownFields = numericFields(selected);
+  const service = services.find((s) => s.id === formServiceId)!;
+  const shape = formShape(formServiceId);
+  const shownFields = numericFields(formServiceId);
   return (
     <>
       <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
@@ -448,7 +462,7 @@ export default function DailyEntry({
           <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
             <div>
               <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
-                {t("SERVICE", "सेवा")} {String(selected).padStart(2, "0")} ·{" "}
+                {t("SERVICE", "सेवा")} {String(formServiceId).padStart(2, "0")} ·{" "}
                 {service.category}
               </div>
               <h2 className="ux4g-heading-m-strong">
@@ -513,12 +527,25 @@ export default function DailyEntry({
               try {
                 const checked = schemaForService(input.serviceId).safeParse(input);
                 if (!checked.success) {
+                  const shown = shownKeys(input.serviceId);
+                  const hasAField = (key: string) =>
+                    key === "ward" || shown.has(key);
                   const nextFields: Record<string, string> = {};
+                  // An issue on a key with no Field of its own would otherwise
+                  // leave the office reading "correct the highlighted fields"
+                  // with nothing highlighted and no way to save, which is what
+                  // the server-error path below already guards against.
+                  const noField: [string, string][] = [];
+                  const seen = new Set<string>();
                   checked.error.issues.forEach((issue) => {
                     const key = String(issue.path[0]);
-                    if (!nextFields[key]) nextFields[key] = issue.message;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    if (hasAField(key)) nextFields[key] = issue.message;
+                    else noField.push([key, issue.message]);
                   });
                   setFields(nextFields);
+                  setUnhandled(noField);
                   setError(t("Please correct the highlighted fields.", "कृपया चिह्नित फ़ील्ड ठीक करें।"));
                   return;
                 }

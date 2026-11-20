@@ -222,13 +222,79 @@ describe("commissioner dashboard after the form shapes", () => {
     ).toEqual([{ key: "complaintsReceived", before: 3, after: 4 }]);
   });
 
+  it("gives field work a column of its own, with a total", async () => {
+    // workDone is on every row already; without a column the commissioner can
+    // only see it summed across all six Anchals, and cannot compare them.
+    mockApi([row({ workDone: 18 }), row({ officeId: 2, workDone: 4 })]);
+    await renderDashboard();
+    const table = labelledTable(/anchal-wise performance table/i);
+    expect(headers(table)).toContain("Work done");
+    const column = headers(table).indexOf("Work done");
+    const cells = Array.from(table.querySelectorAll("tbody tr")).map(
+      (tr) => Array.from(tr.querySelectorAll("td"))[column].textContent,
+    );
+    expect(cells).toEqual(["18", "4"]);
+    expect(
+      Array.from(table.querySelectorAll("tfoot td"))[column].textContent,
+    ).toBe("22");
+    cleanup();
+    mockApi([row()]);
+    await renderDashboard("hi");
+    expect(
+      headers(labelledTable(/अंचलवार प्रदर्शन तालिका/i)),
+    ).toContain("किया गया कार्य");
+  });
+
+  it("blanks the counter-only cells when filtered to a non-counter service", async () => {
+    // Pinned to field work or revenue, Received / Completed / Pending /
+    // Disposal are not collected at all. A zero would read as "nobody did
+    // anything", which is a different and untrue statement — the same reason
+    // the register leaves Opening Pending blank for these shapes.
+    mockApi([row({ received: 0, completed: 0, pending: 0, disposalPct: null, workDone: 18 })]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
+    const table = labelledTable(/anchal-wise performance table/i);
+    const index = (name: string) => headers(table).indexOf(name);
+    const bodyCell = (name: string) =>
+      Array.from(
+        Array.from(table.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
+      )[index(name)].textContent;
+    const footCell = (name: string) =>
+      Array.from(table.querySelectorAll("tfoot td"))[index(name)].textContent;
+    await waitFor(() => expect(bodyCell("Received")).toBe(""));
+    for (const blank of ["Received", "Completed", "Pending", "Disposal %"]) {
+      expect(bodyCell(blank), `${blank} body cell`).toBe("");
+      expect(footCell(blank), `${blank} total`).toBe("");
+    }
+    // What the service does collect still shows.
+    expect(bodyCell("Work done")).toBe("18");
+    expect(bodyCell("Amount Collected (₹)")).toBeTruthy();
+  });
+
+  it("keeps the counter cells when filtered to a counter service", async () => {
+    mockApi([row()]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
+    const table = labelledTable(/anchal-wise performance table/i);
+    const column = headers(table).indexOf("Received");
+    await waitFor(() =>
+      expect(
+        Array.from(
+          Array.from(table.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
+        )[column].textContent,
+      ).toBe("40"),
+    );
+  });
+
   it("states the date the form changed", async () => {
     mockApi([row()]);
     await renderDashboard();
     await waitFor(() =>
       expect(
         screen.getByText(
-          "Form fields were reduced on 20 November 2026 — figures before and after this date are not comparable.",
+          "Form fields were reduced on 20 November 2026 — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.",
         ),
       ).toBeTruthy(),
     );
@@ -237,7 +303,7 @@ describe("commissioner dashboard after the form shapes", () => {
     await renderDashboard("hi");
     expect(
       screen.getByText(
-        "फॉर्म के फ़ील्ड 20 नवंबर 2026 को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं।",
+        "फॉर्म के फ़ील्ड 20 नवंबर 2026 को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।",
       ),
     ).toBeTruthy();
   });

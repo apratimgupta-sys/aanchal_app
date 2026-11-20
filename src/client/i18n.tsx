@@ -26,6 +26,11 @@ const runtimeHindi: Record<string, string> = {
   "Completed cannot exceed received": "निस्तारित प्राप्त से अधिक नहीं हो सकते",
   "Resolved complaints cannot exceed received": "निस्तारित शिकायतें प्राप्त शिकायतों से अधिक नहीं हो सकतीं",
   "Completed field tasks cannot exceed received": "पूर्ण क्षेत्रीय कार्य प्राप्त कार्यों से अधिक नहीं हो सकते",
+  // New server literal, from MonitoringRules.ValidateEntry. It reaches the
+  // office through the entry form's unhandled list, so without a key here it
+  // would show in English to a Hindi reader.
+  "Nothing to report cannot be combined with reported figures":
+    "कुछ रिपोर्ट नहीं के साथ कोई आंकड़ा दर्ज नहीं किया जा सकता",
   // Review reasons are English literals from the server, translated by exact
   // key match with a silent English fallback. The server stopped sending
   // "SLA < 90%", "Complaints pending > 5" and "Field tasks pending > 10"; these

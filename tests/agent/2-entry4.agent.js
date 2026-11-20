@@ -38,13 +38,7 @@ const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
 };
-// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
-// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
-// re-seeds the form for the newly selected service bails out), so a service
-// switched into after typing still carries the previous service's figures and
-// its schema. A reload is the only way to reach a shape with a clean draft.
-const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
-await fresh(1);
+await pick(1);
 await check('valid counter form sends exactly one save request (blocked here) and shows the reload button on failure', async () => {
   await fill(); writes.length = 0; await sub.click(); await page.waitForTimeout(1500);
   if (writes.length !== 1) return `requests: ${writes.length}`;
@@ -59,7 +53,7 @@ await check('resubmit after a failed save reuses the same requestId (idempotent)
   return writes.length === 1 && JSON.parse(writes[0].b).requestId === first;
 });
 await check('a revenue service sends its amount in paise', async () => {
-  await fresh(2); writes.length = 0;
+  await pick(2); writes.length = 0;
   await f('Ward number / name', 'Ward 1'); await f('Payments', '4'); await f('Amount Collected (₹)', '100');
   await sub.click(); await page.waitForTimeout(1500);
   if (writes.length !== 1) return `requests: ${writes.length}`;
@@ -67,7 +61,7 @@ await check('a revenue service sends its amount in paise', async () => {
   return b.received === 4 && b.amountPaise === 10000 && b.completed === 0 ? 'paise 10000, nothing disposed' : JSON.stringify(b).slice(0, 240);
 });
 await check('Set zero activity sends the nothing-to-report flag, not just zeros', async () => {
-  await fresh(1); writes.length = 0; await page.getByLabel('Ward number / name').fill('Ward 1');
+  await pick(1); writes.length = 0; await page.getByLabel('Ward number / name').fill('Ward 1');
   await page.getByRole('button', { name: 'Set zero activity' }).click(); await page.waitForTimeout(400);
   await sub.click(); await page.waitForTimeout(1200);
   if (!writes.length) { const t = await body(); return /confirm|zero/i.test(t) ? 'needs confirmation step (no request yet)' : 'no request sent'; }

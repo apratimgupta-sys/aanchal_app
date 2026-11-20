@@ -165,9 +165,15 @@ export function summarizePeriod(
         r.complaintsPending += close.complaints;
         r.fieldPending += close.field;
         for (const e of all.filter((e) => e.serviceDate >= filter.from)) {
-          r.received += e.received;
-          r.completed += e.completed;
-          r.slaWithinTime += e.slaWithinTime;
+          // Counter work only, exactly as the server sums them: a payment
+          // completes no case, and field work completes against a received of
+          // 0, so counting either in pushes Disposal % past 100. Field work is
+          // reported separately as workDone; money comes from every shape.
+          if (movesPendingBalance(b.serviceId)) {
+            r.received += e.received;
+            r.completed += e.completed;
+            r.slaWithinTime += e.slaWithinTime;
+          }
           r.amountPaise += e.amountPaise;
           if (isFieldWork(b.serviceId)) r.workDone += e.completed;
           r.submitted++;

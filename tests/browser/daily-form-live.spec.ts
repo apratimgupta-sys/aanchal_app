@@ -52,15 +52,18 @@ const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
 // Every other service opens at zero so the dashboard arithmetic below is exact.
 const OPENING: Record<number, number> = { 1: 7, 2: 11, 5: 9, 7: 3, 8: 13, 12: 5, 20: 4 };
 
-// The figures filed, and the totals they must produce on the dashboard. Kept
-// mutually distinct so a tile reading the wrong total cannot pass by accident.
+// The figures filed, and the totals they must produce on the dashboard. The
+// four tile figures are kept mutually distinct so a tile reading the wrong
+// total cannot pass by accident.
 const FILED = {
   counterPending: 32, // 12 (s1) + 7 (s7) + 9 (s12) + 4 (s20)
   counterReceived: 23, // 9 + 8 + 6 + 0
   counterCompleted: 10, // 4 + 4 + 2 + 0
-  workDone: 11, // 6 trips (s8) + 5 routes (s9) — field work only
-  collection: "₹1,550.75", // 125050 paise (s2) + 30025 paise (s5)
-  entries: 8, // s1 s2 s5 s7 s8 s9 s12 s20
+  workDone: 12, // 6 trips (s8) + 5 routes (s9) + 1 animal (s10) — field work only
+  // 125050 (s2) + 30025 (s5) + 15000 (s6, after its correction)
+  collection: "₹1,700.75",
+  collectionPaise: 170075,
+  entries: 10, // s1 s2 s5 s6 s7 s8 s9 s10 s12 s20
 };
 
 type ApiResponse<T> = { status: number; body: T };
@@ -119,6 +122,58 @@ async function storedEntry(page: Page, serviceId: number, date: string) {
   const entry = body.entries.find((e) => e.serviceId === serviceId);
   expect(entry, `service ${serviceId} is stored for ${date}`).toBeDefined();
   return entry!;
+}
+
+// An entry filed the way an office filed last week, with every retired field
+// populated. Over the API, because no form collects them any more.
+async function filePreCutover(
+  page: Page,
+  serviceId: number,
+  date: string,
+  figures: Partial<LiveEntry> & { ward: string },
+) {
+  const filed = await callApi<LiveEntry>(page, "/office/entries", "POST", {
+    requestId: `precutover-${serviceId}-${Date.now()}`,
+    expectedVersion: null,
+    mode: "today",
+    reason: null,
+    input: {
+      serviceId,
+      serviceDate: date,
+      received: 0,
+      completed: 0,
+      slaWithinTime: 0,
+      amountPaise: 0,
+      complaintsReceived: 0,
+      complaintsResolved: 0,
+      fieldReceived: 0,
+      fieldCompleted: 0,
+      avgDisposalDays: null,
+      remarks: "Filed before the form was reduced.",
+      nothingToReport: false,
+      ...figures,
+    },
+  });
+  expect(filed.status, JSON.stringify(filed.body)).toBe(200);
+  return filed.body;
+}
+
+// Open a saved entry for editing and save the correction.
+async function correct(
+  page: Page,
+  serviceId: number,
+  fill: () => Promise<void>,
+  reason: string,
+) {
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
+  await selectService(page, serviceId);
+  await expect(page.locator(".entry-panel .status-tag")).toHaveText("Submitted");
+  await page.getByRole("button", { name: "Edit entry" }).click();
+  await fill();
+  await textField(page, "Correction reason").fill(reason);
+  await page.getByRole("button", { name: /Save correction/ }).click();
+  await expect(page.getByText("Entry saved. Dashboard updated.")).toBeVisible();
 }
 
 async function signIn(page: Page, username: string, password: string) {
@@ -528,6 +583,76 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(corrected.closing.service).toBe(7);
   });
 
+  // The counter shape above is one of three. Revenue and field work are the two
+  // where the hidden-field 422 was actually found, and they rest otherwise on a
+  // component test whose mocked api cannot return a 422 — so it could not have
+  // failed before the fix. These run against the real server.
+  test("a revenue correction keeps a stored disposal figure it never shows", async () => {
+    await filePreCutover(office, 6, today, {
+      ward: "Ward 14",
+      received: 9,
+      completed: 7,
+      slaWithinTime: 5,
+      amountPaise: 44000,
+      avgDisposalDays: 1.5,
+    });
+
+    // The revenue form has no disposal box, so lowering Payments below the
+    // stored `completed` cannot be acted on and must not be rejected on it.
+    await correct(
+      office,
+      6,
+      async () => {
+        await numberField(office, "Payments").fill("3");
+        await textField(office, "Amount Collected (₹)").fill("150.00");
+      },
+      "Three of the nine payments were counted twice.",
+    );
+
+    const entry = await storedEntry(office, 6, today);
+    expect(entry.received, "payments lowered below the stored disposals").toBe(3);
+    expect(entry.amountPaise).toBe(15000);
+    expect(entry.completed, "a figure the revenue form never showed").toBe(7);
+    expect(entry.slaWithinTime).toBe(5);
+    expect(entry.avgDisposalDays).toBe(1.5);
+    expect(entry.closing.service, "revenue still moves nothing").toBe(
+      entry.opening.service,
+    );
+  });
+
+  test("a field-work correction keeps a stored within-SLA figure it never shows", async () => {
+    await filePreCutover(office, 10, today, {
+      ward: "Ward 15",
+      received: 6,
+      completed: 6,
+      slaWithinTime: 6,
+      complaintsReceived: 2,
+      complaintsResolved: 2,
+      avgDisposalDays: 3.5,
+    });
+
+    // Work done drops below the stored within-SLA figure. Nothing may object:
+    // the field-work form shows neither operand of that rule.
+    await correct(
+      office,
+      10,
+      async () => {
+        await numberField(office, "Animals picked up").fill("1");
+      },
+      "Only one animal was picked up.",
+    );
+
+    const entry = await storedEntry(office, 10, today);
+    expect(entry.completed, "work done lowered below the stored within-SLA").toBe(1);
+    expect(entry.slaWithinTime, "a figure the field-work form never showed").toBe(6);
+    expect(entry.received).toBe(6);
+    expect(entry.complaintsReceived).toBe(2);
+    expect(entry.avgDisposalDays).toBe(3.5);
+    expect(entry.closing.service, "field work still moves nothing").toBe(
+      entry.opening.service,
+    );
+  });
+
   test("the commissioner dashboard shows work done and none of the retired tiles", async () => {
     await signIn(commissioner, "commissioner", commissionerPassword);
     await expect(
@@ -577,7 +702,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     const collectionTile = commissioner.locator(".metric", { hasText: "Total collection" });
     await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
     expect(row.amountPaise, "collection accumulates across revenue entries").toBe(
-      125050 + 30025,
+      FILED.collectionPaise,
     );
 
     // jsdom does no layout, so the six-tile-to-four CSS change has never been
@@ -643,5 +768,50 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(await openingCell(1), "counter opening pending is shown").toBe("7");
     expect(await openingCell(2), "a revenue balance means nothing").toBe("");
     expect(await openingCell(8), "a field-work balance means nothing").toBe("");
+
+    // Eight columns went out of these two tables, and their min-widths held the
+    // width of the form they replaced. Asserted as a property rather than as
+    // the numbers themselves: a floor must never exceed what the content could
+    // ever need, and must not sit far above what the columns actually need.
+    const widths = await commissioner.evaluate(() => {
+      const measure = (selector: string) => {
+        const table = document.querySelector(selector) as HTMLElement;
+        const floor = parseFloat(getComputedStyle(table).minWidth);
+        const saved = table.style.cssText;
+        table.style.minWidth = "0px";
+        table.style.width = "min-content";
+        const min = table.getBoundingClientRect().width;
+        table.style.width = "max-content";
+        const max = table.getBoundingClientRect().width;
+        table.style.cssText = saved;
+        return { floor, min, max, columns: table.querySelectorAll("thead th").length };
+      };
+      return {
+        anchal: measure(".monitoring-table"),
+        register: measure(".details-panel table"),
+      };
+    });
+    for (const [name, t] of Object.entries(widths)) {
+      expect(t.floor, `${name}: floor must not exceed max-content`).toBeLessThanOrEqual(t.max);
+      expect(
+        t.floor / t.min,
+        `${name}: floor is ${(t.floor / t.min).toFixed(2)}x what its ${t.columns} columns need`,
+      ).toBeLessThanOrEqual(1.35);
+    }
+
+    // And the page itself must not scroll sideways on a phone: the tables
+    // scroll inside their own wrapper, not by dragging the whole document.
+    await commissioner.setViewportSize({ width: 375, height: 800 });
+    const phone = await commissioner.evaluate(() => ({
+      page:
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+      wrappers: Array.from(document.querySelectorAll(".table-wrap")).map(
+        (w) => w.scrollWidth > w.clientWidth,
+      ),
+    }));
+    expect(phone.page, "the document must not scroll sideways at 375px").toBe(false);
+    expect(phone.wrappers.every(Boolean), "each table scrolls in its wrapper").toBe(true);
+    await commissioner.setViewportSize({ width: 1600, height: 1000 });
   });
 });

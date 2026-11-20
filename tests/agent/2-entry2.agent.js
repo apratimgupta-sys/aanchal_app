@@ -46,20 +46,14 @@ await check('counter shape (01) keeps the disposed-vs-received rule', async () =
   await sub.click(); await page.waitForTimeout(800);
   return /cannot exceed received/i.test(await fieldErrs()) && writes.length === 0;
 });
-// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
-// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
-// re-seeds the form for the newly selected service bails out), so a service
-// switched into after typing still carries the previous service's figures and
-// its schema. A reload is the only way to reach a shape with a clean draft.
-const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
 await check('revenue shape (02) asks for payments and an amount, never a disposal', async () => {
-  await fresh(2);
+  await pick(2);
   const shown = await fields();
   if (!(shown.includes('Payments') && shown.includes('Amount Collected (₹)') && !shown.includes('Disposed') && !shown.includes('Received'))) throw new Error('shows ' + shown.join(', '));
   return shown.join(', ');
 });
 await check('field-work shape (09) asks only what was done, under its own label', async () => {
-  await fresh(9);
+  await pick(9);
   const shown = await fields();
   if (!(shown.includes('Routes') && !shown.includes('Received') && !shown.includes('Amount Collected (₹)'))) throw new Error('shows ' + shown.join(', '));
   return shown.join(', ');

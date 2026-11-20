@@ -379,4 +379,23 @@ describe("a server error on a field the form does not render", () => {
     const unhandled = screen.getByText(/cannot exceed completed cases/i);
     expect(unhandled.textContent).toContain("Completed within SLA");
   });
+
+  it("names the nothing-to-report flag rather than printing its key", async () => {
+    const user = await renderFor(15);
+    api.mockImplementation(async (_path: string, method = "GET") => {
+      if (method === "GET") return { setup: null, entries: [], openings: [] };
+      throw new RequestError("Please correct the highlighted fields", {
+        fieldErrors: {
+          "input.nothingToReport":
+            "Nothing to report cannot be combined with reported figures",
+        },
+      });
+    });
+    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.type(screen.getByLabelText(/^sites\b/i), "4");
+    await submitEntry(user);
+    const shown = await screen.findByText(/cannot be combined with reported/i);
+    expect(shown.textContent).toContain("Nothing to report");
+    expect(shown.textContent).not.toContain("nothingToReport");
+  });
 });

@@ -135,6 +135,16 @@ export default function Dashboard() {
   const disposal = totals.received
     ? (totals.completed / totals.received) * 100
     : null;
+  // Received, Completed, Pending and Disposal % are counter-shape figures: the
+  // server scopes all four to counter work. Pinned to one of the 11 revenue or
+  // field-work services they are not collected at all, so they are left blank
+  // rather than shown as 0 — a blank says "not collected for this service", a
+  // zero says "no work was done", and only one of those is true. Same treatment
+  // the register already gives Opening Pending.
+  const counterOnlyHidden =
+    service !== "" && formShape(Number(service)) !== "counter";
+  const counterCell = (value: string | number) =>
+    counterOnlyHidden ? "" : value;
   const metrics = [
     [
       t("Total pending", "कुल लंबित"),
@@ -168,11 +178,14 @@ export default function Dashboard() {
             {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
           </h1>
           {/* Fewer fields are collected from this date on, so figures fall at
-              the cutover. Without saying so, that reads as a fall in work. */}
+              the cutover. Without saying so, that reads as a fall in work. And
+              the ledger is derived on read, so an October period is recomputed
+              on today's shape rules too — saying only "not comparable" would
+              imply the earlier figures are as they were filed. */}
           <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
             {t(
-              `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable.`,
-              `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं।`,
+              `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
+              `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
             )}
           </p>
         </div>
@@ -329,6 +342,10 @@ export default function Dashboard() {
                   t("Completed", "पूर्ण"),
                   t("Pending", "लंबित"),
                   t("Disposal %", "निस्तारण %"),
+                  // Field work has no place in the four above, and without a
+                  // column of its own it can only be read as a cross-office
+                  // total, so no Anchal can be compared with another.
+                  t("Work done", "किया गया कार्य"),
                   t("Amount Collected (₹)", "संग्रहित राशि (₹)"),
                   t("Remarks / Review", "टिप्पणियाँ / समीक्षा"),
                 ].map((h) => (
@@ -344,10 +361,11 @@ export default function Dashboard() {
                       {t("Anchal", "अंचल")} {r.officeId}
                     </strong>
                   </td>
-                  <td>{r.received}</td>
-                  <td>{r.completed}</td>
-                  <td>{r.pending}</td>
-                  <td>{percent(r.disposalPct)}</td>
+                  <td>{counterCell(r.received)}</td>
+                  <td>{counterCell(r.completed)}</td>
+                  <td>{counterCell(r.pending)}</td>
+                  <td>{counterCell(percent(r.disposalPct))}</td>
+                  <td>{r.workDone}</td>
                   <td className="nowrap">{currency(r.amountPaise)}</td>
                   <td className="review-cell">
                     {r.reviewReasons.length ? (
@@ -374,10 +392,11 @@ export default function Dashboard() {
             <tfoot>
               <tr>
                 <td>{t("TOTAL", "कुल")}</td>
-                <td>{totals.received}</td>
-                <td>{totals.completed}</td>
-                <td>{totals.pending}</td>
-                <td>{percent(disposal)}</td>
+                <td>{counterCell(totals.received)}</td>
+                <td>{counterCell(totals.completed)}</td>
+                <td>{counterCell(totals.pending)}</td>
+                <td>{counterCell(percent(disposal))}</td>
+                <td>{totals.workDone}</td>
                 <td className="nowrap">{currency(totals.amountPaise)}</td>
                 <td>—</td>
               </tr>

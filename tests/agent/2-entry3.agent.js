@@ -44,24 +44,18 @@ const money = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Payments': '4', 'Amount Collected (₹)': '100', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
 };
-// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
-// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
-// re-seeds the form for the newly selected service bails out), so a service
-// switched into after typing still carries the previous service's figures and
-// its schema. A reload is the only way to reach a shape with a clean draft.
-const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
-await fresh(1);
+await pick(1);
 await check('negative number is blocked natively', async () => { await fill({ 'Received': '-1' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
 await check('decimal count is blocked natively', async () => { await fill({ 'Received': '1.5' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
 await check('huge numbers do not crash the page', async () => { await fill({ 'Received': '99999999999999999999' }); await sub.click(); await page.waitForTimeout(800); return (await page.getByLabel('Received').count()) === 1; });
-await fresh(2);
+await pick(2);
 await check('non-numeric amount shows an error and no reload button', async () => { writes.length = 0; await money({ 'Amount Collected (₹)': 'abc' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && (await reload.count()) === 0 && writes.length === 0; });
 await check('amount with 3 decimals is rejected', async () => { await money({ 'Amount Collected (₹)': '10.123' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && writes.length === 0; });
 // Average disposal days was dropped from every shape on 20 Nov 2026: it is
 // neither asked for nor required, so nothing can be blocked on it any more.
 await check('no shape asks for average disposal days', async () => {
   const on = [];
-  for (const id of [1, 2, 9]) { await fresh(id); if (await page.getByLabel('Avg Disposal Days').count()) on.push(id); }
+  for (const id of [1, 2, 9]) { await pick(id); if (await page.getByLabel('Avg Disposal Days').count()) on.push(id); }
   if (on.length) throw new Error('still on services ' + on.join(', '));
   return 'absent on counter, revenue and field work';
 });

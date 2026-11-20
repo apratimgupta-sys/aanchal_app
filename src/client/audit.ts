@@ -14,6 +14,10 @@ export const auditFields: Record<string, [string, string]> = {
   fieldReceived: ["Field work received", "प्राप्त क्षेत्र कार्य"],
   fieldCompleted: ["Field work completed", "पूर्ण क्षेत्र कार्य"],
   avgDisposalDays: ["Average disposal days", "औसत निस्तारण दिवस"],
+  // The office's deliberate "nothing happened here today". Without a label the
+  // server's 422 on this key reaches the entry form's unhandled list as the raw
+  // camelCase name, in both languages.
+  nothingToReport: ["Nothing to report", "कुछ रिपोर्ट नहीं"],
   remarks: ["Remarks", "टिप्पणी"],
   "opening.service": ["Opening pending services", "आरंभिक लंबित सेवाएँ"],
   "opening.complaints": ["Opening pending complaints", "आरंभिक लंबित शिकायतें"],
@@ -62,8 +66,23 @@ export function auditComparison(beforeRaw: string | null, afterRaw: string) {
         ...(serviceId === undefined ? {} : { serviceId }),
       });
   };
-  for (const key of Object.keys(auditFields).filter((k) => !k.includes(".")))
+  // A snapshot written before nothingToReport existed has no such key, and the
+  // audit SchemaVersion deliberately stayed 1, so a missing flag means false on
+  // either side. Compared raw, every correction of a pre-cutover entry would
+  // grow an "— to false" row that records no edit anybody made. Unchanged and
+  // false is also not worth a row: having something to report is the ordinary
+  // case, not a change.
+  const flag = (value: unknown) => value === true;
+  for (const key of Object.keys(auditFields).filter((k) => !k.includes("."))) {
+    if (key === "nothingToReport") {
+      const was = flag(before?.[key]),
+        now = flag(after[key]);
+      if (before ? was !== now : now)
+        changes.push({ key, before: was, after: now });
+      continue;
+    }
     add(key, before?.[key], after[key]);
+  }
   // Setup snapshots contain balances; entry snapshots contain derived balances that
   // were not saved in older before snapshots and must not be reported as edits.
   if (Array.isArray(after.balances)) {
@@ -88,6 +107,16 @@ export function auditComparison(beforeRaw: string | null, afterRaw: string) {
   return { valid: true, after, changes };
 }
 export function auditValue(key: string, value: unknown, lang: string) {
+  // Checked before the empty test below, so `false` reads as "No" rather than
+  // as a missing value.
+  if (typeof value === "boolean")
+    return value
+      ? lang === "hi"
+        ? "हाँ"
+        : "Yes"
+      : lang === "hi"
+        ? "नहीं"
+        : "No";
   if (value === undefined || value === null || value === "") return "—";
   if (key === "amountPaise" && typeof value === "number")
     return new Intl.NumberFormat(lang === "hi" ? "hi-IN" : "en-IN", {

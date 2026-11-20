@@ -217,10 +217,16 @@ main {
   max-width: 100%;
 }
 .monitoring-table {
-  min-width: 72rem;
+  /* The floor the table drops to before the wrapper scrolls. Measured against
+     the eight columns that are left: min-content is 54.4rem, max-content
+     65.8rem. 72rem was set for ten columns and forced the table wider than its
+     content ever needs. */
+  min-width: 58rem;
 }
 .details-panel table {
-  min-width: 115rem;
+  /* Twelve columns now, not eighteen: min-content 79.4rem. 115rem held the
+     width of the six that were dropped. */
+  min-width: 84rem;
 }
 .review-cell {
   min-width: 10rem;
