@@ -11,10 +11,22 @@
 //   RMC_COMMISSIONER_PASSWORD=... \
 //   npx playwright test tests/browser/daily-form-live.spec.ts
 //
-// It needs an office account that has not completed its one-time opening
-// balances and has filed nothing today: the balances lock on save, and an entry
-// is unique per service and date. Six office accounts exist; point
-// RMC_OFFICER_USERNAME at a fresh one for a second run on the same day.
+// PRECONDITION: a freshly provisioned database, with no office setups and no
+// entries. Opening balances lock permanently the first time they are saved —
+// per office, not per day — and this spec saves them through the UI and then
+// asserts that a second save is refused. So an office that has run this spec
+// can never run it again, on any day, and after six runs the database is spent.
+//
+// Reset it first, with the API stopped:
+//
+//   export PGPASSWORD=...
+//   . /path/to/jwt.env
+//   RMC_CREDENTIALS_FILE=/path/to/anchal-provisioning.env \
+//     tests/browser/reset-live-stack.sh
+//
+// then start the API again. The script drops and recreates the database,
+// applies the migrations and re-provisions the seven accounts; it writes no
+// opening balances, because that screen is what this spec walks.
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 
 const live = process.env.RMC_LIVE_BACKEND === "1";
@@ -35,9 +47,10 @@ const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
 //  12  counter, though its monitoring kind is grievance; must still move
 //  20  counter, the "nothing to report" case — must not move
 //   2  revenue    — non-zero on purpose: it must still be frozen
+//   5  revenue    — a second one, so collection is proved to accumulate
 //   8  field work — non-zero on purpose: it must still be frozen
 // Every other service opens at zero so the dashboard arithmetic below is exact.
-const OPENING: Record<number, number> = { 1: 7, 2: 11, 7: 3, 8: 13, 12: 5, 20: 4 };
+const OPENING: Record<number, number> = { 1: 7, 2: 11, 5: 9, 7: 3, 8: 13, 12: 5, 20: 4 };
 
 // The figures filed, and the totals they must produce on the dashboard. Kept
 // mutually distinct so a tile reading the wrong total cannot pass by accident.
@@ -46,8 +59,8 @@ const FILED = {
   counterReceived: 23, // 9 + 8 + 6 + 0
   counterCompleted: 10, // 4 + 4 + 2 + 0
   workDone: 11, // 6 trips (s8) + 5 routes (s9) — field work only
-  collection: "₹1,250.50", // the one revenue entry, 125050 paise
-  entries: 7, // s1 s2 s7 s8 s9 s12 s20
+  collection: "₹1,550.75", // 125050 paise (s2) + 30025 paise (s5)
+  entries: 8, // s1 s2 s5 s7 s8 s9 s12 s20
 };
 
 type ApiResponse<T> = { status: number; body: T };
@@ -303,7 +316,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(entry.closing.service, "counter work moves the pending balance").toBe(12);
   });
 
-  test("a revenue entry leaves the pending balance at its opening figure", async () => {
+  test("revenue entries collect money and leave every pending balance alone", async () => {
     await selectService(office, 2);
 
     // No queue, so no opening or closing strip and no disposal figure.
@@ -325,10 +338,38 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(entry.received).toBe(12);
     expect(entry.amountPaise).toBe(125050);
     expect(entry.completed).toBe(0);
-    // The ledger is derived per entry, so an opening that survives one payment
-    // survives a month of them: the deriver has no term for revenue at all.
     expect(entry.opening.service).toBe(11);
     expect(entry.closing.service, "a payment must not move the queue").toBe(11);
+
+    // A second revenue entry, on a different revenue service, because the
+    // reporting start date is today and the same service and date can only be
+    // filed once. One entry proves the rule; two prove it holds while money
+    // accumulates, which is what a month of payments would do to the ledger.
+    await selectService(office, 5);
+    await expect(office.locator(".balance-strip")).toHaveCount(0);
+    await expectFormFields(office, [
+      ...DATE_AND_WARD,
+      "Payments",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
+    await textField(office, "Ward number / name").fill("Ward 13");
+    await numberField(office, "Payments").fill("7");
+    await textField(office, "Amount Collected (₹)").fill("300.25");
+    await submitEntry(office);
+
+    const second = await storedEntry(office, 5, today);
+    expect(second.received).toBe(7);
+    expect(second.amountPaise).toBe(30025);
+    expect(second.completed).toBe(0);
+
+    // Neither opening moved, and neither moved the other: the deriver has no
+    // term for revenue at all, so each service's queue is where the setup left it.
+    expect(second.opening.service).toBe(9);
+    expect(second.closing.service, "a payment must not move the queue").toBe(9);
+    const first = await storedEntry(office, 2, today);
+    expect(first.opening.service, "service 2 opening, after service 5 filed").toBe(11);
+    expect(first.closing.service, "service 2 closing, after service 5 filed").toBe(11);
   });
 
   test("a field-work entry files with no requests behind it", async () => {
@@ -532,8 +573,12 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(disposalTile.locator("small")).toHaveText(
       `${FILED.counterCompleted} / ${FILED.counterReceived}`,
     );
+    // The sum of the two revenue entries, not either one of them.
     const collectionTile = commissioner.locator(".metric", { hasText: "Total collection" });
     await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
+    expect(row.amountPaise, "collection accumulates across revenue entries").toBe(
+      125050 + 30025,
+    );
 
     // jsdom does no layout, so the six-tile-to-four CSS change has never been
     // seen. Measured, not eyeballed: four tiles, one row, no overflow.
