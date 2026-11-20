@@ -244,10 +244,17 @@ The label varies by service, the field does not *[builder call]*:
 | Repairs | 13 street lighting |
 | Works | 14 road and drain |
 | Sites | 15 grass cutting, 16 tree pruning |
+| Animals picked up | 10 street dog |
 
-This is a hand-kept list, not derived — five of the eight do not match their unit word. It is
+This is a hand-kept list, not derived — six of the eight do not match their unit word. It is
 the one place this design keeps a list by hand, and it is wording rather than behaviour.
-Service 10 (street dog) has no good label yet (§9 OI-1).
+Service 10's label was settled with the client on 2026-11-20 as **Animals picked up**, since
+no unit word fits dog control.
+
+Field work records **work done only**. No requests field, on any of the eight, including
+service 8 ("Requests / Trips") and 14 ("Works / Complaints") where the sheet names requests
+— client decision, 2026-11-20. A request that produced no work is therefore not visible in
+this form.
 
 `Payments` on the revenue shape is the existing `received` field relabelled.
 
@@ -357,9 +364,8 @@ want it.
 
 | ID | Issue | Needed from | Blocks |
 |---|---|---|---|
-| OI-1 | **Label for service 10 (street dog).** "Routes" fits fogging and water bodies; for street dog control it reads wrong. Likely "Animals picked up" or "Rounds", but it is RMC's terminology. Services 9, 10 and 17 share the unit "Requests / Activities" yet need different words, which is why §7.4's list cannot be derived. | RMC | **The field-work shape for service 10** — it is one of the eight, so the shape cannot ship for it without a label |
-| OI-2 | **Whether service 12 eventually leaves the portal** for a grievance module, and whether the Grievance Monitoring sheet becomes one. | Client | Nothing here |
-| OI-3 | **Per-service SLA standards**, if timeliness measurement is ever wanted again. The fields are being removed; restoring them later is cheap, the standards are what is missing. | RMC | Nothing here |
+| OI-1 | **Whether service 12 eventually leaves the portal** for a grievance module, and whether the Grievance Monitoring sheet becomes one. | Client | Nothing here |
+| OI-2 | **Per-service SLA standards**, if timeliness measurement is ever wanted again. The fields are being removed; restoring them later is cheap, the standards are what is missing. | RMC | Nothing here |
 
 ## 10. Risks
 
