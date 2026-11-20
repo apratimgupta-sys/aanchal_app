@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import type { MonitoringRow, EntryView } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
+import { formShape } from "../../domain/service-kind";
 import { api } from "../api";
-import { Language, useText, runtimeText } from "../i18n";
+import { FORM_REDUCED_ON, Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
 const currency = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -112,11 +113,9 @@ export default function Dashboard() {
       for (const k of [
         "received",
         "completed",
-        "slaWithinTime",
         "pending",
         "amountPaise",
-        "complaintsPending",
-        "fieldPending",
+        "workDone",
         "submitted",
         "expected",
       ] as const)
@@ -126,21 +125,16 @@ export default function Dashboard() {
     {
       received: 0,
       completed: 0,
-      slaWithinTime: 0,
       pending: 0,
       amountPaise: 0,
-      complaintsPending: 0,
-      fieldPending: 0,
+      workDone: 0,
       submitted: 0,
       expected: 0,
     },
   );
   const disposal = totals.received
-      ? (totals.completed / totals.received) * 100
-      : null,
-    sla = totals.completed
-      ? (totals.slaWithinTime / totals.completed) * 100
-      : null;
+    ? (totals.completed / totals.received) * 100
+    : null;
   const metrics = [
     [
       t("Total pending", "कुल लंबित"),
@@ -153,24 +147,14 @@ export default function Dashboard() {
       `${totals.completed} / ${totals.received}`,
     ],
     [
-      t("Within SLA", "समय सीमा में"),
-      percent(sla),
-      t("Of completed work", "पूर्ण कार्य में से"),
-    ],
-    [
       t("Total collection", "कुल संग्रह"),
       currency(totals.amountPaise),
       t("Actual collection", "वास्तविक संग्रह"),
     ],
     [
-      t("Complaints pending", "लंबित शिकायतें"),
-      totals.complaintsPending,
-      t("Closing balance", "अंतिम शेष"),
-    ],
-    [
-      t("Field tasks pending", "लंबित क्षेत्रीय कार्य"),
-      totals.fieldPending,
-      t("Closing balance", "अंतिम शेष"),
+      t("Work done this period", "इस अवधि में किया गया कार्य"),
+      totals.workDone,
+      t("Field work completed", "पूर्ण क्षेत्रीय कार्य"),
     ],
   ];
   return (
@@ -183,6 +167,14 @@ export default function Dashboard() {
           <h1 className="ux4g-heading-xl-strong">
             {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
           </h1>
+          {/* Fewer fields are collected from this date on, so figures fall at
+              the cutover. Without saying so, that reads as a fall in work. */}
+          <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
+            {t(
+              `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable.`,
+              `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं।`,
+            )}
+          </p>
         </div>
       </div>
       <Panel className="panel filters">
@@ -331,14 +323,13 @@ export default function Dashboard() {
               <tr>
                 {[
                   t("Anchal", "अंचल"),
-                  t("Requests / Transactions", "प्राप्त / लेन-देन"),
-                  t("Disposed / Completed", "निस्तारित / पूर्ण"),
+                  // Neutral wording: these three are counter-shape figures
+                  // only, so naming transactions or field work would be wrong.
+                  t("Received", "प्राप्त"),
+                  t("Completed", "पूर्ण"),
                   t("Pending", "लंबित"),
                   t("Disposal %", "निस्तारण %"),
-                  t("SLA %", "समय सीमा %"),
                   t("Amount Collected (₹)", "संग्रहित राशि (₹)"),
-                  t("Complaints Pending", "लंबित शिकायतें"),
-                  t("Field Tasks Pending", "लंबित क्षेत्रीय कार्य"),
                   t("Remarks / Review", "टिप्पणियाँ / समीक्षा"),
                 ].map((h) => (
                   <th key={h}>{h}</th>
@@ -357,10 +348,7 @@ export default function Dashboard() {
                   <td>{r.completed}</td>
                   <td>{r.pending}</td>
                   <td>{percent(r.disposalPct)}</td>
-                  <td>{percent(r.slaPct)}</td>
                   <td className="nowrap">{currency(r.amountPaise)}</td>
-                  <td>{r.complaintsPending}</td>
-                  <td>{r.fieldPending}</td>
                   <td className="review-cell">
                     {r.reviewReasons.length ? (
                       <details>
@@ -390,10 +378,7 @@ export default function Dashboard() {
                 <td>{totals.completed}</td>
                 <td>{totals.pending}</td>
                 <td>{percent(disposal)}</td>
-                <td>{percent(sla)}</td>
                 <td className="nowrap">{currency(totals.amountPaise)}</td>
-                <td>{totals.complaintsPending}</td>
-                <td>{totals.fieldPending}</td>
                 <td>—</td>
               </tr>
             </tfoot>
@@ -452,15 +437,12 @@ export default function Dashboard() {
                     ["Service No", "सेवा संख्या"],
                     ["Service", "सेवा"],
                     ["Opening Pending", "प्रारंभिक लंबित"],
-                    ["Received", "प्राप्त"],
-                    ["Completed", "पूर्ण"],
-                    ["SLA Within Time", "समय सीमा में पूर्ण"],
+                    // One column per figure, three shapes in the rows below:
+                    // received is cases or transactions, and completed is
+                    // disposals or work done, so both labels name both.
+                    ["Received / Transactions", "प्राप्त / लेन-देन"],
+                    ["Completed / Work done", "पूर्ण / किया गया कार्य"],
                     ["Amount (₹)", "राशि (₹)"],
-                    ["Complaints Received", "प्राप्त शिकायतें"],
-                    ["Complaints Resolved", "निस्तारित शिकायतें"],
-                    ["Field Received", "प्राप्त क्षेत्रीय कार्य"],
-                    ["Field Completed", "पूर्ण क्षेत्रीय कार्य"],
-                    ["Avg Days", "औसत दिन"],
                     ["Remarks", "टिप्पणियाँ"],
                   ].map(([en, hi]) => (
                     <th key={en}>{t(en, hi)}</th>
@@ -483,16 +465,16 @@ export default function Dashboard() {
                         ? services[e.serviceId - 1].name
                         : services[e.serviceId - 1].en}
                     </td>
-                    <td>{e.opening.service}</td>
+                    {/* Blank, not 0: the service balance of a revenue or
+                        field-work service is frozen and means nothing. */}
+                    <td>
+                      {formShape(e.serviceId) === "counter"
+                        ? e.opening.service
+                        : ""}
+                    </td>
                     <td>{e.received}</td>
                     <td>{e.completed}</td>
-                    <td>{e.slaWithinTime}</td>
                     <td>{currency(e.amountPaise)}</td>
-                    <td>{e.complaintsReceived}</td>
-                    <td>{e.complaintsResolved}</td>
-                    <td>{e.fieldReceived}</td>
-                    <td>{e.fieldCompleted}</td>
-                    <td>{e.avgDisposalDays ?? "—"}</td>
                     <td>{e.remarks || "—"}</td>
                   </tr>
                 ))}

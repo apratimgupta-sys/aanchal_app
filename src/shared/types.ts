@@ -109,6 +109,12 @@ export type MonitoringRow = {
   disposalPct: number | null;
   slaPct: number | null;
   amountPaise: number;
+  // Sum of `completed` over the eight field-work services in the filtered
+  // range: a flow, not a closing balance. Replaces the field-tasks-pending
+  // tile, whose balance no longer moves.
+  workDone: number;
+  // The wire still carries these; nothing renders them since the form stopped
+  // collecting complaint, field and SLA figures.
   complaintsPending: number;
   fieldPending: number;
   submitted: number;

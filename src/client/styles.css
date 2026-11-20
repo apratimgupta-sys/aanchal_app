@@ -190,9 +190,11 @@ main {
 .filters .service-filter {
   flex: 2;
 }
+/* Four tiles since the form stopped collecting complaint, field and SLA
+   figures: Total pending, Disposal, Total collection, Work done. */
 .metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--ux4g-gap-column-l);
   margin-block: var(--ux4g-gap-row-l);
 }
@@ -209,7 +211,7 @@ main {
   overflow-wrap: anywhere;
 }
 /* Reports intentionally scroll horizontally inside their own regions; the
-   18-column service register must not force the page wider on mobile. */
+   service register must not force the page wider on mobile. */
 .table-wrap {
   overflow: auto;
   max-width: 100%;
@@ -506,7 +508,7 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 }
 @media (max-width: 1439px) {
   .metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

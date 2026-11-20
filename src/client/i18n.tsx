@@ -5,6 +5,14 @@ export function useText() {
   const lang = useContext(Language);
   return (en: string, hi: string) => (lang === "hi" ? hi : en);
 }
+// The day the daily entry form stopped collecting six of its nine fields. Both
+// language strings of the dashboard's dated note read the date from here, so
+// there is one place to change if the cutover moves.
+export const FORM_REDUCED_ON = {
+  iso: "2026-11-20",
+  en: "20 November 2026",
+  hi: "20 नवंबर 2026",
+};
 const runtimeHindi: Record<string, string> = {
   "Initial balances not configured": "प्रारंभिक शेष दर्ज नहीं हैं",
   "Enter a valid value": "वैध मान दर्ज करें",
@@ -18,11 +26,12 @@ const runtimeHindi: Record<string, string> = {
   "Completed cannot exceed received": "निस्तारित प्राप्त से अधिक नहीं हो सकते",
   "Resolved complaints cannot exceed received": "निस्तारित शिकायतें प्राप्त शिकायतों से अधिक नहीं हो सकतीं",
   "Completed field tasks cannot exceed received": "पूर्ण क्षेत्रीय कार्य प्राप्त कार्यों से अधिक नहीं हो सकते",
+  // Review reasons are English literals from the server, translated by exact
+  // key match with a silent English fallback. The server stopped sending
+  // "SLA < 90%", "Complaints pending > 5" and "Field tasks pending > 10"; these
+  // two must stay byte-identical to the server's and to ledger.ts's mirror.
   "Pending > 10": "लंबित कार्य > 10",
   "Disposal < 90%": "निस्तारण < 90%",
-  "SLA < 90%": "समय सीमा में निस्तारण < 90%",
-  "Complaints pending > 5": "लंबित शिकायतें > 5",
-  "Field tasks pending > 10": "लंबित क्षेत्रीय कार्य > 10",
   "Entry submitted": "प्रविष्टि जमा की गई",
   "Entry corrected": "प्रविष्टि सुधारी गई",
   "Initial balances configured": "प्रारंभिक शेष दर्ज किए गए",

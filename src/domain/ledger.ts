@@ -1,4 +1,4 @@
-import { collects, movesPendingBalance } from "./service-kind";
+import { collects, isFieldWork, movesPendingBalance } from "./service-kind";
 import type {
   Activity,
   Balances,
@@ -124,6 +124,7 @@ export function summarizePeriod(
         disposalPct: null,
         slaPct: null,
         amountPaise: 0,
+        workDone: 0,
         complaintsPending: 0,
         fieldPending: 0,
         submitted: 0,
@@ -157,7 +158,10 @@ export function summarizePeriod(
           filter.to < setup.startDate
             ? { service: 0, complaints: 0, field: 0 }
             : (views.at(-1)?.closing ?? b.opening);
-        r.pending += close.service;
+        // Only the counter shape has a queue. The service balance of the 11
+        // revenue and field-work services is frozen, so counting it would
+        // report a pending figure nothing can ever work off.
+        if (movesPendingBalance(b.serviceId)) r.pending += close.service;
         r.complaintsPending += close.complaints;
         r.fieldPending += close.field;
         for (const e of all.filter((e) => e.serviceDate >= filter.from)) {
@@ -165,18 +169,19 @@ export function summarizePeriod(
           r.completed += e.completed;
           r.slaWithinTime += e.slaWithinTime;
           r.amountPaise += e.amountPaise;
+          if (isFieldWork(b.serviceId)) r.workDone += e.completed;
           r.submitted++;
         }
       }
       r.disposalPct = r.received ? (r.completed / r.received) * 100 : null;
       r.slaPct = r.completed ? (r.slaWithinTime / r.completed) * 100 : null;
+      // Mirror of the server's review reasons. The three thresholds over SLA,
+      // complaints and field tasks are gone with the fields that fed them.
+      // These two literals are a cross-repo contract: they are translated by
+      // exact key match in i18n.tsx, so rewording one silently drops Hindi.
       if (r.pending > 10) r.reviewReasons.push("Pending > 10");
       if (r.disposalPct !== null && r.disposalPct < 90)
         r.reviewReasons.push("Disposal < 90%");
-      if (r.slaPct !== null && r.slaPct < 90) r.reviewReasons.push("SLA < 90%");
-      if (r.complaintsPending > 5)
-        r.reviewReasons.push("Complaints pending > 5");
-      if (r.fieldPending > 10) r.reviewReasons.push("Field tasks pending > 10");
       return r;
     });
 }
