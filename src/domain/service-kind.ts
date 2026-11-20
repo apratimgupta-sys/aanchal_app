@@ -39,6 +39,20 @@ export function serviceKind(serviceId: number): ServiceKind {
   return KIND_BY_ID.get(serviceId) ?? "counter";
 }
 
+// The three shapes the daily entry form takes. Grievance handling is a queue
+// of cases like any other, so it takes the counter shape.
+export type FormShape = "counter" | "revenue" | "fieldwork";
+
+export function formShape(serviceId: number): FormShape {
+  const kind = serviceKind(serviceId);
+  return kind === "grievance" ? "counter" : kind;
+}
+
+// Only the counter shape has a queue, so only it moves the pending balance.
+export function movesPendingBalance(serviceId: number): boolean {
+  return formShape(serviceId) === "counter";
+}
+
 export function isFieldWork(serviceId: number): boolean {
-  return serviceKind(serviceId) === "fieldwork";
+  return formShape(serviceId) === "fieldwork";
 }

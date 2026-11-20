@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import services from "../../src/shared/services.json";
-import { isFieldWork, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
+import { formShape, isFieldWork, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
 
 describe("what kind of work a service is", () => {
   // From the Service Master's Primary Monitoring Unit column, not hand-listed:
@@ -36,5 +36,20 @@ describe("what kind of work a service is", () => {
   it("treats an unknown service id as counter work, keeping the strict rules", () => {
     expect(serviceKind(99)).toBe("counter");
     expect(isFieldWork(99)).toBe(false);
+  });
+
+  it("puts the grievance service on the counter shape", () => {
+    expect(formShape(12)).toBe("counter");
+    expect(movesPendingBalance(12)).toBe(true);
+  });
+
+  it("gives counter 14, revenue 3, fieldwork 8", () => {
+    const n = (s: string) => services.filter((x) => formShape(x.id) === s).length;
+    expect([n("counter"), n("revenue"), n("fieldwork")]).toEqual([14, 3, 8]);
+  });
+
+  it("moves the balance for exactly the counter shape", () => {
+    expect(services.map((s) => s.id).filter(movesPendingBalance)).toEqual(
+      [1, 3, 4, 7, 11, 12, 18, 19, 20, 21, 22, 23, 24, 25]);
   });
 });
