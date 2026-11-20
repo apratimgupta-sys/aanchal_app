@@ -1,4 +1,4 @@
-import { isFieldWork } from "./service-kind";
+import { movesPendingBalance } from "./service-kind";
 import type {
   Activity,
   Balances,
@@ -77,10 +77,10 @@ export function applyActivity(
   a: Activity & { serviceId: number },
 ): Balances {
   return {
-    // Field work has no queue, so it does not move the service balance. Before
-    // this, work recorded with no request behind it drove the balance negative
-    // and the entry was rejected.
-    service: o.service + (isFieldWork(a.serviceId) ? 0 : a.received - a.completed),
+    // Only counter-shape services have a queue. Field work has none, and revenue
+    // services record payments in `received` and complete nothing, so neither
+    // may move the service balance.
+    service: o.service + (movesPendingBalance(a.serviceId) ? a.received - a.completed : 0),
     complaints: o.complaints + a.complaintsReceived - a.complaintsResolved,
     field: o.field + a.fieldReceived - a.fieldCompleted,
   };

@@ -65,3 +65,25 @@ describe("the pending balance", () => {
     expect(after.service).toBe(3);
   });
 });
+
+describe("revenue services and the pending balance", () => {
+  const open = { service: 7, complaints: 0, field: 0 };
+
+  it.each([2, 5, 6])("service %i: payments received leave the balance unchanged", (serviceId) => {
+    const after = applyActivity(open, { ...zero, serviceId, received: 40 });
+    expect(after.service).toBe(7);
+  });
+
+  it.each([1, 12, 25])("service %i: counter closing balance is unaffected", (serviceId) => {
+    const after = applyActivity(open, { ...zero, serviceId, received: 40, completed: 15 });
+    expect(after.service).toBe(32);
+  });
+
+  it("still moves for the grievance service (counter shape)", () => {
+    const after = applyActivity(
+      { service: 0, complaints: 0, field: 0 },
+      { ...zero, serviceId: 12, received: 5, completed: 2 },
+    );
+    expect(after.service).toBe(3);
+  });
+});
