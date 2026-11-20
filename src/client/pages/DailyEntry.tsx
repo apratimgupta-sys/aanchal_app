@@ -15,7 +15,7 @@ import { normalizeFieldErrors } from "../field-errors";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { formatIndiaDateTime } from "../lib/dates";
-import { avgDisposalDaysRequired, entryCrossFieldErrors } from "../../domain/entry-rules";
+import { entryCrossFieldErrors } from "../../domain/entry-rules";
 const entryClientSchema = z.object({
   ward: z.string().trim().min(1, "Ward number or name is required"),
   received: z.number().int().min(0),
@@ -241,7 +241,6 @@ export default function DailyEntry({
       </Panel>
     );
   const close = applyActivity(opening, input);
-  const avgDaysRequired = avgDisposalDaysRequired(input.serviceId, input.completed);
   const service = services.find((s) => s.id === selected)!;
   return (
     <>
@@ -561,29 +560,6 @@ export default function DailyEntry({
                     setDirty(true);
                   }}
                 />
-              </Field>
-              <Field>
-                {t("Avg Disposal Days", "औसत निस्तारण दिन")}
-                {avgDaysRequired && " *"}
-                <input
-                  readOnly={!!saved && !editingEntry}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required={avgDaysRequired}
-                  value={input.avgDisposalDays ?? ""}
-                  onChange={(e) =>
-                    patch(
-                      "avgDisposalDays",
-                      e.target.value === "" ? null : Number(e.target.value),
-                    )
-                  }
-                />
-                {fields.avgDisposalDays && (
-                  <span className="field-error ux4g-text-error">
-                    {runtimeText(fields.avgDisposalDays, lang)}
-                  </span>
-                )}
               </Field>
               <Field className="wide">
                 {t("Remarks", "टिप्पणियाँ")}

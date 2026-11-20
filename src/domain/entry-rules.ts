@@ -29,8 +29,3 @@ export function entryCrossFieldErrors(
     errors.fieldCompleted = "Completed field tasks cannot exceed received";
   return errors;
 }
-
-// There is no case to dispose of in field work, so no average to report.
-export function avgDisposalDaysRequired(serviceId: number, completed: number): boolean {
-  return !isFieldWork(serviceId) && completed > 0;
-}

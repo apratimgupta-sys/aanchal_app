@@ -69,6 +69,23 @@ describe("ledger", () => {
   ])("rejects invalid input %j", (patch) =>
     expect(validateEntry({ ...entry, ...patch }, "2026-10-03")).not.toBeNull(),
   );
+  it("accepts a completed entry that carries no average disposal days", () =>
+    expect(
+      validateEntry(
+        { ...entry, received: 5, completed: 3, slaWithinTime: 0, avgDisposalDays: null },
+        "2026-10-03",
+      ),
+    ).toBeNull());
+  it.each([-1, 100001, NaN, Infinity])(
+    "still rejects a supplied average of %s",
+    (avgDisposalDays) =>
+      expect(
+        validateEntry(
+          { ...entry, received: 5, completed: 3, slaWithinTime: 0, avgDisposalDays },
+          "2026-10-03",
+        )?.fieldErrors?.avgDisposalDays,
+      ).toBeDefined(),
+  );
   it("parses paise exactly", () => {
     expect(parseMoney("1.01")).toBe(101);
     expect(() => parseMoney("1.001")).toThrow();

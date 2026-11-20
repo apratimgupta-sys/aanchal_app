@@ -64,8 +64,6 @@ export function validateEntry(e: EntryInput, today: string): ApiError | null {
       e.avgDisposalDays > 100000)
   )
     errors.avgDisposalDays = "Enter valid nonnegative days";
-  if (e.completed > 0 && e.avgDisposalDays === null)
-    errors.avgDisposalDays = "Average days required when work is completed";
   return Object.keys(errors).length
     ? {
         code: "VALIDATION",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avgDisposalDaysRequired, entryCrossFieldErrors } from "../../src/domain/entry-rules";
+import { entryCrossFieldErrors } from "../../src/domain/entry-rules";
 import { applyActivity } from "../../src/domain/ledger";
 
 const zero = {
@@ -34,20 +34,6 @@ describe("cross-field rules on a daily entry", () => {
     expect(Object.keys(errors).sort()).toEqual([
       "complaintsResolved", "completed", "fieldCompleted",
     ]);
-  });
-});
-
-describe("when average disposal days is required", () => {
-  it("is not required for work on the ground, which disposes of nothing", () => {
-    expect(avgDisposalDaysRequired(15, 5)).toBe(false);
-  });
-
-  it("is required for counter work that finished something", () => {
-    expect(avgDisposalDaysRequired(1, 5)).toBe(true);
-  });
-
-  it("is not required when nothing was finished", () => {
-    expect(avgDisposalDaysRequired(1, 0)).toBe(false);
   });
 });
 
