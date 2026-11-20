@@ -5,6 +5,8 @@
 // the selection but not the draft, so the panel described one service and the
 // POST named another, and the server could not catch it: it looks the entry up
 // by the body's own serviceId.
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -62,6 +64,20 @@ async function pick(user: ReturnType<typeof userEvent.setup>, id: number) {
 
 const number = (name: string) =>
   screen.getByRole("spinbutton", { name }) as HTMLInputElement;
+// Every field the entry panel renders, by the name an office reads off it.
+const panelFields = () =>
+  Array.from(
+    document.querySelectorAll(".entry-panel form input, .entry-panel form textarea"),
+  ).map((el) => {
+    const id = el.getAttribute("id");
+    const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
+    return (el.getAttribute("aria-label") ?? label?.textContent ?? "")
+      .replace(/\s*\*\s*$/, "")
+      .trim();
+  });
+const eyebrow = () =>
+  document.querySelector(".entry-panel .eyebrow")?.textContent ?? "";
+const DATE_AND_WARD = ["Reporting / registration date", "Ward number / name"];
 const ward = () =>
   screen.getByRole("textbox", { name: "Ward number / name" }) as HTMLInputElement;
 
@@ -146,5 +162,50 @@ describe("switching service with an unsaved draft", () => {
     expect(screen.getByText(/SERVICE 01\b/)).toBeTruthy();
     expect(number("Received").value).toBe("5");
     expect(ward().value).toBe("Ward 4");
+  });
+});
+
+// Part (2) of the fix — keying the panel to the draft's own service rather than
+// to the selection — is defence in depth, and defence in depth is invisible.
+// With the draft cleared on every confirmed switch, `selected` and
+// `input.serviceId` are never observably different: React commits no frame
+// between the click and the re-seed (checked: right after a raw dispatch the
+// selection highlight has not moved either), so no rendered output and no
+// submitted record can tell the two keyings apart. The three cases above all
+// stay green when part (2) alone is reverted.
+//
+// What can still be pinned is the keying itself, so that dropping it is a test
+// failure rather than a silent return to the shape that let a figure be filed
+// against the wrong service. This asserts source, which is a poor kind of test
+// and deliberate here: there is no behavioural one to write.
+describe("the entry panel is keyed to the draft, not to the selection", () => {
+  const source = readFileSync(
+    resolve(process.cwd(), "src/client/pages/DailyEntry.tsx"),
+    "utf8",
+  );
+
+  it("derives the service, its shape and its fields from the draft", () => {
+    expect(source).toContain("const formServiceId = input.serviceId;");
+    for (const derivation of [
+      "const service = services.find((s) => s.id === formServiceId)!",
+      "const shape = formShape(formServiceId)",
+      "const shownFields = numericFields(formServiceId)",
+      "data?.openings.find((b) => b.serviceId === formServiceId)",
+    ])
+      expect(source, `${derivation} must read the draft's service`).toContain(
+        derivation,
+      );
+  });
+
+  it("leaves nothing in the panel keyed back to the selection", () => {
+    for (const keyedToSelection of [
+      "formShape(selected)",
+      "numericFields(selected)",
+      "services.find((s) => s.id === selected)",
+      "openings.find((b) => b.serviceId === selected)",
+    ])
+      expect(source, `${keyedToSelection} would reopen the gap`).not.toContain(
+        keyedToSelection,
+      );
   });
 });

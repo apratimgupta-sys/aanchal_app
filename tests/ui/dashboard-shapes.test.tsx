@@ -272,6 +272,89 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(bodyCell("Amount Collected (₹)")).toBeTruthy();
   });
 
+  it("blanks the work done column when the filter pins a service that is not field work", async () => {
+    // The inverse of the ruling above, and the same misreading: a 0 here says
+    // no field work was done, when field work is not collected for a counter
+    // or revenue service at all.
+    mockApi([row({ workDone: 0 })]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    const table = labelledTable(/anchal-wise performance table/i);
+    const column = () => headers(table).indexOf("Work done");
+    const body = () =>
+      Array.from(
+        Array.from(table.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
+      )[column()].textContent;
+    const foot = () =>
+      Array.from(table.querySelectorAll("tfoot td"))[column()].textContent;
+
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
+    await waitFor(() => expect(body()).toBe(""));
+    expect(foot(), "the total too").toBe("");
+
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "2");
+    await waitFor(() => expect(body()).toBe(""));
+
+    // Pinned to field work it is the one figure that means something.
+    cleanup();
+    mockApi([row({ workDone: 7 })]);
+    await renderDashboard();
+    const user2 = userEvent.setup();
+    await user2.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
+    const table2 = labelledTable(/anchal-wise performance table/i);
+    const index = headers(table2).indexOf("Work done");
+    await waitFor(() =>
+      expect(
+        Array.from(
+          Array.from(table2.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
+        )[index].textContent,
+      ).toBe("7"),
+    );
+  });
+
+  it("blanks a tile whose figure the pinned service does not collect", async () => {
+    // One row above the table, the same reading: Total pending 0 and Disposal —
+    // for a field-work service, Amount Collected ₹0.00 for anything but revenue.
+    const tile = (label: string) => {
+      const found = screen.getByText(label).closest(".metric") as HTMLElement;
+      return {
+        value: found.querySelector("strong")!.textContent,
+        note: found.querySelector("small")!.textContent,
+      };
+    };
+    mockApi([row()]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    const pin = (id: string) =>
+      user.selectOptions(screen.getByLabelText("Service", { exact: true }), id);
+
+    // Unpinned, every tile is a cross-service total and every one means something.
+    expect(tile("Total pending").value).toBe("12");
+    expect(tile("Disposal").value).toBe("75.0%");
+    expect(tile("Total collection").value).toBe("₹2,500.00");
+    expect(tile("Work done this period").value).toBe("18");
+
+    await pin("8"); // field work
+    await waitFor(() => expect(tile("Total pending").value).toBe(""));
+    expect(tile("Disposal").value).toBe("");
+    expect(tile("Disposal").note, "the ratio behind it goes too").toBe("");
+    expect(tile("Total collection").value).toBe("");
+    expect(tile("Work done this period").value).toBe("18");
+
+    await pin("2"); // revenue
+    await waitFor(() => expect(tile("Total collection").value).toBe("₹2,500.00"));
+    expect(tile("Total pending").value).toBe("");
+    expect(tile("Disposal").value).toBe("");
+    expect(tile("Work done this period").value).toBe("");
+
+    await pin("1"); // counter
+    await waitFor(() => expect(tile("Total pending").value).toBe("12"));
+    expect(tile("Disposal").value).toBe("75.0%");
+    expect(tile("Disposal").note).toBe("30 / 40");
+    expect(tile("Total collection").value).toBe("");
+    expect(tile("Work done this period").value).toBe("");
+  });
+
   it("keeps the counter cells when filtered to a counter service", async () => {
     mockApi([row()]);
     await renderDashboard();

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { MonitoringRow, EntryView } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { formShape } from "../../domain/service-kind";
+import { formShape, type FormShape } from "../../domain/service-kind";
 import { api } from "../api";
 import { FORM_REDUCED_ON, Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
@@ -135,35 +135,41 @@ export default function Dashboard() {
   const disposal = totals.received
     ? (totals.completed / totals.received) * 100
     : null;
-  // Received, Completed, Pending and Disposal % are counter-shape figures: the
-  // server scopes all four to counter work. Pinned to one of the 11 revenue or
-  // field-work services they are not collected at all, so they are left blank
-  // rather than shown as 0 — a blank says "not collected for this service", a
-  // zero says "no work was done", and only one of those is true. Same treatment
-  // the register already gives Opening Pending.
-  const counterOnlyHidden =
-    service !== "" && formShape(Number(service)) !== "counter";
-  const counterCell = (value: string | number) =>
-    counterOnlyHidden ? "" : value;
+  // Every figure on this page belongs to exactly one shape: Received,
+  // Completed, Pending and Disposal % to counter work, the amount to revenue,
+  // work done to field work. Pinned to a single service, the figures the other
+  // two shapes own are not collected at all, so they are left blank rather than
+  // shown as 0 or — : a blank says "not collected for this service", a zero
+  // says "no work was done", and only one of those is true. Same treatment the
+  // register already gives Opening Pending.
+  const pinnedShape = service === "" ? null : formShape(Number(service));
+  const onlyFor =
+    (shape: FormShape) =>
+    (value: string | number) =>
+      pinnedShape === null || pinnedShape === shape ? value : "";
+  const counterCell = onlyFor("counter");
+  const revenueCell = onlyFor("revenue");
+  const fieldWorkCell = onlyFor("fieldwork");
   const metrics = [
     [
       t("Total pending", "कुल लंबित"),
-      totals.pending,
+      counterCell(totals.pending),
       t("Closing balance", "अंतिम शेष"),
     ],
     [
       t("Disposal", "निस्तारण"),
-      percent(disposal),
-      `${totals.completed} / ${totals.received}`,
+      counterCell(percent(disposal)),
+      // The ratio under it is the same two counter figures, so it goes with them.
+      counterCell(`${totals.completed} / ${totals.received}`),
     ],
     [
       t("Total collection", "कुल संग्रह"),
-      currency(totals.amountPaise),
+      revenueCell(currency(totals.amountPaise)),
       t("Actual collection", "वास्तविक संग्रह"),
     ],
     [
       t("Work done this period", "इस अवधि में किया गया कार्य"),
-      totals.workDone,
+      fieldWorkCell(totals.workDone),
       t("Field work completed", "पूर्ण क्षेत्रीय कार्य"),
     ],
   ];
@@ -365,7 +371,7 @@ export default function Dashboard() {
                   <td>{counterCell(r.completed)}</td>
                   <td>{counterCell(r.pending)}</td>
                   <td>{counterCell(percent(r.disposalPct))}</td>
-                  <td>{r.workDone}</td>
+                  <td>{fieldWorkCell(r.workDone)}</td>
                   <td className="nowrap">{currency(r.amountPaise)}</td>
                   <td className="review-cell">
                     {r.reviewReasons.length ? (
@@ -396,7 +402,7 @@ export default function Dashboard() {
                 <td>{counterCell(totals.completed)}</td>
                 <td>{counterCell(totals.pending)}</td>
                 <td>{counterCell(percent(disposal))}</td>
-                <td>{totals.workDone}</td>
+                <td>{fieldWorkCell(totals.workDone)}</td>
                 <td className="nowrap">{currency(totals.amountPaise)}</td>
                 <td>—</td>
               </tr>
