@@ -34,18 +34,37 @@ const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
 const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
-const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('.field-error')].map(e => e.textContent.trim()).join(' / '));
+const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
+// Counter shape for the number checks; money lives on the revenue shape alone.
 const fill = async (o = {}) => {
-  const v = { 'Ward number / name': 'Ward 1', 'Received / Transactions': '5', 'Disposed / Completed': '3', 'SLA Within Time': '2', 'Complaints Received': '1', 'Complaints Resolved': '1', 'Field Tasks Received': '2', 'Field Tasks Completed': '1', 'Amount Collected (₹)': '100', 'Avg Disposal Days': '1.5', ...o };
+  const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
 };
-await check('negative number is blocked natively', async () => { await fill({ 'Received / Transactions': '-1' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
-await check('decimal count is blocked natively', async () => { await fill({ 'Received / Transactions': '1.5' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
-await check('non-numeric amount shows an error and no reload button', async () => { await fill({ 'Amount Collected (₹)': 'abc' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && (await reload.count()) === 0 && writes.length === 0; });
-await check('amount with 3 decimals is rejected', async () => { await fill({ 'Amount Collected (₹)': '10.123' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && writes.length === 0; });
-await check('huge numbers do not crash the page', async () => { await fill({ 'Received / Transactions': '99999999999999999999' }); await sub.click(); await page.waitForTimeout(800); return (await page.getByLabel('Received / Transactions').count()) === 1; });
-await check('Avg Disposal Days shows a required marker once completed > 0', async () => { await fill(); return /\*/.test(await page.locator('label', { hasText: 'Avg Disposal Days' }).first().innerText()); });
-await check('Avg Disposal Days empty with completed > 0 is blocked', async () => { await fill({ 'Avg Disposal Days': '' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0; });
+const money = async (o = {}) => {
+  const v = { 'Ward number / name': 'Ward 1', 'Payments': '4', 'Amount Collected (₹)': '100', ...o };
+  for (const [k, x] of Object.entries(v)) await f(k, x);
+};
+// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
+// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
+// re-seeds the form for the newly selected service bails out), so a service
+// switched into after typing still carries the previous service's figures and
+// its schema. A reload is the only way to reach a shape with a clean draft.
+const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
+await fresh(1);
+await check('negative number is blocked natively', async () => { await fill({ 'Received': '-1' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
+await check('decimal count is blocked natively', async () => { await fill({ 'Received': '1.5' }); await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
+await check('huge numbers do not crash the page', async () => { await fill({ 'Received': '99999999999999999999' }); await sub.click(); await page.waitForTimeout(800); return (await page.getByLabel('Received').count()) === 1; });
+await fresh(2);
+await check('non-numeric amount shows an error and no reload button', async () => { writes.length = 0; await money({ 'Amount Collected (₹)': 'abc' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && (await reload.count()) === 0 && writes.length === 0; });
+await check('amount with 3 decimals is rejected', async () => { await money({ 'Amount Collected (₹)': '10.123' }); await sub.click(); await page.waitForTimeout(800); return /rupees/i.test(await alerts()) && writes.length === 0; });
+// Average disposal days was dropped from every shape on 20 Nov 2026: it is
+// neither asked for nor required, so nothing can be blocked on it any more.
+await check('no shape asks for average disposal days', async () => {
+  const on = [];
+  for (const id of [1, 2, 9]) { await fresh(id); if (await page.getByLabel('Avg Disposal Days').count()) on.push(id); }
+  if (on.length) throw new Error('still on services ' + on.join(', '));
+  return 'absent on counter, revenue and field work';
+});
 await page.unrouteAll({ behavior: 'ignoreErrors' });
 
 return report();

@@ -1,0 +1,602 @@
+// The gate for the daily-form service shapes: the real backend, a real
+// Postgres, no route stubs. Twice in this project a green unit suite sat on top
+// of a broken path, because the tests exercised the layer that changed rather
+// than the path an office walks. This walks it.
+//
+// It is skipped unless RMC_LIVE_BACKEND is set, because CI has no backend.
+//
+// Run with (passwords from the protected env file, never from this file):
+//   RMC_LIVE_BACKEND=1 RMC_TEST_URL=http://127.0.0.1:5173 \
+//   RMC_OFFICER_USERNAME=anchal1 RMC_OFFICER_PASSWORD=... \
+//   RMC_COMMISSIONER_PASSWORD=... \
+//   npx playwright test tests/browser/daily-form-live.spec.ts
+//
+// It needs an office account that has not completed its one-time opening
+// balances and has filed nothing today: the balances lock on save, and an entry
+// is unique per service and date. Six office accounts exist; point
+// RMC_OFFICER_USERNAME at a fresh one for a second run on the same day.
+import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+
+const live = process.env.RMC_LIVE_BACKEND === "1";
+const officeUser = process.env.RMC_OFFICER_USERNAME ?? "anchal1";
+// anchal4 signs in as Anchal 4 on the commissioner's filter. The totals below
+// are narrowed to the office that filed them, whichever of the six it is.
+const officeNumber = Number(officeUser.replace(/\D/g, "")) || 1;
+const officePassword = process.env.RMC_OFFICER_PASSWORD ?? "";
+const commissionerPassword = process.env.RMC_COMMISSIONER_PASSWORD ?? "";
+// Screenshots are evidence, not repo content, so they are written outside the
+// working tree.
+const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
+
+// The opening balances this run enters, and why each one is here. They lock on
+// save, so they are planned rather than improvised:
+//   1  counter, the plain case — a non-zero opening pending the register must show
+//   7  counter, the pre-cutover correction case
+//  12  counter, though its monitoring kind is grievance; must still move
+//  20  counter, the "nothing to report" case — must not move
+//   2  revenue    — non-zero on purpose: it must still be frozen
+//   8  field work — non-zero on purpose: it must still be frozen
+// Every other service opens at zero so the dashboard arithmetic below is exact.
+const OPENING: Record<number, number> = { 1: 7, 2: 11, 7: 3, 8: 13, 12: 5, 20: 4 };
+
+// The figures filed, and the totals they must produce on the dashboard. Kept
+// mutually distinct so a tile reading the wrong total cannot pass by accident.
+const FILED = {
+  counterPending: 32, // 12 (s1) + 7 (s7) + 9 (s12) + 4 (s20)
+  counterReceived: 23, // 9 + 8 + 6 + 0
+  counterCompleted: 10, // 4 + 4 + 2 + 0
+  workDone: 11, // 6 trips (s8) + 5 routes (s9) — field work only
+  collection: "₹1,250.50", // the one revenue entry, 125050 paise
+  entries: 7, // s1 s2 s7 s8 s9 s12 s20
+};
+
+type ApiResponse<T> = { status: number; body: T };
+
+// page.request does not carry the browser context's cookie, so the API is read
+// and written from inside the page.
+async function callApi<T = unknown>(
+  page: Page,
+  path: string,
+  method = "GET",
+  body?: unknown,
+): Promise<ApiResponse<T>> {
+  const call = { path, method, body: body === undefined ? null : JSON.stringify(body) };
+  return (await page.evaluate(
+    async (c: { path: string; method: string; body: string | null }) => {
+      const response = await fetch("/v1/api/anchal" + c.path, {
+        method: c.method,
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: c.body === null ? undefined : c.body,
+      });
+      return {
+        status: response.status,
+        body: await response.json().catch(() => null),
+      };
+    },
+    call,
+  )) as ApiResponse<T>;
+}
+
+type LiveEntry = {
+  id: string;
+  version: number;
+  serviceId: number;
+  received: number;
+  completed: number;
+  slaWithinTime: number;
+  amountPaise: number;
+  complaintsReceived: number;
+  complaintsResolved: number;
+  fieldReceived: number;
+  fieldCompleted: number;
+  avgDisposalDays: number | null;
+  nothingToReport: boolean;
+  ward: string;
+  opening: { service: number; complaints: number; field: number };
+  closing: { service: number; complaints: number; field: number };
+};
+
+async function storedEntry(page: Page, serviceId: number, date: string) {
+  const { status, body } = await callApi<{ entries: LiveEntry[] }>(
+    page,
+    `/office/entries?date=${date}&mode=today`,
+  );
+  expect(status, "reading today's entries").toBe(200);
+  const entry = body.entries.find((e) => e.serviceId === serviceId);
+  expect(entry, `service ${serviceId} is stored for ${date}`).toBeDefined();
+  return entry!;
+}
+
+async function signIn(page: Page, username: string, password: string) {
+  await page.goto("/anchal/");
+  await expect(page.getByLabel("Username")).toBeVisible();
+  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: /Sign in/ }).click();
+  // Navigating before the app has landed the account on its own first screen
+  // races the session request and bounces back to sign-in.
+  await expect(page.getByRole("heading", { name: "Office sign in" })).toBeHidden();
+}
+
+// The service register is a list of 25 buttons in service order.
+async function selectService(page: Page, id: number) {
+  await page
+    .locator('[aria-label="Municipal services"] li')
+    .nth(id - 1)
+    .getByRole("button")
+    .click();
+  await expect(page.locator(".entry-panel .eyebrow")).toHaveText(
+    new RegExp(`^SERVICE ${String(id).padStart(2, "0")} ·`),
+  );
+}
+
+const RETIRED_LABELS = [
+  "SLA Within Time",
+  "Complaints Received",
+  "Complaints Resolved",
+  "Field Tasks Received",
+  "Field Tasks Completed",
+  "Avg Disposal Days",
+];
+
+// Every field the entry form renders, by the name an office reads off it. The
+// required marker is an aria-hidden "*" inside the label, so it is stripped.
+async function formFieldNames(page: Page) {
+  return page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll(".entry-panel form input, .entry-panel form textarea"),
+    ).map((el) => {
+      const id = el.getAttribute("id");
+      const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
+      return (el.getAttribute("aria-label") ?? label?.textContent ?? "")
+        .replace(/\s*\*\s*$/, "")
+        .trim();
+    }),
+  );
+}
+
+// Asserted as an exact set, so a retired field cannot creep back in under a
+// role or a label this suite did not think to name.
+async function expectFormFields(page: Page, expected: string[]) {
+  await expect(async () => {
+    expect(await formFieldNames(page)).toEqual(expected);
+  }).toPass({ timeout: 5000 });
+  for (const label of RETIRED_LABELS)
+    expect(expected, `${label} must not be collected`).not.toContain(label);
+}
+
+const DATE_AND_WARD = ["Reporting / registration date", "Ward number / name"];
+
+function numberField(page: Page, name: string) {
+  return page.getByRole("spinbutton", { name, exact: true });
+}
+
+function textField(page: Page, name: string) {
+  return page.getByRole("textbox", { name, exact: true });
+}
+
+async function submitEntry(page: Page) {
+  await page.getByRole("button", { name: /Submit entry/ }).click();
+  await expect(page.getByText("Entry saved. Dashboard updated.")).toBeVisible();
+}
+
+test.describe.configure({ mode: "serial" });
+
+test.describe("all three daily form shapes against a real backend", () => {
+  test.skip(!live, "RMC_LIVE_BACKEND is not set");
+
+  let officeContext: BrowserContext;
+  let commissionerContext: BrowserContext;
+  let office: Page;
+  let commissioner: Page;
+  // The IST reporting day, read from the app rather than assumed, because the
+  // server rejects an entry whose date is not today in IST.
+  let today = "";
+
+  test.beforeAll(async ({ browser }) => {
+    expect(officePassword, "RMC_OFFICER_PASSWORD must be set").not.toBe("");
+    expect(commissionerPassword, "RMC_COMMISSIONER_PASSWORD must be set").not.toBe("");
+    // Two contexts, one sign-in each. Login is rate limited to 10 attempts per
+    // minute per IP, and the header, the sidebar and the mobile drawer each
+    // render a Sign out button, so signing one page in and out repeatedly is
+    // both slower and ambiguous.
+    officeContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    // Wide enough for the four-tile row the stylesheet asks for above 1439px.
+    commissionerContext = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    office = await officeContext.newPage();
+    commissioner = await commissionerContext.newPage();
+    // Switching service with an unsaved draft asks for confirmation. Playwright
+    // dismisses dialogs by default, which window.confirm reads as "no".
+    for (const page of [office, commissioner])
+      page.on("dialog", (dialog) => void dialog.accept());
+    // The IST reporting day, read in the browser rather than assumed: the
+    // server rejects an entry whose date is not today in IST. Taken here, not
+    // in the first test, so the dashboard test can be run on its own.
+    await office.goto("/anchal/");
+    today = await office.evaluate(() =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    );
+  });
+
+  test.afterAll(async () => {
+    await officeContext?.close();
+    await commissionerContext?.close();
+  });
+
+  test("an office with no setup lands on the opening-balance screen and locks it on save", async () => {
+    await signIn(office, officeUser, officePassword);
+
+    const setupHeading = office.getByRole("heading", { name: "Set opening balances" });
+    await expect(
+      setupHeading,
+      `${officeUser} has already completed its one-time opening balances, which cannot be re-entered. Point RMC_OFFICER_USERNAME at an office that has not.`,
+    ).toBeVisible();
+
+    // All 25 services must carry a figure. The grid starts every cell at 0, so
+    // only the planned non-zero openings are typed.
+    for (const [id, service] of Object.entries(OPENING))
+      await office.getByLabel(`${id} service`, { exact: true }).fill(String(service));
+    await expect(office.getByLabel("1 service", { exact: true })).toHaveValue("7");
+    await office.getByRole("checkbox").check();
+    await office.getByRole("button", { name: "Save opening balances" }).click();
+
+    // Saving the setup is what admits the office to the form at all.
+    await expect(office.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
+
+    const stored = await callApi<{ balances: { serviceId: number; opening: { service: number } }[] }>(
+      office,
+      "/office/setup",
+    );
+    expect(stored.status).toBe(200);
+    expect(stored.body.balances).toHaveLength(25);
+    for (const [id, service] of Object.entries(OPENING))
+      expect(
+        stored.body.balances.find((b) => b.serviceId === Number(id))?.opening.service,
+        `opening pending for service ${id}`,
+      ).toBe(service);
+
+    // Opening balances are locked once saved: SaveSetupAsync must refuse a
+    // second one rather than quietly rewriting the ledger's starting point.
+    const again = await callApi(office, "/office/setup", "PUT", {
+      requestId: "lockcheck-" + Date.now(),
+      expectedVersion: null,
+      startDate: today,
+      balances: Array.from({ length: 25 }, (_, i) => ({
+        serviceId: i + 1,
+        opening: { service: 99, complaints: 0, field: 0 },
+      })),
+      reason: null,
+    });
+    expect(again.status, "a second setup must be refused").toBe(409);
+  });
+
+  test("a counter entry files with no average-days value and moves the balance", async () => {
+    await selectService(office, 1);
+
+    // The counter shape, and only the counter shape, has a queue to open against.
+    await expect(office.locator(".balance-strip")).toHaveCount(1);
+    await expect(
+      office.locator(".balance-strip strong"),
+      "opening pending comes from the saved setup",
+    ).toHaveText("7");
+    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+
+    await textField(office, "Ward number / name").fill("Ward 11");
+    await numberField(office, "Received").fill("9");
+    await numberField(office, "Disposed").fill("4");
+    await expect(office.locator(".closing-strip strong")).toHaveText("12");
+    await submitEntry(office);
+
+    const entry = await storedEntry(office, 1, today);
+    expect(entry.received).toBe(9);
+    expect(entry.completed).toBe(4);
+    // The form never asked for it and the server must not have invented one.
+    expect(entry.avgDisposalDays, "average disposal days is collected from nobody").toBeNull();
+    expect(entry.slaWithinTime).toBe(0);
+    expect(entry.opening.service).toBe(7);
+    expect(entry.closing.service, "counter work moves the pending balance").toBe(12);
+  });
+
+  test("a revenue entry leaves the pending balance at its opening figure", async () => {
+    await selectService(office, 2);
+
+    // No queue, so no opening or closing strip and no disposal figure.
+    await expect(office.locator(".balance-strip")).toHaveCount(0);
+    await expect(office.locator(".closing-strip")).toHaveCount(0);
+    await expectFormFields(office, [
+      ...DATE_AND_WARD,
+      "Payments",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
+
+    await textField(office, "Ward number / name").fill("Ward 11");
+    await numberField(office, "Payments").fill("12");
+    await textField(office, "Amount Collected (₹)").fill("1250.50");
+    await submitEntry(office);
+
+    const entry = await storedEntry(office, 2, today);
+    expect(entry.received).toBe(12);
+    expect(entry.amountPaise).toBe(125050);
+    expect(entry.completed).toBe(0);
+    // The ledger is derived per entry, so an opening that survives one payment
+    // survives a month of them: the deriver has no term for revenue at all.
+    expect(entry.opening.service).toBe(11);
+    expect(entry.closing.service, "a payment must not move the queue").toBe(11);
+  });
+
+  test("a field-work entry files with no requests behind it", async () => {
+    await selectService(office, 8);
+
+    // Service 8 is labelled per service: "Trips", not "Completed".
+    await expect(office.locator(".balance-strip")).toHaveCount(0);
+    await expectFormFields(office, [...DATE_AND_WARD, "Trips", "Remarks"]);
+
+    await textField(office, "Ward number / name").fill("Ward 11");
+    await numberField(office, "Trips").fill("6");
+    // Six trips against zero requests: the completed-vs-received rule must not
+    // fire here. This is the pairing that was exempted in the validator but not
+    // in the deriver, so it is checked against the server, not the schema.
+    await submitEntry(office);
+
+    await selectService(office, 9);
+    await expectFormFields(office, [...DATE_AND_WARD, "Routes", "Remarks"]);
+    await textField(office, "Ward number / name").fill("Ward 12");
+    await numberField(office, "Routes").fill("5");
+    await submitEntry(office);
+
+    const trips = await storedEntry(office, 8, today);
+    expect(trips.received, "field work has no request figure").toBe(0);
+    expect(trips.completed).toBe(6);
+    expect(trips.opening.service).toBe(13);
+    expect(trips.closing.service, "work on the ground must not move the queue").toBe(13);
+
+    const routes = await storedEntry(office, 9, today);
+    expect(routes.completed).toBe(5);
+  });
+
+  test("nothing to report is a flag, and the server refuses it beside a figure", async () => {
+    await selectService(office, 20);
+    await expect(office.locator(".balance-strip strong")).toHaveText("4");
+
+    await textField(office, "Ward number / name").fill("Ward 11");
+    await office.getByRole("button", { name: "Set zero activity" }).click();
+    await submitEntry(office);
+
+    const entry = await storedEntry(office, 20, today);
+    expect(entry.nothingToReport, "the office said so rather than typing zeros").toBe(true);
+    expect(entry.received).toBe(0);
+    expect(entry.completed).toBe(0);
+    expect(entry.closing.service, "an idle day leaves the queue where it was").toBe(4);
+
+    // The flag and a figure together are a contradiction the server must
+    // reject. The form clears the flag as soon as a figure is typed, so this
+    // rule is only reachable over the API.
+    const contradiction = await callApi<{ fieldErrors?: Record<string, string> }>(
+      office,
+      "/office/entries",
+      "POST",
+      {
+        requestId: "nothing-" + Date.now(),
+        expectedVersion: null,
+        mode: "today",
+        reason: null,
+        input: {
+          serviceId: 25,
+          serviceDate: today,
+          ward: "Ward 11",
+          received: 2,
+          completed: 0,
+          slaWithinTime: 0,
+          amountPaise: 0,
+          complaintsReceived: 0,
+          complaintsResolved: 0,
+          fieldReceived: 0,
+          fieldCompleted: 0,
+          avgDisposalDays: null,
+          remarks: "",
+          nothingToReport: true,
+        },
+      },
+    );
+    expect(contradiction.status).toBe(422);
+    expect(contradiction.body.fieldErrors?.nothingToReport).toBeTruthy();
+  });
+
+  test("service 12 is a grievance service on the counter shape, and still moves the balance", async () => {
+    await selectService(office, 12);
+
+    // Its monitoring unit is Complaints, but it is a queue like any other: a
+    // regression here is invisible to a check that only tries service 1.
+    await expect(office.locator(".balance-strip strong")).toHaveText("5");
+    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+
+    await textField(office, "Ward number / name").fill("Ward 11");
+    await numberField(office, "Received").fill("6");
+    await numberField(office, "Disposed").fill("2");
+    await expect(office.locator(".closing-strip strong")).toHaveText("9");
+    await submitEntry(office);
+
+    const entry = await storedEntry(office, 12, today);
+    expect(entry.opening.service).toBe(5);
+    expect(entry.closing.service, "grievance work queues like any counter service").toBe(9);
+  });
+
+  test("a correction to a pre-cutover entry keeps the fields the form no longer shows", async () => {
+    // Filed the way an office filed last week: every retired field populated.
+    const filed = await callApi<LiveEntry>(office, "/office/entries", "POST", {
+      requestId: "precutover-" + Date.now(),
+      expectedVersion: null,
+      mode: "today",
+      reason: null,
+      input: {
+        serviceId: 7,
+        serviceDate: today,
+        ward: "Ward 9",
+        received: 5,
+        completed: 3,
+        slaWithinTime: 2,
+        amountPaise: 0,
+        complaintsReceived: 4,
+        complaintsResolved: 1,
+        fieldReceived: 3,
+        fieldCompleted: 2,
+        avgDisposalDays: 2.5,
+        remarks: "Filed before the form was reduced.",
+        nothingToReport: false,
+      },
+    });
+    expect(filed.status, JSON.stringify(filed.body)).toBe(200);
+    expect(filed.body.avgDisposalDays).toBe(2.5);
+
+    // Correct it through the form, which no longer renders any of those fields.
+    // The correction resends the whole entry, so a wrong default here rewrites
+    // history silently.
+    await office.reload();
+    await expect(office.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
+    await selectService(office, 7);
+    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+    await expect(office.locator(".entry-panel .status-tag")).toHaveText("Submitted");
+
+    await office.getByRole("button", { name: "Edit entry" }).click();
+    await numberField(office, "Received").fill("8");
+    await numberField(office, "Disposed").fill("4");
+    await textField(office, "Correction reason").fill(
+      "Two more cases were found in the register.",
+    );
+    await office.getByRole("button", { name: /Save correction/ }).click();
+    await expect(office.getByText("Entry saved. Dashboard updated.")).toBeVisible();
+
+    const corrected = await storedEntry(office, 7, today);
+    expect(corrected.version).toBe(2);
+    expect(corrected.received).toBe(8);
+    expect(corrected.completed).toBe(4);
+    // None of these was on screen; all of them must have survived the round trip.
+    expect(corrected.slaWithinTime, "within-SLA completions").toBe(2);
+    expect(corrected.complaintsReceived, "complaints received").toBe(4);
+    expect(corrected.complaintsResolved, "complaints resolved").toBe(1);
+    expect(corrected.fieldReceived, "field tasks received").toBe(3);
+    expect(corrected.fieldCompleted, "field tasks completed").toBe(2);
+    expect(corrected.avgDisposalDays, "average disposal days").toBe(2.5);
+    expect(corrected.closing.service).toBe(7);
+  });
+
+  test("the commissioner dashboard shows work done and none of the retired tiles", async () => {
+    await signIn(commissioner, "commissioner", commissionerPassword);
+    await expect(
+      commissioner.getByRole("heading", { name: "Office monitoring dashboard" }),
+    ).toBeVisible();
+    // Narrowed to this office so the totals below are exactly what was filed
+    // above, whatever other offices hold.
+    await commissioner
+      .getByLabel("Anchal", { exact: true })
+      .selectOption({ label: `Anchal ${officeNumber}` });
+    await expect(commissioner.locator(".metrics .metric")).toHaveCount(4);
+    await expect(
+      commissioner.locator(".report-count"),
+      "one report per service filed",
+    ).toHaveText(`${FILED.entries} / 25 reports`);
+
+    // workDone crosses the wire. The server computes WorkDone and serialises it
+    // with the Web defaults, so it must arrive as workDone; read as WorkDone the
+    // tile would total undefined and show NaN, not 11.
+    const workDoneTile = commissioner.locator(".metric", {
+      hasText: "Work done this period",
+    });
+    await expect(workDoneTile.locator("strong")).toHaveText(String(FILED.workDone));
+
+    const rows = await callApi<{ rows: Record<string, unknown>[] }>(
+      commissioner,
+      `/dashboard?from=${today}&to=${today}&officeId=${officeNumber}`,
+    );
+    expect(rows.status).toBe(200);
+    const row = rows.body.rows[0];
+    expect(Object.keys(row), "the wire key is camelCase workDone").toContain("workDone");
+    expect(row.workDone).toBe(FILED.workDone);
+
+    // The three tiles the form stopped feeding are gone, not zeroed.
+    for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending"])
+      await expect(commissioner.getByText(gone), `${gone} tile`).toHaveCount(0);
+
+    const pendingTile = commissioner.locator(".metric", { hasText: "Total pending" });
+    await expect(pendingTile.locator("strong")).toHaveText(String(FILED.counterPending));
+    const disposal = (FILED.counterCompleted / FILED.counterReceived) * 100;
+    const disposalTile = commissioner.locator(".metric", { hasText: "Disposal" });
+    await expect(disposalTile.locator("strong")).toHaveText(disposal.toFixed(1) + "%");
+    await expect(disposalTile.locator("small")).toHaveText(
+      `${FILED.counterCompleted} / ${FILED.counterReceived}`,
+    );
+    const collectionTile = commissioner.locator(".metric", { hasText: "Total collection" });
+    await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
+
+    // jsdom does no layout, so the six-tile-to-four CSS change has never been
+    // seen. Measured, not eyeballed: four tiles, one row, no overflow.
+    const layout = await commissioner.evaluate(() => {
+      const grid = document.querySelector(".metrics") as HTMLElement;
+      const tiles = Array.from(document.querySelectorAll(".metrics .metric")) as HTMLElement[];
+      return {
+        tiles: tiles.length,
+        rows: new Set(tiles.map((t) => t.getBoundingClientRect().top.toFixed(0))).size,
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+        overflowsGrid: grid.scrollWidth > grid.clientWidth,
+        overflowsPage:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+    expect(layout).toEqual({
+      tiles: 4,
+      rows: 1,
+      columns: 4,
+      overflowsGrid: false,
+      overflowsPage: false,
+    });
+
+    // Evidence for the eye as well as the assertion. The sign-in toast would
+    // otherwise sit over the top of the page.
+    await commissioner.locator("[data-sonner-toast]").first().waitFor({
+      state: "detached",
+      timeout: 10000,
+    });
+    await commissioner.evaluate(() => window.scrollTo(0, 0));
+    await commissioner.screenshot({
+      path: `${evidenceDir}/commissioner-dashboard-four-tiles.png`,
+      fullPage: false,
+    });
+
+    // The register: one column per figure, and the opening balance only where
+    // there is a queue.
+    await commissioner.getByRole("button", { name: /View service entries/ }).click();
+    await expect(
+      commissioner.getByRole("heading", { name: "Service entry register" }),
+    ).toBeVisible();
+    const register = commissioner.locator(".details-panel table");
+    const headers = await register.locator("thead th").allInnerTexts();
+    for (const gone of [
+      "SLA Within Time",
+      "Avg Days",
+      "Complaints Received",
+      "Complaints Resolved",
+      "Field Received",
+      "Field Completed",
+    ])
+      expect(headers.map((h) => h.trim()), `${gone} column`).not.toContain(gone);
+    const openingCell = async (serviceId: number) =>
+      (
+        await register
+          .locator("tbody tr")
+          .filter({ has: commissioner.locator(`td:nth-child(6):text-is("${serviceId}")`) })
+          .locator("td")
+          .nth(7)
+          .innerText()
+      ).trim();
+    expect(await openingCell(1), "counter opening pending is shown").toBe("7");
+    expect(await openingCell(2), "a revenue balance means nothing").toBe("");
+    expect(await openingCell(8), "a field-work balance means nothing").toBe("");
+  });
+});

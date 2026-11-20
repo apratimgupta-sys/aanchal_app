@@ -7,3 +7,5 @@ Run order: `1-autha`, `1-authb`, `2-entry1` to `2-entry4`, `3-dashboarda`, `3-da
 Needs the dev server on `http://127.0.0.1:5173` (proxying to staging) and the sign-in credentials set on `globalThis.__creds` for the session (keys `anchal1`, `anchal6`, `commissioner`). Credentials are not stored in these files.
 
 Each file is under the plugin's 60 s call limit. The older `1-auth`, `2-entry` and `3-dashboard` variants, if present, are superseded by the split files.
+
+Pre-cutover, kept for reference and not to be run against the current build: `1-auth`, `2-entry`, `3-dashboard`, `2-entrya` and `2-entryb` still drive the nine-field form that was reduced to three shapes on 20 November 2026.

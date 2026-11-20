@@ -33,27 +33,46 @@ const f = (l, v) => page.getByLabel(l).fill(v);
 const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
-const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
-const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('.field-error')].map(e => e.textContent.trim()).join(' / '));
+const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
 const fill = async (o = {}) => {
-  const v = { 'Ward number / name': 'Ward 1', 'Received / Transactions': '5', 'Disposed / Completed': '3', 'SLA Within Time': '2', 'Complaints Received': '1', 'Complaints Resolved': '1', 'Field Tasks Received': '2', 'Field Tasks Completed': '1', 'Amount Collected (₹)': '100', 'Avg Disposal Days': '1.5', ...o };
+  const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
 };
-await check('valid form sends exactly one save request (blocked here) and shows the reload button on failure', async () => {
+// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
+// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
+// re-seeds the form for the newly selected service bails out), so a service
+// switched into after typing still carries the previous service's figures and
+// its schema. A reload is the only way to reach a shape with a clean draft.
+const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
+await fresh(1);
+await check('valid counter form sends exactly one save request (blocked here) and shows the reload button on failure', async () => {
   await fill(); writes.length = 0; await sub.click(); await page.waitForTimeout(1500);
   if (writes.length !== 1) return `requests: ${writes.length}`;
-  const b = JSON.parse(writes[0].b); const ok = b.requestId && b.input && b.input.received === 5 && b.input.completed === 3 && b.input.amountPaise === 10000 && b.mode === 'today';
-  return ok && (await reload.count()) === 1 ? 'payload ok (requestId, paise 10000)' : 'payload ' + JSON.stringify(b).slice(0, 200);
+  const b = JSON.parse(writes[0].b);
+  // A counter service collects two numbers. Everything the form stopped asking
+  // for goes out as it was stored: 0 on a new entry, null for average days.
+  const ok = b.requestId && b.input && b.input.received === 5 && b.input.completed === 3 && b.input.amountPaise === 0 && b.input.avgDisposalDays === null && b.input.slaWithinTime === 0 && b.input.complaintsReceived === 0 && b.input.fieldReceived === 0 && b.mode === 'today';
+  return ok && (await reload.count()) === 1 ? 'payload ok (requestId, two figures, retired fields untouched)' : 'payload ' + JSON.stringify(b).slice(0, 240);
 });
 await check('resubmit after a failed save reuses the same requestId (idempotent)', async () => {
   const first = JSON.parse(writes[0].b).requestId; writes.length = 0; await sub.click(); await page.waitForTimeout(1500);
   return writes.length === 1 && JSON.parse(writes[0].b).requestId === first;
 });
-await check('Set zero activity sends all-zero counts', async () => {
-  writes.length = 0; await page.getByLabel('Ward number / name').fill('Ward 1');
-  await page.getByRole('button', { name: 'Set zero activity' }).click(); await page.waitForTimeout(1200);
+await check('a revenue service sends its amount in paise', async () => {
+  await fresh(2); writes.length = 0;
+  await f('Ward number / name', 'Ward 1'); await f('Payments', '4'); await f('Amount Collected (₹)', '100');
+  await sub.click(); await page.waitForTimeout(1500);
+  if (writes.length !== 1) return `requests: ${writes.length}`;
+  const b = JSON.parse(writes[0].b).input;
+  return b.received === 4 && b.amountPaise === 10000 && b.completed === 0 ? 'paise 10000, nothing disposed' : JSON.stringify(b).slice(0, 240);
+});
+await check('Set zero activity sends the nothing-to-report flag, not just zeros', async () => {
+  await fresh(1); writes.length = 0; await page.getByLabel('Ward number / name').fill('Ward 1');
+  await page.getByRole('button', { name: 'Set zero activity' }).click(); await page.waitForTimeout(400);
+  await sub.click(); await page.waitForTimeout(1200);
   if (!writes.length) { const t = await body(); return /confirm|zero/i.test(t) ? 'needs confirmation step (no request yet)' : 'no request sent'; }
-  const b = JSON.parse(writes[0].b).input; return b.received === 0 && b.completed === 0 && b.complaintsReceived === 0 && b.fieldReceived === 0 ? true : JSON.stringify(b).slice(0, 200);
+  const b = JSON.parse(writes[0].b).input;
+  return b.nothingToReport === true && b.received === 0 && b.completed === 0 ? 'nothingToReport true with zero counts' : JSON.stringify(b).slice(0, 240);
 });
 await check('Backdate Entry tab opens', async () => { await page.getByRole('button', { name: 'Backdate Entry' }).click(); await page.waitForTimeout(1500); const c = await page.evaluate(() => (window.__confirms || []).join(' / ')); return (path() === '/anchal/office/backdate' ? 'opened' : `path ${path()}`) + (c ? ' ; unsaved-changes prompt: "' + c + '"' : ' ; NO unsaved-changes prompt'); });
 await check('unknown service deep link does not crash', async () => { await page.goto(B + '/anchal/office/today?service=999'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1500); return /Daily service entry/.test(await body()); });

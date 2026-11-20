@@ -32,16 +32,50 @@ await page.route('**/v1/api/anchal/office/entries**', r => { if (r.request().met
 const f = (l, v) => page.getByLabel(l).fill(v);
 const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
-const reload = page.getByRole('button', { name: 'Reload latest entry' });
-const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
 const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('.field-error')].map(e => e.textContent.trim()).join(' / '));
-const fill = async (o = {}) => {
-  const v = { 'Ward number / name': 'Ward 1', 'Received / Transactions': '5', 'Disposed / Completed': '3', 'SLA Within Time': '2', 'Complaints Received': '1', 'Complaints Resolved': '1', 'Field Tasks Received': '2', 'Field Tasks Completed': '1', 'Amount Collected (₹)': '100', 'Avg Disposal Days': '1.5', ...o };
-  for (const [k, x] of Object.entries(v)) await f(k, x);
-};
-await check('SLA above completed -> field error', async () => { await fill({ 'SLA Within Time': '9' }); await sub.click(); await page.waitForTimeout(800); return /Within-SLA/i.test(await fieldErrs()) && writes.length === 0; });
-await check('resolved complaints above received -> field error', async () => { await fill({ 'Complaints Resolved': '9' }); await sub.click(); await page.waitForTimeout(800); return /Resolved complaints cannot exceed received/.test(await fieldErrs()) && writes.length === 0; });
-await check('completed field tasks above received -> field error', async () => { await fill({ 'Field Tasks Completed': '9' }); await sub.click(); await page.waitForTimeout(800); return /field tasks cannot exceed received/i.test(await fieldErrs()) && writes.length === 0; });
+const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
+const fields = async () => page.evaluate(() => [...document.querySelectorAll('.entry-panel form input, .entry-panel form textarea')].map(el => { const id = el.getAttribute('id'); const lab = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null; return (el.getAttribute('aria-label') ?? lab?.textContent ?? '').replace(/\s*\*\s*$/, '').trim(); }));
+// The three rules that used to live here — within-SLA vs completed, resolved vs
+// received complaints, completed vs received field tasks — are gone, because no
+// shape asks for either side of them. What is checked instead is that each shape
+// asks only its own questions, and that the one surviving rule fires only where
+// both of its operands are collected.
+await check('counter shape (01) keeps the disposed-vs-received rule', async () => {
+  await pick(1);
+  await f('Ward number / name', 'Ward 1'); await f('Received', '5'); await f('Disposed', '9');
+  await sub.click(); await page.waitForTimeout(800);
+  return /cannot exceed received/i.test(await fieldErrs()) && writes.length === 0;
+});
+// Reloaded between shapes on purpose. Confirming "Discard unsaved changes?"
+// does not clear the draft (DailyEntry keeps `dirty` true, so the effect that
+// re-seeds the form for the newly selected service bails out), so a service
+// switched into after typing still carries the previous service's figures and
+// its schema. A reload is the only way to reach a shape with a clean draft.
+const fresh = async (id) => { await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1200); await pick(id); };
+await check('revenue shape (02) asks for payments and an amount, never a disposal', async () => {
+  await fresh(2);
+  const shown = await fields();
+  if (!(shown.includes('Payments') && shown.includes('Amount Collected (₹)') && !shown.includes('Disposed') && !shown.includes('Received'))) throw new Error('shows ' + shown.join(', '));
+  return shown.join(', ');
+});
+await check('field-work shape (09) asks only what was done, under its own label', async () => {
+  await fresh(9);
+  const shown = await fields();
+  if (!(shown.includes('Routes') && !shown.includes('Received') && !shown.includes('Amount Collected (₹)'))) throw new Error('shows ' + shown.join(', '));
+  return shown.join(', ');
+});
+await check('field work with no request behind it is not blocked', async () => {
+  // A crew can fog a route nobody asked for. The disposed-vs-received rule must
+  // not fire on a shape that never collects a received figure.
+  await f('Ward number / name', 'Ward 1'); await f('Routes', '7');
+  writes.length = 0; await sub.click(); await page.waitForTimeout(1200);
+  const errs = await fieldErrs();
+  if (!(errs === '' && writes.length === 1)) throw new Error(`errors "${errs}", requests ${writes.length}`);
+  return 'submitted, no field error';
+});
+await check('neither balance strip renders on a shape with no queue', async () => {
+  return (await page.locator('.balance-strip').count()) === 0 && (await page.locator('.closing-strip').count()) === 0;
+});
 await page.unrouteAll({ behavior: 'ignoreErrors' });
 
 return report();
