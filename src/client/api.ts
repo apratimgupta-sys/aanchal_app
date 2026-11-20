@@ -28,8 +28,15 @@ export async function api<T>(
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await r.json();
-  if (!r.ok) throw new RequestError(data as ApiError, r.status);
+  // 204 carries no body, and an error page or a proxy fault may carry one
+  // that is not JSON. Parsing unconditionally turned a successful password
+  // change into "Could not change the password. Try again."
+  const data = r.status === 204 ? null : await r.json().catch(() => null);
+  if (!r.ok)
+    throw new RequestError(
+      (data as ApiError | null) ?? { code: "UNKNOWN", message: `Request failed (${r.status})` },
+      r.status,
+    );
   return data as T;
   })();
 

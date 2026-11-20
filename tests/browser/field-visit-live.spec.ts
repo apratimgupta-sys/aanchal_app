@@ -81,6 +81,32 @@ test.describe("field visit module against the real backend", () => {
     await expect(reloaded).toHaveClass(/is-voided/);
   });
 
+  /// This is the step the earlier live run skipped: the password change had
+  /// been done with curl beforehand, so nothing exercised it through a browser
+  /// and a 204 that the API client could not parse went unnoticed.
+  test("a new officer can set their own password through the browser", async ({ page }) => {
+    const username = process.env.RMC_NEW_OFFICER_USERNAME ?? "";
+    const temporary = process.env.RMC_NEW_OFFICER_TEMP_PASSWORD ?? "";
+    const chosen = process.env.RMC_NEW_OFFICER_PASSWORD ?? "";
+    test.skip(username === "" || temporary === "" || chosen === "",
+      "RMC_NEW_OFFICER_* are not set");
+
+    await signIn(page, username, temporary);
+    await expect(page.getByRole("heading", { name: "Change your password" })).toBeVisible();
+    await page.getByLabel("Current password").fill(temporary);
+    await page.getByLabel("New password", { exact: true }).fill(chosen);
+    await page.getByLabel("Confirm new password").fill(chosen);
+    await page.getByRole("button", { name: /Change password|Save/ }).click();
+
+    // A successful change must not report an error, whatever the response body.
+    await expect(page.getByText("Could not change the password. Try again.")).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Office sign in" })).toBeVisible();
+
+    // And the new password must work.
+    await signIn(page, username, chosen);
+    await expect(page.getByRole("heading", { name: "Record a field visit" })).toBeVisible();
+  });
+
   test("an office account cannot reach the field visit routes", async ({ page }) => {
     const officePassword = process.env.RMC_OFFICE_PASSWORD ?? "";
     test.skip(officePassword === "", "RMC_OFFICE_PASSWORD is not set");
