@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { avgDisposalDaysRequired, entryCrossFieldErrors } from "../../src/domain/entry-rules";
+import { applyActivity } from "../../src/domain/ledger";
 
 const zero = {
   received: 0, completed: 0, slaWithinTime: 0,
   complaintsReceived: 0, complaintsResolved: 0,
-  fieldReceived: 0, fieldCompleted: 0,
+  fieldReceived: 0, fieldCompleted: 0, amountPaise: 0,
 };
 
 describe("cross-field rules on a daily entry", () => {
@@ -47,5 +48,34 @@ describe("when average disposal days is required", () => {
 
   it("is not required when nothing was finished", () => {
     expect(avgDisposalDaysRequired(1, 0)).toBe(false);
+  });
+});
+
+describe("the pending balance", () => {
+  // applyActivity is the frontend's copy of MonitoringRules.Derive. Field work
+  // must not move the service balance there either, or the form shows a
+  // negative closing figure the server would reject.
+  it("does not move for work on the ground", () => {
+    const after = applyActivity(
+      { service: 0, complaints: 0, field: 0 },
+      { ...zero, serviceId: 15, completed: 5 },
+    );
+    expect(after.service).toBe(0);
+  });
+
+  it("leaves an existing balance untouched for work on the ground", () => {
+    const after = applyActivity(
+      { service: 7, complaints: 0, field: 0 },
+      { ...zero, serviceId: 15, received: 2, completed: 5 },
+    );
+    expect(after.service).toBe(7);
+  });
+
+  it("still moves for counter work", () => {
+    const after = applyActivity(
+      { service: 0, complaints: 0, field: 0 },
+      { ...zero, serviceId: 1, received: 5, completed: 2 },
+    );
+    expect(after.service).toBe(3);
   });
 });

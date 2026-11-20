@@ -1,3 +1,4 @@
+import { isFieldWork } from "./service-kind";
 import type {
   Activity,
   Balances,
@@ -73,9 +74,15 @@ export function validateEntry(e: EntryInput, today: string): ApiError | null {
       }
     : null;
 }
-export function applyActivity(o: Balances, a: Activity): Balances {
+export function applyActivity(
+  o: Balances,
+  a: Activity & { serviceId: number },
+): Balances {
   return {
-    service: o.service + a.received - a.completed,
+    // Field work has no queue, so it does not move the service balance. Before
+    // this, work recorded with no request behind it drove the balance negative
+    // and the entry was rejected.
+    service: o.service + (isFieldWork(a.serviceId) ? 0 : a.received - a.completed),
     complaints: o.complaints + a.complaintsReceived - a.complaintsResolved,
     field: o.field + a.fieldReceived - a.fieldCompleted,
   };
