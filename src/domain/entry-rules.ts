@@ -1,4 +1,4 @@
-import { isFieldWork } from "./service-kind";
+import { collects } from "./service-kind";
 
 export type EntryCounts = {
   received: number;
@@ -17,15 +17,24 @@ export function entryCrossFieldErrors(
   value: EntryCounts,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  // Work on the ground is not a queue: a crew can cut grass or fog a route
-  // with no request behind it, so completed may exceed received.
-  if (!isFieldWork(serviceId) && value.completed > value.received)
+  // Each rule applies only where the shape collects both of its operands.
+  // So: disposals against receipts is counter work only — work on the ground
+  // is not a queue (a crew can cut grass with no request behind it) and a
+  // payment completes nothing — and the three rules on retired fields never
+  // apply, because no shape asks for either side of them.
+  if (collects(serviceId, "completed", "received") && value.completed > value.received)
     errors.completed = "Completed cannot exceed received";
-  if (value.slaWithinTime > value.completed)
+  if (collects(serviceId, "slaWithinTime", "completed") && value.slaWithinTime > value.completed)
     errors.slaWithinTime = "Within-SLA completions cannot exceed completed";
-  if (value.complaintsResolved > value.complaintsReceived)
+  if (
+    collects(serviceId, "complaintsResolved", "complaintsReceived") &&
+    value.complaintsResolved > value.complaintsReceived
+  )
     errors.complaintsResolved = "Resolved complaints cannot exceed received";
-  if (value.fieldCompleted > value.fieldReceived)
+  if (
+    collects(serviceId, "fieldCompleted", "fieldReceived") &&
+    value.fieldCompleted > value.fieldReceived
+  )
     errors.fieldCompleted = "Completed field tasks cannot exceed received";
   return errors;
 }

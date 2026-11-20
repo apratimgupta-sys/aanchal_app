@@ -59,8 +59,11 @@ describe("ledger", () => {
       ]),
     ).toThrow("2026-10-03");
   });
+  // Dropped: { completed: 1 }. It was invalid only because the fixture's
+  // slaWithinTime of 4 exceeded it, and that rule no longer applies — no shape
+  // collects slaWithinTime, so it cannot refuse an entry (see
+  // entry-rules.test.ts "a rule on a field no shape collects").
   it.each([
-    { completed: 1 },
     { received: 1.2 },
     { amountPaise: -1 },
     { serviceDate: "2026-02-30" },
@@ -69,6 +72,10 @@ describe("ledger", () => {
   ])("rejects invalid input %j", (patch) =>
     expect(validateEntry({ ...entry, ...patch }, "2026-10-03")).not.toBeNull(),
   );
+  // The positive form of the dropped case above: the stored within-SLA figure
+  // of 4 must not refuse a correction that lowers completed to 1.
+  it("accepts a lowered completed figure beside a stored within-SLA figure", () =>
+    expect(validateEntry({ ...entry, completed: 1 }, "2026-10-03")).toBeNull());
   it("accepts a completed entry that carries no average disposal days", () =>
     expect(
       validateEntry(

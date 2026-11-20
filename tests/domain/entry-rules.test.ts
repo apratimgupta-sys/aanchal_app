@@ -21,19 +21,32 @@ describe("cross-field rules on a daily entry", () => {
     });
   });
 
-  it("keeps the within-SLA rule everywhere, since it compares like with like", () => {
-    expect(entryCrossFieldErrors(15, { ...zero, completed: 2, slaWithinTime: 3 })).toEqual({
-      slaWithinTime: "Within-SLA completions cannot exceed completed",
-    });
-  });
+  // Deleted with the rules they asserted, not weakened:
+  //   "keeps the within-SLA rule everywhere, since it compares like with like"
+  //     — its premise is the one the review overturned. No shape collects
+  //       slaWithinTime, so the rule can only refuse an entry on a field the
+  //       office cannot see.
+  //   "reports every broken rule at once, not just the first"
+  //     — three of the four cross-field rules are gone, so there is no longer a
+  //       plural to report. The surviving rule is covered above, and the form
+  //       still aggregates ward and figure errors together (daily-entry tests).
 
-  it("reports every broken rule at once, not just the first", () => {
-    const errors = entryCrossFieldErrors(1, {
-      ...zero, completed: 5, complaintsResolved: 2, fieldCompleted: 3,
-    });
-    expect(Object.keys(errors).sort()).toEqual([
-      "complaintsResolved", "completed", "fieldCompleted",
-    ]);
+  // A rule applies only where the shape collects both operands, so a
+  // pre-cutover entry's retired figures can never block a correction to the
+  // figure the office can see. Mirrors MonitoringRules.Collects on the server.
+  it.each([1, 2, 15])("a rule on a field no shape collects: service %i", (serviceId) => {
+    expect(
+      entryCrossFieldErrors(serviceId, {
+        ...zero,
+        received: 7,
+        completed: 1,
+        slaWithinTime: 9,
+        complaintsReceived: 2,
+        complaintsResolved: 5,
+        fieldReceived: 1,
+        fieldCompleted: 4,
+      }),
+    ).toEqual({});
   });
 });
 

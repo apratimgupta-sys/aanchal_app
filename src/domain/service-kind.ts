@@ -56,3 +56,28 @@ export function movesPendingBalance(serviceId: number): boolean {
 export function isFieldWork(serviceId: number): boolean {
   return formShape(serviceId) === "fieldwork";
 }
+
+// What the daily form actually asks a service for, by shape: two numbers
+// instead of nine. Everything else in the record is retired — kept for the
+// entries already filed with it, collected from nobody.
+// Mirrors MonitoringRules.CollectedFields on the server.
+const COLLECTED: Record<FormShape, readonly string[]> = {
+  counter: ["received", "completed"],
+  revenue: ["received", "amountPaise"],
+  fieldwork: ["completed"],
+};
+
+export function collectedFields(serviceId: number): readonly string[] {
+  return COLLECTED[formShape(serviceId)];
+}
+
+// A cross-field rule can only be acted on if the office is asked for BOTH of
+// its operands. Keyed to anything else, the message names a field the form
+// does not render, so the office sees "Please correct the highlighted fields"
+// with nothing highlighted and no way to save. The retired fields keep their
+// stored values through a correction, so their consistency holds by
+// construction.
+export function collects(serviceId: number, ...fields: string[]): boolean {
+  const collected = collectedFields(serviceId);
+  return fields.every((f) => collected.includes(f));
+}

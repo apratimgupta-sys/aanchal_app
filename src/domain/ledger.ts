@@ -1,4 +1,4 @@
-import { movesPendingBalance } from "./service-kind";
+import { collects, movesPendingBalance } from "./service-kind";
 import type {
   Activity,
   Balances,
@@ -55,7 +55,10 @@ export function validateEntry(e: EntryInput, today: string): ApiError | null {
     errors.ward = "Enter ward number/name (maximum 200 characters)";
   if (typeof e.remarks !== "string" || e.remarks.length > 2000)
     errors.remarks = "Remarks must be at most 2000 characters";
-  if (e.slaWithinTime > e.completed)
+  // Applies only where the shape collects both operands, as on the server. No
+  // shape collects slaWithinTime, so a stored figure from a pre-cutover entry
+  // can never refuse a correction to the figure the office can see.
+  if (collects(e.serviceId, "slaWithinTime", "completed") && e.slaWithinTime > e.completed)
     errors.slaWithinTime = "Cannot exceed completed cases";
   if (
     e.avgDisposalDays !== null &&

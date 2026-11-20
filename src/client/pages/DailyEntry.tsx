@@ -12,56 +12,140 @@ import services from "../../shared/services.json";
 import { todayIST, parseMoney, applyActivity } from "../../domain/ledger";
 import { api, RequestError } from "../api";
 import { normalizeFieldErrors } from "../field-errors";
+import { auditFields } from "../audit";
 import { Language, useText, runtimeText } from "../i18n";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { formatIndiaDateTime } from "../lib/dates";
-import { entryCrossFieldErrors } from "../../domain/entry-rules";
-const entryClientSchema = z.object({
+import {
+  entryCrossFieldErrors,
+  type EntryCounts,
+} from "../../domain/entry-rules";
+import { formShape } from "../../domain/service-kind";
+const COUNT_KEYS = [
+  "received",
+  "completed",
+  "slaWithinTime",
+  "complaintsReceived",
+  "complaintsResolved",
+  "fieldReceived",
+  "fieldCompleted",
+] as const;
+type CountKey = (typeof COUNT_KEYS)[number];
+// Work done is the `completed` field for the eight field-work services. The
+// label is kept by hand because five of the eight do not match their unit word
+// in the Service Master, and service 10 was settled with the client as
+// "Animals picked up" — "Routes" reads wrong for dog control.
+const WORK_DONE_LABEL: Record<number, readonly [string, string]> = {
+  8: ["Trips", "फेरे"],
+  9: ["Routes", "मार्ग"],
+  10: ["Animals picked up", "पकड़े गए पशु"],
+  13: ["Repairs", "मरम्मत"],
+  14: ["Works", "कार्य"],
+  15: ["Sites", "स्थल"],
+  16: ["Sites", "स्थल"],
+  17: ["Routes", "मार्ग"],
+};
+type NumericField = { key: CountKey; en: string; hi: string };
+// The questions a service is actually asked. Everything else in the record is
+// hidden, and a hidden count is sent as 0 rather than asked for.
+function numericFields(serviceId: number): NumericField[] {
+  switch (formShape(serviceId)) {
+    case "revenue":
+      // Payments is the existing `received` field relabelled; a payment
+      // completes nothing, so there is no disposal figure.
+      return [{ key: "received", en: "Payments", hi: "भुगतान" }];
+    case "fieldwork": {
+      const [en, hi] = WORK_DONE_LABEL[serviceId] ?? [
+        "Work done",
+        "किया गया कार्य",
+      ];
+      return [{ key: "completed", en, hi }];
+    }
+    default:
+      return [
+        { key: "received", en: "Received", hi: "प्राप्त" },
+        { key: "completed", en: "Disposed", hi: "निस्तारित" },
+      ];
+  }
+}
+// The count keys this service's form renders — the only keys that have a Field
+// to show a message in. Used for the schema, for seeding, and for catching a
+// server error that has nowhere to land.
+const shownKeys = (serviceId: number) =>
+  new Set<string>(numericFields(serviceId).map((f) => f.key));
+// Picked out one field at a time with an explicit default, rather than cast:
+// the shape's hidden counts reach the cross-field rules as numbers or not at
+// all, and `undefined > 1` would quietly answer false and skip a rule.
+const countsOf = (value: Record<string, unknown>): EntryCounts => {
+  const count = (k: CountKey) =>
+    typeof value[k] === "number" ? (value[k] as number) : 0;
+  return {
+    received: count("received"),
+    completed: count("completed"),
+    slaWithinTime: count("slaWithinTime"),
+    complaintsReceived: count("complaintsReceived"),
+    complaintsResolved: count("complaintsResolved"),
+    fieldReceived: count("fieldReceived"),
+    fieldCompleted: count("fieldCompleted"),
+  };
+};
+const countField = z.number().int().min(0);
+// Loose, so the fields the shape hides pass through to the cross-field check
+// below instead of being stripped before it runs.
+const baseEntrySchema = z.looseObject({
   ward: z.string().trim().min(1, "Ward number or name is required"),
-  received: z.number().int().min(0),
-  completed: z.number().int().min(0),
-  slaWithinTime: z.number().int().min(0),
-  complaintsReceived: z.number().int().min(0),
-  complaintsResolved: z.number().int().min(0),
-  fieldReceived: z.number().int().min(0),
-  fieldCompleted: z.number().int().min(0),
   // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
   avgDisposalDays: z.number().min(0).nullable(),
   remarks: z.string().max(2000),
 });
+// Built per shape. Requiring a field the shape hides would fail on it with
+// nowhere to show the message — the error span renders inside a Field that no
+// longer exists — so the office would see "Please correct the highlighted
+// fields" with nothing highlighted and no way to save.
+const SHAPE_SCHEMAS = {
+  counter: baseEntrySchema.extend({
+    received: countField,
+    completed: countField,
+  }),
+  revenue: baseEntrySchema.extend({ received: countField }),
+  fieldwork: baseEntrySchema.extend({ completed: countField }),
+};
 // The cross-field rules depend on what kind of work the service is, so the
 // schema is built per service rather than shared.
-const schemaForService = (serviceId: number) =>
-  entryClientSchema.superRefine((value, ctx) => {
-    for (const [path, message] of Object.entries(entryCrossFieldErrors(serviceId, value)))
-      ctx.addIssue({ code: "custom", path: [path], message });
+const schemaForService = (serviceId: number) => {
+  const shown = shownKeys(serviceId);
+  return SHAPE_SCHEMAS[formShape(serviceId)].superRefine((value, ctx) => {
+    for (const [path, message] of Object.entries(
+      entryCrossFieldErrors(serviceId, countsOf(value)),
+    ))
+      // A rule on a hidden field cannot be acted on and must not block a save.
+      if (shown.has(path)) ctx.addIssue({ code: "custom", path: [path], message });
   });
-const numeric = [
-  ["received", "Received / Transactions", "प्राप्त / लेन-देन"],
-  ["completed", "Disposed / Completed", "निस्तारित / पूर्ण"],
-  ["slaWithinTime", "SLA Within Time", "समय सीमा में पूर्ण"],
-  ["complaintsReceived", "Complaints Received", "प्राप्त शिकायतें"],
-  ["complaintsResolved", "Complaints Resolved", "निस्तारित शिकायतें"],
-  ["fieldReceived", "Field Tasks Received", "प्राप्त क्षेत्रीय कार्य"],
-  ["fieldCompleted", "Field Tasks Completed", "पूर्ण क्षेत्रीय कार्य"],
-] as const;
-const blank = (date: string, id: number): EntryInput => ({
-  serviceDate: date,
-  serviceId: id,
-  ward: "",
-  received: NaN,
-  completed: NaN,
-  slaWithinTime: NaN,
-  amountPaise: 0,
-  complaintsReceived: NaN,
-  complaintsResolved: NaN,
-  fieldReceived: NaN,
-  fieldCompleted: NaN,
-  // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
-  avgDisposalDays: null,
-  remarks: "",
-  nothingToReport: false,
-});
+};
+const blank = (date: string, id: number): EntryInput => {
+  const shown = shownKeys(id);
+  // A shown count starts NaN so the input renders empty rather than "0". A
+  // hidden one must start 0: NaN serializes to JSON null, the API reads the
+  // body with JsonNumberHandling.Strict, and null into a long is a 422.
+  const seed = (k: CountKey) => (shown.has(k) ? NaN : 0);
+  return {
+    serviceDate: date,
+    serviceId: id,
+    ward: "",
+    received: seed("received"),
+    completed: seed("completed"),
+    slaWithinTime: seed("slaWithinTime"),
+    amountPaise: 0,
+    complaintsReceived: seed("complaintsReceived"),
+    complaintsResolved: seed("complaintsResolved"),
+    fieldReceived: seed("fieldReceived"),
+    fieldCompleted: seed("fieldCompleted"),
+    // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
+    avgDisposalDays: null,
+    remarks: "",
+    nothingToReport: false,
+  };
+};
 type Payload = {
   setup: Setup | null;
   entries: EntryView[];
@@ -106,6 +190,8 @@ export default function DailyEntry({
     [error, setError] = useState(""),
     [canReload, setCanReload] = useState(false),
     [fields, setFields] = useState<Record<string, string>>({}),
+    // Server field errors with no Field of their own to render in.
+    [unhandled, setUnhandled] = useState<[string, string][]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false);
@@ -197,13 +283,14 @@ export default function DailyEntry({
     setMoney(saved ? (saved.amountPaise / 100).toFixed(2) : "");
     setReason("");
     setFields({});
+    setUnhandled([]);
     setDirty(false);
     setEditingEntry(false);
   }, [saved, date, selected, dirty]);
   function patch(key: string, value: unknown) {
     setDirty(true);
     // Typing a figure means there is something to report after all.
-    const isFigure = numeric.some(([k]) => k === key);
+    const isFigure = (COUNT_KEYS as readonly string[]).includes(key);
     setInput((p) => ({ ...p, [key]: value, ...(isFigure ? { nothingToReport: false } : {}) }));
     setMessage("");
   }
@@ -247,6 +334,8 @@ export default function DailyEntry({
     );
   const close = applyActivity(opening, input);
   const service = services.find((s) => s.id === selected)!;
+  const shape = formShape(selected);
+  const shownFields = numericFields(selected);
   return (
     <>
       <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
@@ -373,27 +462,16 @@ export default function DailyEntry({
               {saved ? t("Submitted", "जमा") : t("Not submitted", "जमा नहीं")}
             </span>
           </div>
-          <div className="balance-strip ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-gap-m">
-            {(["service", "complaints", "field"] as const).map((k, i) => (
-              <div key={k}>
-                <span>
-                  {t(
-                    [
-                      "Opening pending",
-                      "Opening complaints",
-                      "Opening field tasks",
-                    ][i],
-                    [
-                      "प्रारंभिक लंबित",
-                      "प्रारंभिक शिकायतें",
-                      "प्रारंभिक क्षेत्रीय कार्य",
-                    ][i],
-                  )}
-                </span>
-                <strong>{opening[k]}</strong>
+          {/* Only counter work has a queue, so only the counter shape has a
+              balance to open against. */}
+          {shape === "counter" && (
+            <div className="balance-strip ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-gap-m">
+              <div>
+                <span>{t("Opening pending", "प्रारंभिक लंबित")}</span>
+                <strong>{opening.service}</strong>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
           {mode === "backdate" && (
             <Field className="short-field">
               {t("Service date", "सेवा तिथि")}
@@ -431,6 +509,7 @@ export default function DailyEntry({
               setError("");
               setCanReload(false);
               setFields({});
+              setUnhandled([]);
               try {
                 const checked = schemaForService(input.serviceId).safeParse(input);
                 if (!checked.success) {
@@ -446,7 +525,14 @@ export default function DailyEntry({
                 const command = {
                   expectedVersion: saved?.version ?? null,
                   mode,
-                  input: { ...input, amountPaise: parseMoney(money) },
+                  input: {
+                    ...input,
+                    // Only the revenue shape has a money input. Everywhere else
+                    // the figure comes from the record: 0 on a new entry, and
+                    // whatever was stored on a correction.
+                    amountPaise:
+                      shape === "revenue" ? parseMoney(money) : input.amountPaise,
+                  },
                   reason: saved ? reason : mode === "backdate" ? reason : null,
                 };
                 intent.current = mutationIntent(intent.current, {
@@ -480,8 +566,23 @@ export default function DailyEntry({
                     : e instanceof TypeError,
                 );
                 toast.error(t("Could not save entry", "प्रविष्टि सहेजी नहीं जा सकी"));
-                if (e instanceof RequestError)
-                  setFields(normalizeFieldErrors(e.detail.fieldErrors));
+                if (e instanceof RequestError) {
+                  const returned = normalizeFieldErrors(e.detail.fieldErrors);
+                  const shown = shownKeys(input.serviceId);
+                  const hasAField = (key: string) =>
+                    key === "ward" || shown.has(key);
+                  setFields(
+                    Object.fromEntries(
+                      Object.entries(returned).filter(([k]) => hasAField(k)),
+                    ),
+                  );
+                  // A key with nowhere to highlight would otherwise leave the
+                  // office reading "correct the highlighted fields" with
+                  // nothing highlighted, so say what was objected to.
+                  setUnhandled(
+                    Object.entries(returned).filter(([k]) => !hasAField(k)),
+                  );
+                }
               } finally {
                 setBusy(false);
               }
@@ -527,7 +628,7 @@ export default function DailyEntry({
                   </span>
                 )}
               </Field>
-              {numeric.map(([k, en, hi]) => (
+              {shownFields.map(({ key: k, en, hi }) => (
                 <Field key={k}>
                   {t(en, hi)}
                   <input
@@ -552,21 +653,25 @@ export default function DailyEntry({
                   )}
                 </Field>
               ))}
-              <Field>
-                {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
-                <input
-                  readOnly={!!saved && !editingEntry}
-                  type="text"
-                  inputMode="decimal"
-                  required
-                  value={money}
-                  onChange={(e) => {
-                    setMoney(e.target.value);
-                    setInput((p) => ({ ...p, nothingToReport: false }));
-                    setDirty(true);
-                  }}
-                />
-              </Field>
+              {/* Money is collected by the three revenue services and nobody
+                  else: grass cutting takes no payments. */}
+              {shape === "revenue" && (
+                <Field>
+                  {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
+                  <input
+                    readOnly={!!saved && !editingEntry}
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    value={money}
+                    onChange={(e) => {
+                      setMoney(e.target.value);
+                      setInput((p) => ({ ...p, nothingToReport: false }));
+                      setDirty(true);
+                    }}
+                  />
+                </Field>
+              )}
               <Field className="wide">
                 {t("Remarks", "टिप्पणियाँ")}
                 <textarea
@@ -598,24 +703,32 @@ export default function DailyEntry({
                 </Field>
               )}
             </div>
-            <div className="closing-strip ux4g-body-s-default ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-d-flex ux4g-flex-wrap ux4g-ai-center ux4g-gap-x-l ux4g-mt-l">
-              <span>{t("Closing balances", "अंतिम शेष")}</span>
-              <strong>
-                {t("Work", "कार्य")}:{" "}
-                {Number.isFinite(close.service) ? close.service : "—"}
-              </strong>
-              <strong>
-                {t("Complaints", "शिकायतें")}:{" "}
-                {Number.isFinite(close.complaints) ? close.complaints : "—"}
-              </strong>
-              <strong>
-                {t("Field", "क्षेत्रीय")}:{" "}
-                {Number.isFinite(close.field) ? close.field : "—"}
-              </strong>
-            </div>
+            {/* Same treatment as the opening strip: a closing balance only
+                means something where work queues. */}
+            {shape === "counter" && (
+              <div className="closing-strip ux4g-body-s-default ux4g-bg-neutral-soft ux4g-p-m ux4g-radius-m ux4g-d-flex ux4g-flex-wrap ux4g-ai-center ux4g-gap-x-l ux4g-mt-l">
+                <span>{t("Closing pending", "अंतिम लंबित")}</span>
+                <strong>
+                  {Number.isFinite(close.service) ? close.service : "—"}
+                </strong>
+              </div>
+            )}
             {error && (
               <Notice className="message" role="alert">
                 {runtimeText(error, lang)}
+                {unhandled.length > 0 && (
+                  <ul>
+                    {unhandled.map(([key, message]) => (
+                      <li key={key}>
+                        {t(
+                          auditFields[key]?.[0] ?? key,
+                          auditFields[key]?.[1] ?? key,
+                        )}
+                        : {runtimeText(message, lang)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {canReload && (
                   <button
                     className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"

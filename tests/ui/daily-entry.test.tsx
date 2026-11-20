@@ -57,10 +57,9 @@ describe("nothing to report", () => {
     renderForm();
     await screen.findByText(/daily service entry/i);
     await user.type(screen.getByLabelText(/ward number/i), "24");
-    for (const label of [/^received/i, /^disposed/i, /sla within time/i, /complaints received/i,
-      /complaints resolved/i, /field tasks received/i, /field tasks completed/i])
+    // Service 1 takes the counter shape, so the boxes are Received and Disposed.
+    for (const label of [/^received/i, /^disposed/i])
       await user.type(screen.getByLabelText(label), "0");
-    await user.type(screen.getByLabelText(/amount collected/i), "0");
     const input = await submittedInput(user);
     expect(input.nothingToReport).toBe(false);
     expect(input.received).toBe(0);

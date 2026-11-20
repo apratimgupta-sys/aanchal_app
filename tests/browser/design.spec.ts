@@ -409,7 +409,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   await page
     .getByLabel("Ward number / name")
     .fill("Draft ward retained");
-  await page.getByLabel("Received / Transactions", { exact: true }).fill("17");
+  await page.getByLabel("Received", { exact: true }).fill("17");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
     .getByRole("button", { name: "Backdate Entry", exact: true })
@@ -419,7 +419,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
     page.getByLabel("Ward number / name"),
   ).toHaveValue("Draft ward retained");
   await expect(
-    page.getByLabel("Received / Transactions", { exact: true }),
+    page.getByLabel("Received", { exact: true }),
   ).toHaveValue("17");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.evaluate(() => {

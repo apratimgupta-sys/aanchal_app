@@ -41,8 +41,6 @@ const runtimeHindi: Record<string, string> = {
     "राशि अधिकतम दो दशमलव स्थानों में दर्ज करें",
   "Amount too large": "राशि बहुत अधिक है",
   "Cannot exceed completed cases": "पूर्ण मामलों से अधिक नहीं हो सकता",
-  "Average days required when work is completed":
-    "कार्य पूर्ण होने पर औसत दिन आवश्यक हैं",
   "Enter valid nonnegative days": "वैध गैर-ऋणात्मक दिन दर्ज करें",
   "Enter a nonnegative whole number within the allowed limit":
     "अनुमत सीमा में गैर-ऋणात्मक पूर्णांक दर्ज करें",
