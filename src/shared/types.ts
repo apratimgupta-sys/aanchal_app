@@ -15,6 +15,8 @@ export type EntryInput = Activity & {
   ward: string;
   avgDisposalDays: number | null;
   remarks: string;
+  // The office's deliberate "nothing happened on this service today". Not inferred from zeros.
+  nothingToReport: boolean;
 };
 export type StoredEntry = EntryInput & {
   reportingDate: string;

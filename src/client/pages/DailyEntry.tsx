@@ -25,6 +25,7 @@ const entryClientSchema = z.object({
   complaintsResolved: z.number().int().min(0),
   fieldReceived: z.number().int().min(0),
   fieldCompleted: z.number().int().min(0),
+  // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
   avgDisposalDays: z.number().min(0).nullable(),
   remarks: z.string().max(2000),
 });
@@ -56,8 +57,10 @@ const blank = (date: string, id: number): EntryInput => ({
   complaintsResolved: NaN,
   fieldReceived: NaN,
   fieldCompleted: NaN,
+  // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
   avgDisposalDays: null,
   remarks: "",
+  nothingToReport: false,
 });
 type Payload = {
   setup: Setup | null;
@@ -199,7 +202,9 @@ export default function DailyEntry({
   }, [saved, date, selected, dirty]);
   function patch(key: string, value: unknown) {
     setDirty(true);
-    setInput((p) => ({ ...p, [key]: value }));
+    // Typing a figure means there is something to report after all.
+    const isFigure = numeric.some(([k]) => k === key);
+    setInput((p) => ({ ...p, [key]: value, ...(isFigure ? { nothingToReport: false } : {}) }));
     setMessage("");
   }
   function switchSelection(fn: () => void) {
@@ -557,6 +562,7 @@ export default function DailyEntry({
                   value={money}
                   onChange={(e) => {
                     setMoney(e.target.value);
+                    setInput((p) => ({ ...p, nothingToReport: false }));
                     setDirty(true);
                   }}
                 />
@@ -646,6 +652,7 @@ export default function DailyEntry({
                       fieldCompleted: 0,
                       ward: p.ward,
                       remarks: p.remarks,
+                      nothingToReport: true,
                     }));
                     setMoney("0.00");
                     setDirty(true);
