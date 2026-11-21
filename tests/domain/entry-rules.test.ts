@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entryCrossFieldErrors, isCanonicalWard } from "../../src/domain/entry-rules";
+import { entryCrossFieldErrors, isCanonicalWard, WARD_MESSAGE } from "../../src/domain/entry-rules";
 import { WARD_MAX } from "../../src/domain/visit";
 import { applyActivity } from "../../src/domain/ledger";
 
@@ -112,6 +112,10 @@ describe("the canonical ward", () => {
     expect(isCanonicalWard(`Ward ${WARD_MAX + 1}`)).toBe(false);
   });
 
+  // Break caught: the bound changing while the message (an exact i18n key) still says 53.
+  it("names the bound in its message", () =>
+    expect(WARD_MESSAGE).toBe(`Select a ward from 1 to ${WARD_MAX}`));
+
   // Surrounding whitespace is tolerated because the server trims before it stores.
   it.each(["Ward 1", "Ward 11", "Ward 53", " Ward 11 ", "Ward 11 ", "\tWard 11"])("accepts %s", (ward) =>
     expect(isCanonicalWard(ward)).toBe(true),
@@ -119,7 +123,7 @@ describe("the canonical ward", () => {
 
   it.each([
     "Ward 0", "Ward 54", "ward 11", "Ward 011", "Ward 11, Konka",
-    "Ward  11", "11", "Ward", "", " ", "Ward  ", "Ward 1.5", "Ward ٣",
+    "Ward  11", "11", "Ward", "", " ", "Ward  ", "Ward 1.5", "Ward ٣", "Ward ११",
   ])("rejects %j", (ward) => expect(isCanonicalWard(ward)).toBe(false));
 
   it("rejects what is not a string", () => {
