@@ -178,6 +178,8 @@ test("dashboard and entry: responsive tables, labelled controls and colour contr
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await signIn(page, testOfficeAccount);
+  // Back to phone width: the checks below cover the office screen at 390.
+  await page.setViewportSize({ width: 390, height: 844 });
   await expect(
     page.getByRole("heading", { name: "Daily service entry", exact: true }),
   ).toBeVisible();

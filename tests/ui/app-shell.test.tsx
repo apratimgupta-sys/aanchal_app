@@ -90,19 +90,28 @@ describe("AppShell drawer", () => {
   });
 
   it("closes when the window grows past the drawer breakpoint, so it cannot strand a desktop reader behind a hidden overlay", async () => {
+    const added: unknown[] = [];
+    const removed: unknown[] = [];
     let onChange: ((e: { matches: boolean }) => void) | undefined;
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,
-      addEventListener: (_: string, fn: typeof onChange) => (onChange = fn),
-      removeEventListener: () => {},
+      addEventListener: (_: string, fn: typeof onChange) => {
+        added.push(fn);
+        onChange = fn;
+      },
+      removeEventListener: (_: string, fn: unknown) => removed.push(fn),
     }));
     try {
-      renderShell();
+      const { unmount } = renderShell();
       await userEvent.click(screen.getByRole("button", { name: OPEN.en }));
       await screen.findByRole("dialog");
       act(() => onChange?.({ matches: true }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      // And the listener is released with the shell, by the same reference.
+      unmount();
+      expect(added.length).toBeGreaterThan(0);
+      expect(removed).toEqual(added);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -162,11 +171,52 @@ describe("AppShell styling contract", () => {
     expect([...used]).toEqual([]);
   });
 
-  it("carries the Hindi line-height lift on <body>, where every unstyled line inherits it", () => {
+  it("carries the Hindi line-height lift on <body>, for text that sets no leading of its own", () => {
     const html = readFileSync("index.html", "utf8");
     const body = html.match(/<body[^>]*class="([^"]*)"/)?.[1] ?? "";
     expect(body).toContain("leading-body");
     expect(body).toMatch(/\[html\[lang=hi\]_&\]:leading-\[1\.[6-9]\d?\]/);
+  });
+
+  // The element-level `html[lang="hi"] button, label, span ...` rule in styles.css
+  // beats a utility on specificity, so it was silently supplying Hindi leading for
+  // every component. Pin that each explicit leading has its own Hindi counterpart,
+  // so deleting that rule changes nothing.
+  it("gives every explicit leading-* in the component layer a Hindi counterpart", () => {
+    const files = ["src/client/ui.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
+    const bare = /(?<![:\w-])leading-[\w.[\]-]+/g;
+    const offenders: string[] = [];
+    for (const f of files)
+      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+        if (/^\s*\/\//.test(line)) return;
+        if (line.match(bare) && !/\[html\[lang=hi\]_&\]:leading-\[/.test(line)) offenders.push(`${f}:${i + 1}`);
+      });
+    expect(offenders).toEqual([]);
+  });
+
+  // text-xs / text-sm / ... each carry a fixed line-height of their own (xs is 16px,
+  // a 1.33 ratio at 12px) that only a leading-* alongside them overrides. Found by
+  // measuring: the shell's 12px Hindi spans fell from 1.65 to 1.33 once the legacy rule
+  // stopped covering them.
+  it("never lets a named text size fix the line height without a leading-* beside it", () => {
+    const files = ["src/client/ui.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
+    const sized = /(?<![:\w-])text-(xs|sm|base|lg|xl|[2-9]xl)(?![\w-])/;
+    const offenders: string[] = [];
+    for (const f of files)
+      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+        if (/^\s*\/\//.test(line)) return;
+        if (sized.test(line) && !/leading/i.test(line)) offenders.push(`${f}:${i + 1}`);
+      });
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps Hindi at or above the 1.65 the legacy rule gave body and help text, and headings between their Latin value and body", () => {
+    const ui = readFileSync("src/client/ui.tsx", "utf8");
+    const hi = (name: string) => Number(ui.match(new RegExp(`${name} = "[^"]*leading-\\[([\\d.]+)\\]`))?.[1]);
+    expect(hi("leadingBody")).toBeGreaterThanOrEqual(1.65);
+    expect(hi("leadingHelp")).toBeGreaterThanOrEqual(1.65);
+    expect(hi("leadingHeading")).toBeGreaterThan(1.4);
+    expect(hi("leadingHeading")).toBeLessThan(hi("leadingBody"));
   });
 
   it("no longer carries the global body, font, gradient or shell rules in styles.css", () => {

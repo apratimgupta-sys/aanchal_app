@@ -1,4 +1,4 @@
-import { Button, Field, FieldError, Input, Notice, Panel } from "../ui";
+import { Button, Field, FieldError, Input, Notice, Panel, leadingBody, leadingHeading } from "../ui";
 import { useContext } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -43,13 +43,13 @@ export default function Login({
           </Button>
         </div>
         <div className="grid gap-2">
-          <div className="text-[11px] font-medium uppercase leading-body tracking-[0.08em] text-muted-foreground [html[lang=hi]_&]:tracking-normal">
+          <div className={`text-[11px] font-medium uppercase ${leadingBody} tracking-[0.08em] text-muted-foreground [html[lang=hi]_&]:tracking-normal`}>
             {t("AUTHORIZED OFFICE ACCESS", "अधिकृत कार्यालय प्रवेश")}
           </div>
-          <h2 className="text-[23px] font-semibold leading-heading text-foreground">
+          <h2 className={`text-[23px] font-semibold ${leadingHeading} text-foreground`}>
             {t("Office sign in", "कार्यालय लॉगिन")}
           </h2>
-          <p className="text-[13.5px] leading-body text-muted-foreground">
+          <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
             {t(
               "Use your Anchal office or commissioner account.",
               "अपने अंचल कार्यालय या आयुक्त खाते से प्रवेश करें।",
@@ -72,7 +72,7 @@ export default function Login({
             {isSubmitting ? t("Signing in…", "प्रवेश जारी…") : t("Sign in →", "लॉगिन →")}
           </Button>
         </form>
-        <p className="text-xs leading-body text-muted-foreground">
+        <p className={`text-xs ${leadingBody} text-muted-foreground`}>
           {t(
             "Each Anchal uses one shared office account. Contact your portal administrator for access.",
             "प्रत्येक अंचल का एक साझा कार्यालय खाता है। प्रवेश के लिए पोर्टल प्रशासक से संपर्क करें।",

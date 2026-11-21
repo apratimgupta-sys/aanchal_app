@@ -3,6 +3,7 @@ import type { OfficerProfile, Setup, UserSession } from "../shared/types";
 import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
+import { leadingBody, leadingHelp } from "./ui";
 import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
 import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
 import { indiaToday } from "./lib/dates";
@@ -126,7 +127,7 @@ export default function App() {
   }, [loading, session, setup, pathname]);
   return (
     <Language.Provider value={lang}>
-      <a href="#main-content" className="fixed left-0 top-0 z-50 -translate-y-[150%] bg-card px-4 py-3 text-sm font-medium text-primary underline focus:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
+      <a href="#main-content" className={`fixed left-0 top-0 z-50 -translate-y-[150%] bg-card px-4 py-3 text-sm ${leadingBody} font-medium text-primary underline focus:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring`}>
         {text("Skip to main content", "मुख्य सामग्री पर जाएँ")}
       </a>
       {loading ? (
@@ -173,7 +174,7 @@ export default function App() {
           }}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
           signOutLabel={text("Sign out", "लॉगआउट")}
-          footer={<footer className="flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs text-muted-foreground sm:px-8"><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
+          footer={<footer className={`flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs ${leadingHelp} text-muted-foreground sm:px-8`}><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               pathname === "/commissioner/visits" ? <VisitRegister /> : pathname === "/commissioner/officers" ? <Officers /> : <Dashboard />

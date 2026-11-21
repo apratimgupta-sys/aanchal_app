@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, X, Languages, LogOut, LayoutDashboard, ClipboardList, History, Users } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Button, focusRing } from "../ui";
+import { Button, focusRing, leadingBody, leadingHelp } from "../ui";
 import { useText } from "../i18n";
 import type { UserSession } from "../../shared/types";
 import rmcLogo from "../assets/rmc-logo.jpg";
@@ -25,7 +25,7 @@ const DESKTOP = "(min-width: 1024px)";
 const navItem = (active: boolean) =>
   cn(
     "flex min-h-[44px] w-full items-center gap-2.5 rounded-[7px] border border-transparent px-3 py-2 text-left text-[13.5px] font-medium text-muted-foreground transition-colors motion-reduce:transition-none",
-    "hover:bg-accent hover:text-foreground lg:w-auto lg:whitespace-nowrap",
+    "hover:bg-accent hover:text-foreground lg:w-auto lg:shrink-0 lg:whitespace-nowrap",
     focusRing,
     active && "border-primary/30 bg-accent font-semibold text-accent-foreground",
   );
@@ -89,7 +89,7 @@ export function AppShell({
       {emblem}
       <div className="min-w-0">
         <strong className="block text-[13.5px] font-semibold">{t("Ranchi Municipal Corporation", "रांची नगर निगम")}</strong>
-        <span className="block text-xs text-muted-foreground">{subtitle}</span>
+        <span className={`block text-xs ${leadingHelp} text-muted-foreground`}>{subtitle}</span>
       </div>
     </div>
   );
@@ -105,9 +105,10 @@ export function AppShell({
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="hidden items-center gap-6 border-b border-border bg-card px-8 py-[14px] lg:flex">
+        <header className="hidden items-center gap-6 border-b border-border bg-card px-8 py-[14px] lg:sticky lg:top-0 lg:z-20 lg:flex">
           {brand(t("Anchal Office Monitoring", "अंचल कार्यालय निगरानी"))}
-          <nav aria-label={navLabel} className="flex min-w-0 flex-1 items-center gap-1">
+          {/* Scrolls rather than overlapping the actions if long Hindi labels run out of room; p-1 keeps the focus outline from being clipped. */}
+          <nav aria-label={navLabel} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto p-1">
             {navButtons}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
@@ -126,10 +127,10 @@ export function AppShell({
             </Button>
           </Dialog.Trigger>
           <div className="min-w-0 flex-1">
-            <strong className="block text-sm font-semibold">{t(...ROLE_TITLE[role])}</strong>
-            <span className="block text-xs text-muted-foreground [overflow-wrap:anywhere]">{account}</span>
+            <strong className={`block text-sm ${leadingBody} font-semibold`}>{t(...ROLE_TITLE[role])}</strong>
+            <span className={`block text-xs ${leadingHelp} text-muted-foreground [overflow-wrap:anywhere]`}>{account}</span>
           </div>
-          <Button variant="outline" className="shrink-0 px-3 text-xs" onClick={onLanguageToggle}>{languageLabel}</Button>
+          <Button variant="outline" className="shrink-0 px-3" onClick={onLanguageToggle}>{languageLabel}</Button>
         </header>
         <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[100rem] flex-1 px-4 pb-8 pt-5 focus:outline-none sm:px-8 sm:pb-10 sm:pt-[26px]">
           {children}
