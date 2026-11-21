@@ -1,26 +1,36 @@
 :root {
-  --background: 210 33% 98%;
-  --foreground: 215 28% 16%;
-  --card: 0 0% 100%;
-  --card-foreground: 215 28% 16%;
-  --primary: 211 64% 23%;
-  --primary-foreground: 0 0% 100%;
+  /* Palette from the approved mockups. Triplets are computed from the hex in the
+     trailing comment by script, not by hand;
+     one decimal place round-trips every value back to its exact hex. */
+  --background: 60 11.1% 96.5%;  /* #F7F7F5 */
+  --foreground: 214.3 14.3% 9.6%;  /* #15181C */
+  --card: 0 0% 100%;  /* #FFFFFF */
+  --card-foreground: 214.3 14.3% 9.6%;  /* #15181C */
+  --primary: 172.4 79.8% 21.4%;  /* #0B6257 */
+  --primary-foreground: 0 0% 100%;  /* #FFFFFF */
+  /* Not in the spec's colour table - deliberately left at the previous values. */
   --secondary: 210 25% 94%;
   --secondary-foreground: 215 28% 16%;
-  --muted: 210 25% 94%;
-  --muted-foreground: 215 14% 42%;
-  --accent: 210 35% 91%;
-  --accent-foreground: 211 64% 23%;
-  --border: 214 21% 82%;
-  --input: 214 21% 72%;
-  --ring: 211 64% 35%;
-  --destructive: 0 72% 43%;
+  --muted: 60 16.7% 97.6%;  /* #FAFAF8 */
+  --muted-foreground: 218.2 10.9% 39.6%;  /* #5A6270 */
+  --accent: 160 30% 96.1%;  /* #F2F8F6 */
+  --accent-foreground: 172.4 79.8% 21.4%;  /* #0B6257 */
+  --border: 220 12.5% 90.6%;  /* #E4E6EA */
+  --input: 220 12.7% 86.1%;  /* #D7DAE0 */
+  --ring: 172.4 79.8% 21.4%;  /* #0B6257 */
+  --destructive: 0 72% 43%; /* unchanged, per spec */
   --destructive-foreground: 0 0% 100%;
-  --success: 145 52% 30%;
+  --success: 145 52% 30%; /* not in the spec table; unchanged */
   --success-foreground: 0 0% 100%;
-  --warning: 34 83% 32%;
-  --warning-foreground: 0 0% 100%;
-  --radius: 0.5rem;
+  --warning: 36.4 100% 23.9%;  /* #7A4A00 */
+  --warning-foreground: 40 88.2% 93.3%;  /* #FDF3DF */
+  /* Radius. Tailwind derives lg = r, md = r - 2px, sm = r - 4px (tailwind.config.ts).
+     Design: cards 10px, controls 7px.
+       r = 10px -> lg 10px (cards exact), md 8px (+1), sm 6px (-1).
+     md and sm are each 1px from 7px - a tie, and no single r can beat it because
+     the scale moves in 2px steps. Cards are the fixed point, so r = 10px; controls
+     take rounded-md (8px) or an explicit 7px where the exact value matters. */
+  --radius: 0.625rem; /* 10px */
 }
 
 .dark {
