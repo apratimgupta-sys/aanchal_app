@@ -136,11 +136,18 @@ export default function Dashboard() {
   const counterCell = onlyFor("counter");
   const revenueCell = onlyFor("revenue");
   const fieldWorkCell = onlyFor("fieldwork");
+  const shapeCount = (shape: FormShape) => services.filter((x) => formShape(x.id) === shape).length;
+  // "Across N services" only says something when the figure really spans them;
+  // pinned to one service the note falls back to what the figure is.
+  const spans = (shape: FormShape, en: string, hi: string, fallbackEn: string, fallbackHi: string) =>
+    pinnedShape === null
+      ? t(`across ${shapeCount(shape)} ${en}`, `${shapeCount(shape)} ${hi} में`)
+      : t(fallbackEn, fallbackHi);
   const metrics = [
     [
       t("Total pending", "कुल लंबित"),
       counterCell(totals.pending),
-      t("Closing balance", "अंतिम शेष"),
+      spans("counter", "counter services", "काउंटर सेवाओं", "Closing balance", "अंतिम शेष"),
     ],
     [
       t("Disposal", "निस्तारण"),
@@ -151,12 +158,12 @@ export default function Dashboard() {
     [
       t("Total collection", "कुल संग्रह"),
       revenueCell(currency(totals.amountPaise)),
-      t("Actual collection", "वास्तविक संग्रह"),
+      spans("revenue", "revenue services", "राजस्व सेवाओं", "Actual collection", "वास्तविक संग्रह"),
     ],
     [
       t("Work done this period", "इस अवधि में किया गया कार्य"),
       fieldWorkCell(totals.workDone),
-      t("Field work completed", "पूर्ण क्षेत्रीय कार्य"),
+      spans("fieldwork", "field-work services", "क्षेत्रीय कार्य सेवाओं", "Field work completed", "पूर्ण क्षेत्रीय कार्य"),
     ],
   ];
   // Filing status is about one day. Under any other period the heading must not
@@ -239,78 +246,6 @@ export default function Dashboard() {
           </p>
         )}
       </header>
-
-      {error && (
-        <Notice role="alert">
-          {from > to
-            ? t(
-                "Start date must be on or before the end date.",
-                "आरंभ तिथि समाप्ति तिथि से पहले या उसी दिन होनी चाहिए।",
-              )
-            : runtimeText(error, lang)}
-        </Notice>
-      )}
-
-      <Panel aria-labelledby="filing-heading" className="grid gap-4">
-        <div className="grid gap-1">
-          <h2 id="filing-heading" className={heading}>
-            {isToday ? t("Filed today", "आज दर्ज") : t("Filing status", "दर्ज स्थिति")}
-          </h2>
-          <p className={`text-[13px] ${leadingHelp} text-muted-foreground`}>
-            {t("Services reported, out of those due, by Anchal", "अंचलवार दर्ज सेवाएँ, देय सेवाओं में से")}
-            <span className={`ml-2 font-mono tabular-nums text-foreground`}>{period}</span>
-          </p>
-        </div>
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((r) => {
-            const status = filing(r);
-            return (
-              <li
-                key={r.officeId}
-                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[7px] border border-border px-4 py-2.5"
-              >
-                <div className="grid min-w-0 gap-0.5">
-                  <span className={`text-[13.5px] font-medium ${leadingBody} text-foreground`}>
-                    {anchalLabel} {r.officeId}
-                  </span>
-                  <span className={`font-mono text-[12px] tabular-nums ${leadingHelp} text-muted-foreground`}>
-                    {r.submitted} / {r.expected}
-                  </span>
-                </div>
-                <Badge tone={status.tone} className="whitespace-nowrap">
-                  {status.label}
-                </Badge>
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
-
-      {/* Fewer fields are collected from this date on, so figures fall at
-          the cutover. Without saying so, that reads as a fall in work. And
-          the ledger is derived on read, so an October period is recomputed
-          on today's shape rules too — saying only "not comparable" would
-          imply the earlier figures are as they were filed. */}
-      <p className={`max-w-3xl rounded-[7px] border border-border bg-muted px-3 py-2 text-[13px] ${leadingHelp} text-muted-foreground`}>
-        {t(
-          `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
-          `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
-        )}
-      </p>
-
-      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
-        {metrics.map(([label, value, note]) => (
-          <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
-            <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{label}</span>
-            <strong
-              className={`block min-h-[2.25rem] font-mono text-[26px] font-semibold tabular-nums ${leadingHeading} [overflow-wrap:anywhere] text-foreground`}
-            >
-              {value}
-            </strong>
-            <small className={`block text-[12px] ${leadingHelp} text-muted-foreground`}>{note}</small>
-          </Panel>
-        ))}
-      </div>
 
       <Panel className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <Field>
@@ -415,6 +350,79 @@ export default function Dashboard() {
         </Button>
       </Panel>
 
+      {error && (
+        <Notice role="alert">
+          {from > to
+            ? t(
+                "Start date must be on or before the end date.",
+                "आरंभ तिथि समाप्ति तिथि से पहले या उसी दिन होनी चाहिए।",
+              )
+            : runtimeText(error, lang)}
+        </Notice>
+      )}
+
+      <Panel aria-labelledby="filing-heading" className="grid gap-4">
+        <div className="grid gap-1">
+          <h2 id="filing-heading" className={heading}>
+            {isToday ? t("Filed today", "आज दर्ज") : t("Filing status", "दर्ज स्थिति")}
+          </h2>
+          <p className={`text-[13px] ${leadingHelp} text-muted-foreground`}>
+            {t("Services reported, out of those due, by Anchal", "अंचलवार दर्ज सेवाएँ, देय सेवाओं में से")}
+            <span className={`ml-2 font-mono tabular-nums text-foreground`}>{period}</span>
+          </p>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {rows.map((r) => {
+            const status = filing(r);
+            return (
+              <li
+                key={r.officeId}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[7px] border border-border px-4 py-2.5"
+              >
+                <div className="grid min-w-0 gap-0.5">
+                  <span className={`text-[13.5px] font-medium ${leadingBody} text-foreground`}>
+                    {anchalLabel} {r.officeId}
+                  </span>
+                  <span className={`font-mono text-[12px] tabular-nums ${leadingHelp} text-muted-foreground`}>
+                    {r.submitted} / {r.expected}
+                  </span>
+                </div>
+                <Badge tone={status.tone} className="whitespace-nowrap">
+                  {status.label}
+                </Badge>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
+
+      {/* Fewer fields are collected from this date on, so figures fall at
+          the cutover. Without saying so, that reads as a fall in work. And
+          the ledger is derived on read, so an October period is recomputed
+          on today's shape rules too — saying only "not comparable" would
+          imply the earlier figures are as they were filed. */}
+      <p className={`max-w-3xl rounded-[7px] border border-border bg-muted px-3 py-2 text-[13px] ${leadingHelp} text-muted-foreground`}>
+        {t(
+          `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
+          `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
+        )}
+      </p>
+
+      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+        {metrics.map(([label, value, note]) => (
+          <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
+            <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{label}</span>
+            <strong
+              className={`block min-h-[2.25rem] font-mono text-[26px] font-semibold tabular-nums ${leadingHeading} [overflow-wrap:anywhere] text-foreground`}
+            >
+              {value}
+            </strong>
+            <small className={`block text-[12px] ${leadingHelp} text-muted-foreground`}>{note}</small>
+          </Panel>
+        ))}
+      </div>
+
+
       <Panel className="grid min-w-0 gap-5">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="grid min-w-0 gap-1">
@@ -461,12 +469,12 @@ export default function Dashboard() {
                 <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
                 <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(r.amountPaise)}</Td>
                 <Td label={hRemarks} className={stacked}>
-                  {r.reviewReasons.length ? (
+                  {r.reviewReasons.length > 1 ? (
                     <details>
                       <summary
                         className={`flex min-h-[44px] cursor-pointer items-center rounded-[7px] text-[13.5px] font-medium ${leadingBody} text-warning focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
                       >
-                        {t("REVIEW", "समीक्षा")} ({r.reviewReasons.length})
+                        {runtimeText(r.reviewReasons[0], lang)} {t(`+${r.reviewReasons.length - 1} more`, `+${r.reviewReasons.length - 1} और`)}
                       </summary>
                       {r.reviewReasons.map((reason) => (
                         <p key={reason} className={`pb-2 text-[13px] ${leadingHelp} text-foreground`}>
@@ -474,13 +482,23 @@ export default function Dashboard() {
                         </p>
                       ))}
                     </details>
+                  ) : r.reviewReasons.length === 1 ? (
+                    <span className={`text-[13.5px] font-medium ${leadingBody} text-warning`}>
+                      {runtimeText(r.reviewReasons[0], lang)}
+                    </span>
                   ) : (
                     <span className="text-muted-foreground">{t("No threshold flags", "कोई सीमा चेतावनी नहीं")}</span>
                   )}
-                  {r.submitted < r.expected && (
+                  {r.configured && r.expected > 0 && r.submitted === 0 ? (
                     <small className={`block text-[12px] ${leadingHelp} text-warning`}>
-                      {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
+                      {isToday ? t("Nothing filed today", "आज कुछ दर्ज नहीं") : t("Nothing filed", "कुछ दर्ज नहीं")}
                     </small>
+                  ) : (
+                    r.submitted < r.expected && (
+                      <small className={`block text-[12px] ${leadingHelp} text-warning`}>
+                        {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
+                      </small>
+                    )
                   )}
                 </Td>
               </tr>

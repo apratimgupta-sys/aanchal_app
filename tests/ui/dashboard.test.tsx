@@ -110,6 +110,33 @@ describe("dashboard layout order and structure", () => {
     expect(cells).toEqual(heads);
   });
 
+  it("puts the period and service filters above the filing status", async () => {
+    await renderDashboard([row()]);
+    const filters = screen.getByLabelText("Service", { exact: true });
+    const filed = screen.getByText("Filed today");
+    expect(filters.compareDocumentPosition(filed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names the reason in the last column, not a count", async () => {
+    await renderDashboard([
+      row({ officeId: 1, reviewReasons: ["Pending > 10"] }),
+      row({ officeId: 2, reviewReasons: ["Pending > 10", "Disposal < 90%"] }),
+      row({ officeId: 3, submitted: 0, expected: 25 }),
+    ]);
+    const table = screen.getAllByRole("table")[0];
+    const cells = Array.from(table.querySelectorAll("tbody tr")).map((tr) => tr.lastElementChild!.textContent);
+    expect(cells[0]).toContain("Pending > 10");
+    expect(cells[1]).toContain("Pending > 10 +1 more");
+    expect(cells[2]).toContain("Nothing filed today");
+    expect(document.body.textContent).not.toMatch(/REVIEW \(/);
+  });
+
+  it("says what each tile spans", async () => {
+    await renderDashboard([row()]);
+    expect(screen.getByText(/^across \d+ counter services$/)).toBeTruthy();
+    expect(screen.getByText(/^across \d+ revenue services$/)).toBeTruthy();
+  });
+
   it("renders no second <main> landmark", async () => {
     await renderDashboard([row()]);
     expect(document.querySelectorAll("main, #main-content")).toHaveLength(0);
