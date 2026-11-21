@@ -39,7 +39,7 @@ await check('dashboard loads with the four metric tiles', async () => { const t 
 await check('the three retired tiles are gone', async () => { const t = await main(); const left = ['Within SLA', 'Complaints pending', 'Field tasks pending'].filter(k => t.includes(k)); if (left.length) throw new Error('still shows ' + left.join(', ')); return 'none of the three'; });
 // The grid is four across above 1439px and two across below it, so the row
 // count is only meaningful next to a viewport width.
-const tileLayout = async () => page.evaluate(() => { const tiles = [...document.querySelectorAll('.metrics .metric')]; const grid = document.querySelector('.metrics'); return { tiles: tiles.length, rows: new Set(tiles.map(t => t.getBoundingClientRect().top.toFixed(0))).size, overflow: grid.scrollWidth > grid.clientWidth }; });
+const tileLayout = async () => page.evaluate(() => { const tiles = [...document.querySelectorAll('[data-metric]')]; const grid = document.querySelector('[data-metric]').parentElement; return { tiles: tiles.length, rows: new Set(tiles.map(t => t.getBoundingClientRect().top.toFixed(0))).size, overflow: grid.scrollWidth > grid.clientWidth }; });
 await check('four tiles sit in one row on a wide screen, with no overflow', async () => {
   await page.setViewportSize({ width: 1600, height: 900 }); await page.waitForTimeout(300);
   const l = await tileLayout();
@@ -52,7 +52,7 @@ await check('the same four tiles wrap to two rows at 1280px, still without overf
   if (!(l.tiles === 4 && l.rows === 2 && !l.overflow)) throw new Error(JSON.stringify(l));
   return '4 tiles, 2 rows at 1280px';
 });
-await check('the performance table drops SLA, complaints and field-task columns', async () => { const h = await page.evaluate(() => [...document.querySelectorAll('.monitoring-table thead th')].map(e => e.textContent.trim())); const left = ['SLA %', 'Complaints Pending', 'Field Tasks Pending'].filter(k => h.includes(k)); if (left.length) throw new Error('still shows ' + left.join(', ')); return h.join(', '); });
+await check('the performance table drops SLA, complaints and field-task columns', async () => { const h = await page.evaluate(() => [...document.querySelectorAll('main table thead th')].map(e => e.textContent.trim())); const left = ['SLA %', 'Complaints Pending', 'Field Tasks Pending'].filter(k => h.includes(k)); if (left.length) throw new Error('still shows ' + left.join(', ')); return h.join(', '); });
 await check('View offers Single day / Date range / Monthly', async () => { const o = await view.locator('option').allInnerTexts(); return ['Single day', 'Date range', 'Monthly'].every(x => o.includes(x)) ? o.join(',') : false; });
 await check('Anchal filter lists all offices and 6 anchals', async () => (await page.getByLabel('Anchal', { exact: true }).locator('option').count()) === 7);
 await check('Service filter lists 25 services plus All', async () => (await page.getByLabel('Service', { exact: true }).locator('option').count()) === 26);

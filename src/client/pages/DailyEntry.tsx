@@ -471,10 +471,8 @@ export default function DailyEntry({
                         focusRing,
                       )}
                       aria-current={selected === s.id ? "true" : undefined}
-                      onClickCapture={(event) => {
-                        // React owns selection and the draft guard. Intercept before
-                        // The retired UI kit's delegated click listener used to mutate its own .active state.
-                        event.stopPropagation();
+                      onClick={() => {
+                        // React owns selection and the draft guard.
                         switchSelection(() => {
                           setSelected(s.id);
                           setMessage("");
@@ -527,7 +525,7 @@ export default function DailyEntry({
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge>{t(shapeLabel[shape][0], shapeLabel[shape][1])}</Badge>
-              <Badge tone={saved ? "settled" : "neutral"}>
+              <Badge data-status="" tone={saved ? "settled" : "neutral"}>
                 {saved ? t("Submitted", "जमा") : t("Not submitted", "जमा नहीं")}
               </Badge>
             </div>
@@ -535,7 +533,7 @@ export default function DailyEntry({
           {/* Only counter work has a queue, so only the counter shape has a
               balance to open against. */}
           {shape === "counter" && (
-            <div className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[7px] bg-muted px-4 py-3 text-[13.5px] ${leadingBody}`}>
+            <div data-opening="" className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[7px] bg-muted px-4 py-3 text-[13.5px] ${leadingBody}`}>
               <span className="text-muted-foreground">{t("Opening pending", "प्रारंभिक लंबित")}</span>
               <strong className="font-mono font-semibold tabular-nums">{opening.service}</strong>
             </div>
@@ -753,7 +751,6 @@ export default function DailyEntry({
                         validation permits (17 digits, measured), so 192px there. */}
                     <Input
                       width="money"
-                      className="w-[192px] lg:w-[118px]"
                       readOnly={!!saved && !editingEntry}
                       type="text"
                       inputMode="decimal"
@@ -770,7 +767,7 @@ export default function DailyEntry({
                 {/* Same treatment as the opening strip: a closing balance only
                     means something where work queues. */}
                 {shape === "counter" && (
-                  <div className="grid gap-1.5">
+                  <div data-closing="" className="grid gap-1.5">
                     <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>
                       {t("Closing pending", "अंतिम लंबित")}
                     </span>

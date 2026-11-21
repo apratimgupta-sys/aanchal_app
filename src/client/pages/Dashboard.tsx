@@ -1,4 +1,4 @@
-import { Badge, Button, Field, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp } from "../ui";
+import { Badge, Button, Field, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp, useScrollRegion } from "../ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,7 +37,8 @@ const registerHeads: [string, string, boolean][] = [
 ];
 export default function Dashboard() {
   const lang = useContext(Language),
-    t = useText();
+    t = useText(),
+    scrollRegion = useScrollRegion();
   const [mode, setMode] = useState("day"),
     [from, setFrom] = useState(todayIST()),
     [to, setTo] = useState(todayIST()),
@@ -412,11 +413,7 @@ export default function Dashboard() {
           role="table"
           className={cardTable}
           containerClassName={cardTableWrap}
-          containerProps={{
-            tabIndex: 0,
-            role: "region",
-            "aria-label": t("Anchal-wise performance table", "अंचलवार प्रदर्शन तालिका"),
-          }}
+          containerProps={scrollRegion(t("Anchal-wise performance table", "अंचलवार प्रदर्शन तालिका"))}
         >
           <thead role="rowgroup">
             <tr role="row">
@@ -533,11 +530,7 @@ export default function Dashboard() {
             role="table"
             className={cardTable}
             containerClassName={cardTableWrap}
-            containerProps={{
-              tabIndex: 0,
-              role: "region",
-              "aria-label": t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका"),
-            }}
+            containerProps={scrollRegion(t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका"))}
           >
             <thead role="rowgroup">
               <tr role="row">

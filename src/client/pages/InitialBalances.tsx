@@ -1,4 +1,4 @@
-import { Button, Field, FieldError, Input, Notice, Panel, Table, Td, Th, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp } from "../ui";
+import { Button, Field, FieldError, Input, Notice, Panel, Table, Td, Th, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp, useScrollRegion } from "../ui";
 import { useState, useContext, useRef } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { z } from "zod";
@@ -37,7 +37,8 @@ export const balanceSchema = z.object({
 type BalanceForm = z.infer<typeof balanceSchema>;
 export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
   const t = useText(),
-    lang = useContext(Language);
+    lang = useContext(Language),
+    scrollRegion = useScrollRegion();
   const intent = useRef<MutationIntent | null>(null);
   const [error, setError] = useState("");
   const { register, handleSubmit, watch, setError: setFieldError, formState: { isSubmitting, errors } } = useForm<BalanceForm>({
@@ -104,7 +105,7 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
           role="table"
           className={cardTable}
           containerClassName={cardTableWrap}
-          containerProps={{ tabIndex: 0, role: "region", "aria-label": t("Opening balances table", "प्रारंभिक शेष तालिका") }}
+          containerProps={scrollRegion(t("Opening balances table", "प्रारंभिक शेष तालिका"))}
         >
           <thead role="rowgroup">
             <tr role="row">

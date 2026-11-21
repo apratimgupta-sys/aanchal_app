@@ -32,8 +32,8 @@ await page.route('**/v1/api/anchal/office/entries**', r => { if (r.request().met
 const f = (l, v) => page.getByLabel(l).fill(v);
 const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
-const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('.field-error')].map(e => e.textContent.trim()).join(' / '));
-const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
+const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('[data-field-error]')].map(e => e.textContent.trim()).join(' / '));
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 const fields = async () => page.evaluate(() => [...document.querySelectorAll('.entry-panel form input, .entry-panel form textarea')].map(el => { const id = el.getAttribute('id'); const lab = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null; return (el.getAttribute('aria-label') ?? lab?.textContent ?? '').replace(/\s*\*\s*$/, '').trim(); }));
 // The three rules that used to live here — within-SLA vs completed, resolved vs
 // received complaints, completed vs received field tasks — are gone, because no
@@ -68,7 +68,7 @@ await check('field work with no request behind it is not blocked', async () => {
   return 'submitted, no field error';
 });
 await check('neither balance strip renders on a shape with no queue', async () => {
-  return (await page.locator('.balance-strip').count()) === 0 && (await page.locator('.closing-strip').count()) === 0;
+  return (await page.locator('[data-opening]').count()) === 0 && (await page.locator('[data-closing]').count()) === 0;
 });
 await page.unrouteAll({ behavior: 'ignoreErrors' });
 

@@ -34,9 +34,9 @@ const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
 const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
-const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('.field-error')].map(e => e.textContent.trim()).join(' / '));
+const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('[data-field-error]')].map(e => e.textContent.trim()).join(' / '));
 // The form takes three shapes now, so a service has to be chosen before it can be filled.
-const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 // Counter shape: ward, received, disposed. Nothing else is collected.
 const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
@@ -45,7 +45,7 @@ const fill = async (o = {}) => {
 // The fields the form stopped collecting on 20 Nov 2026. None of them may render on any shape.
 const RETIRED = ['SLA Within Time', 'Complaints Received', 'Complaints Resolved', 'Field Tasks Received', 'Field Tasks Completed', 'Avg Disposal Days'];
 const retiredOn = async () => { const out = []; for (const l of RETIRED) if (await page.getByLabel(l).count()) out.push(l); return out; };
-await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] li').count()) === 25);
+await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] button').count()) === 25);
 await check('service 01 takes the counter shape: received and disposed only', async () => {
   await pick(1);
   const shown = await page.evaluate(() => [...document.querySelectorAll('.entry-panel form input, .entry-panel form textarea')].map(el => { const id = el.getAttribute('id'); const lab = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null; return (el.getAttribute('aria-label') ?? lab?.textContent ?? '').replace(/\s*\*\s*$/, '').trim(); }));
@@ -55,7 +55,7 @@ await check('service 01 takes the counter shape: received and disposed only', as
 });
 await check('no retired field renders on the counter shape', async () => { const on = await retiredOn(); if (on.length) throw new Error('still shows ' + on.join(', ')); return 'none of ' + RETIRED.length; });
 await check('empty submit is blocked by required fields (no request)', async () => { await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
-await check('closing pending updates live (received 5, disposed 3)', async () => { await fill(); const t = (await page.locator('.closing-strip').innerText()).replace(/\n+/g, ' '); return /Closing pending\s+\d/.test(t) ? t : false; });
+await check('closing pending updates live (received 5, disposed 3)', async () => { await fill(); const t = (await page.locator('[data-closing]').innerText()).replace(/\n+/g, ' '); return /Closing pending\s+\d/.test(t) ? t : false; });
 await check('disposed above received -> field error, no request, no reload button', async () => {
   await fill({ 'Disposed': '9' }); await sub.click(); await page.waitForTimeout(800);
   return /cannot exceed received/i.test(await fieldErrs()) && writes.length === 0 && (await reload.count()) === 0 ? await fieldErrs() : false;

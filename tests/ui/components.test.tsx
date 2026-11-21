@@ -63,7 +63,8 @@ describe("Input", () => {
     expect(classes(screen.getByLabelText("full"))).toContain("w-full");
     expect(classes(screen.getByLabelText("count"))).toContain("w-[84px]");
     expect(classes(screen.getByLabelText("count"))).not.toContain("w-full");
-    expect(classes(screen.getByLabelText("money"))).toContain("w-[118px]");
+    expect(classes(screen.getByLabelText("money"))).toContain("w-[192px]");
+    expect(classes(screen.getByLabelText("money"))).toContain("lg:w-[118px]");
   });
 
   it("does not leak the width variant onto the DOM", () => {

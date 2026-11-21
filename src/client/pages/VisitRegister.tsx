@@ -9,7 +9,7 @@ import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
 import { Language, runtimeText, useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
-import { Button, Field, FieldError, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, confirmBar, leadingBody, leadingHeading } from "../ui";
+import { Button, Field, FieldError, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, confirmBar, leadingBody, leadingHeading, useScrollRegion } from "../ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
@@ -25,6 +25,7 @@ function daysBefore(date: string, days: number): string {
 export default function VisitRegister() {
   const text = useText();
   const lang = useContext(Language);
+  const scrollRegion = useScrollRegion();
   const translate = (message: string) => runtimeText(message, lang);
   const queryClient = useQueryClient();
   const today = indiaToday();
@@ -212,7 +213,7 @@ export default function VisitRegister() {
           role="table"
           className={cardTable}
           containerClassName={cardTableWrap}
-          containerProps={{ tabIndex: 0, role: "region", "aria-label": text("Field visit register table", "क्षेत्रीय निरीक्षण रजिस्टर तालिका") }}
+          containerProps={scrollRegion(text("Field visit register table", "क्षेत्रीय निरीक्षण रजिस्टर तालिका"))}
         >
           <thead role="rowgroup">
             <tr role="row">

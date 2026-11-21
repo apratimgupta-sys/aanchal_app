@@ -34,7 +34,7 @@ const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
 const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
-const pick = async (id) => { await page.locator('[aria-label="Municipal services"] li').nth(id - 1).locator('button').click(); await page.waitForTimeout(400); };
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 // Counter shape for the number checks; money lives on the revenue shape alone.
 const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };

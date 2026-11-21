@@ -2,7 +2,7 @@
    the markup, and the only CSS in the app is this file's three jobs. Order matters:
    an @import must come before any rule, so the font import is first, then the token
    variables, then Tailwind (whose utilities resolve hsl(var(--token))). */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Devanagari:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Devanagari:wght@400;500;600;700&display=swap');
 @import "./styles/theme.css";
 
 @tailwind base;

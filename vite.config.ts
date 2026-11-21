@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: "/anchal/",
+    // Vite's default target emits media-query range syntax (width>=1024px), which
+    // Chrome < 104 and Safari < 16.4 ignore; the whole responsive layout hangs on it.
+    build: { target: ["chrome87", "safari14"] },
     server: {
       proxy: {
         "/v1/api/anchal": {

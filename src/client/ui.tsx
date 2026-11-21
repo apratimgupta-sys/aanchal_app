@@ -2,7 +2,7 @@
 // theme tokens (theme.css via tailwind.config.ts); no class name here is defined
 // by a stylesheet. index.css holds only the Tailwind directives, the font import
 // and the token file.
-import { Children, cloneElement, isValidElement, useId, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useId, useState, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./lib/utils";
 
@@ -39,7 +39,9 @@ const control = cva(
       width: {
         full: "w-full",
         count: "w-[84px] text-right font-mono tabular-nums",
-        money: "w-[118px] text-right font-mono tabular-nums",
+        // 192px below lg: the 16px no-zoom type needs it for the widest amount the
+        // validation permits (17 digits, measured); 118px is the design width at lg.
+        money: "w-[192px] text-right font-mono tabular-nums lg:w-[118px]",
       },
     },
     defaultVariants: { width: "full" },
@@ -57,7 +59,7 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
 }
 
 export function FieldError({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return <span {...props} className={cn(`block text-xs ${leadingHelp} text-destructive`, className)} />;
+  return <span data-field-error="" {...props} className={cn(`block text-xs ${leadingHelp} text-destructive`, className)} />;
 }
 
 const isControl = (c: unknown): c is ReactElement<Record<string, unknown>> =>
@@ -144,7 +146,6 @@ export function Panel({ children, className, ...props }: HTMLAttributes<HTMLElem
     </section>
   );
 }
-export const Card = Panel;
 
 const notice = cva(`rounded-[7px] border border-l-4 px-4 py-3 text-[13.5px] ${leadingBody} text-foreground`, {
   variants: {
@@ -177,6 +178,26 @@ const badge = cva(`inline-flex items-center rounded-full border px-2.5 py-0.5 te
 
 export function Badge({ tone, className, ...props }: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badge>) {
   return <span {...props} className={cn(badge({ tone }), className)} />;
+}
+
+const SCROLLS = "(min-width: 1024px)";
+/**
+ * A card-table only scrolls from lg up; below that its rows are cards and nothing
+ * overflows, so a focusable labelled region would be a tab stop that does nothing.
+ * Returns a function from the region's label to the Table's `containerProps`.
+ * Without matchMedia (jsdom) it assumes the scrolling layout.
+ */
+export function useScrollRegion() {
+  const [scrolls, setScrolls] = useState(() => window.matchMedia?.(SCROLLS).matches ?? true);
+  useEffect(() => {
+    const query = window.matchMedia?.(SCROLLS);
+    if (!query) return;
+    const update = () => setScrolls(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return (label: string): HTMLAttributes<HTMLDivElement> => (scrolls ? { tabIndex: 0, role: "region", "aria-label": label } : {});
 }
 
 /** Wide tables scroll inside this container; the page never does. Devanagari

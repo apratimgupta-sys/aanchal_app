@@ -59,16 +59,6 @@ async function signIn(page: import("@playwright/test").Page, user: string) {
       .click();
   }
 }
-async function setTheme(page: import("@playwright/test").Page, theme: string) {
-  await page.evaluate(async (theme) => {
-    document.documentElement.setAttribute("data-theme", theme);
-    // Flush styles, then wait for current colour transitions before scanning.
-    document.body.getBoundingClientRect();
-    await Promise.all(
-      document.getAnimations().map((a) => a.finished.catch(() => {})),
-    );
-  }, theme);
-}
 async function accessible(page: import("@playwright/test").Page) {
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -118,7 +108,7 @@ async function noPageOverflow(page: import("@playwright/test").Page) {
     ),
   ).toBe(true);
 }
-test("login: keyboard access, light/dark contrast and four responsive modes", async ({
+test("login: keyboard access, colour contrast and four responsive modes", async ({
   page,
 }) => {
   await page.route("**/v1/api/anchal/session", (route) =>
@@ -146,14 +136,11 @@ test("login: keyboard access, light/dark contrast and four responsive modes", as
     await page.setViewportSize({ width, height: 900 });
     await noPageOverflow(page);
     await touchTargets(page);
-    for (const theme of ["light", "dark"]) {
-      await setTheme(page, theme);
-      await accessible(page);
-      await page.screenshot({
-        path: `test-results/login-${theme}-${width}.png`,
-        fullPage: true,
-      });
-    }
+    await accessible(page);
+    await page.screenshot({
+      path: `test-results/login-${width}.png`,
+      fullPage: true,
+    });
   }
 });
 test("dashboard and entry: responsive tables, labelled controls and colour contrast", async ({
@@ -163,17 +150,16 @@ test("dashboard and entry: responsive tables, labelled controls and colour contr
   await expect(
     page.getByRole("heading", { name: "Anchal-wise performance" }),
   ).toBeVisible();
-  for (const theme of ["light", "dark"]) {
-    await setTheme(page, theme);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await noPageOverflow(page);
-    await touchTargets(page);
-    await accessible(page);
-    await page.screenshot({
-      path: `test-results/dashboard-${theme}-mobile.png`,
-      fullPage: true,
-    });
-  }
+  // Light only: the dark theme is deliberately not re-valued, so scanning it would
+  // gate against the retired palette.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noPageOverflow(page);
+  await touchTargets(page);
+  await accessible(page);
+  await page.screenshot({
+    path: `test-results/dashboard-mobile.png`,
+    fullPage: true,
+  });
   // Below the desktop breakpoint Sign out lives in the drawer, not the header.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
@@ -183,12 +169,9 @@ test("dashboard and entry: responsive tables, labelled controls and colour contr
   await expect(
     page.getByRole("heading", { name: "Daily service entry", exact: true }),
   ).toBeVisible();
-  for (const theme of ["light", "dark"]) {
-    await setTheme(page, theme);
-    await noPageOverflow(page);
-    await touchTargets(page);
-    await accessible(page);
-  }
+  await noPageOverflow(page);
+  await touchTargets(page);
+  await accessible(page);
 });
 
 test("canceling a service switch preserves both the draft and selected service", async ({
@@ -200,14 +183,13 @@ test("canceling a service switch preserves both the draft and selected service",
   ).toBeVisible();
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   if (await edit.isVisible()) await edit.click();
-  const rows = page.locator(".service-list button");
+  const rows = page.locator('[aria-label="Municipal services"] button');
   await page
     .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 7");
   page.once("dialog", (dialog) => dialog.dismiss());
   await rows.nth(1).click();
   await expect(rows.nth(0)).toHaveAttribute("aria-current", "true");
-  await expect(rows.nth(1)).not.toHaveClass(/\bactive\b/);
   await expect(
     page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 7");

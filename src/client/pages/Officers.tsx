@@ -101,7 +101,7 @@ export default function Officers() {
         <Notice role="status" className="grid justify-items-start gap-2">
           <p>{text("Temporary password", "अस्थायी पासवर्ड")}</p>
           <p>
-            <code className="font-mono text-lg tracking-wider [overflow-wrap:anywhere]">{temporaryPassword}</code>
+            <code className={`font-mono text-lg ${leadingBody} tracking-wider [overflow-wrap:anywhere]`}>{temporaryPassword}</code>
           </p>
           <p>
             {text(

@@ -168,7 +168,7 @@ async function correct(
   await page.reload();
   await expect(page.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
   await selectService(page, serviceId);
-  await expect(page.locator(".entry-panel .status-tag")).toHaveText("Submitted");
+  await expect(page.locator(".entry-panel [data-status]")).toHaveText("Submitted");
   await page.getByRole("button", { name: "Edit entry" }).click();
   await fill();
   await textField(page, "Correction reason").fill(reason);
@@ -187,12 +187,11 @@ async function signIn(page: Page, username: string, password: string) {
   await expect(page.getByRole("heading", { name: "Office sign in" })).toBeHidden();
 }
 
-// The service register is a list of 25 buttons in service order.
+// The service register is grouped by shape (group wrappers are <li> too), so a
+// service is found by its accessible name, which starts with its two-digit number.
 async function selectService(page: Page, id: number) {
   await page
-    .locator('[aria-label="Municipal services"] li')
-    .nth(id - 1)
-    .getByRole("button")
+    .getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) })
     .click();
   await expect(page.locator(".entry-panel .eyebrow")).toHaveText(
     new RegExp(`^SERVICE ${String(id).padStart(2, "0")} ·`),
@@ -352,9 +351,9 @@ test.describe("all three daily form shapes against a real backend", () => {
     await selectService(office, 1);
 
     // The counter shape, and only the counter shape, has a queue to open against.
-    await expect(office.locator(".balance-strip")).toHaveCount(1);
+    await expect(office.locator("[data-opening]")).toHaveCount(1);
     await expect(
-      office.locator(".balance-strip strong"),
+      office.locator("[data-opening] strong"),
       "opening pending comes from the saved setup",
     ).toHaveText("7");
     await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
@@ -362,7 +361,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Received").fill("9");
     await numberField(office, "Disposed").fill("4");
-    await expect(office.locator(".closing-strip strong")).toHaveText("12");
+    await expect(office.locator("[data-closing] strong")).toHaveText("12");
     await submitEntry(office);
 
     const entry = await storedEntry(office, 1, today);
@@ -379,8 +378,8 @@ test.describe("all three daily form shapes against a real backend", () => {
     await selectService(office, 2);
 
     // No queue, so no opening or closing strip and no disposal figure.
-    await expect(office.locator(".balance-strip")).toHaveCount(0);
-    await expect(office.locator(".closing-strip")).toHaveCount(0);
+    await expect(office.locator("[data-opening]")).toHaveCount(0);
+    await expect(office.locator("[data-closing]")).toHaveCount(0);
     await expectFormFields(office, [
       ...DATE_AND_WARD,
       "Payments",
@@ -405,7 +404,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     // filed once. One entry proves the rule; two prove it holds while money
     // accumulates, which is what a month of payments would do to the ledger.
     await selectService(office, 5);
-    await expect(office.locator(".balance-strip")).toHaveCount(0);
+    await expect(office.locator("[data-opening]")).toHaveCount(0);
     await expectFormFields(office, [
       ...DATE_AND_WARD,
       "Payments",
@@ -435,7 +434,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await selectService(office, 8);
 
     // Service 8 is labelled per service: "Trips", not "Completed".
-    await expect(office.locator(".balance-strip")).toHaveCount(0);
+    await expect(office.locator("[data-opening]")).toHaveCount(0);
     await expectFormFields(office, [...DATE_AND_WARD, "Trips", "Remarks"]);
 
     await selectField(office, "Ward").selectOption("Ward 11");
@@ -463,7 +462,7 @@ test.describe("all three daily form shapes against a real backend", () => {
 
   test("nothing to report is a flag, and the server refuses it beside a figure", async () => {
     await selectService(office, 20);
-    await expect(office.locator(".balance-strip strong")).toHaveText("4");
+    await expect(office.locator("[data-opening] strong")).toHaveText("4");
 
     await selectField(office, "Ward").selectOption("Ward 11");
     await office.getByRole("button", { name: "Set zero activity" }).click();
@@ -514,13 +513,13 @@ test.describe("all three daily form shapes against a real backend", () => {
 
     // Its monitoring unit is Complaints, but it is a queue like any other: a
     // regression here is invisible to a check that only tries service 1.
-    await expect(office.locator(".balance-strip strong")).toHaveText("5");
+    await expect(office.locator("[data-opening] strong")).toHaveText("5");
     await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
 
     await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Received").fill("6");
     await numberField(office, "Disposed").fill("2");
-    await expect(office.locator(".closing-strip strong")).toHaveText("9");
+    await expect(office.locator("[data-closing] strong")).toHaveText("9");
     await submitEntry(office);
 
     const entry = await storedEntry(office, 12, today);
@@ -562,7 +561,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(office.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
     await selectService(office, 7);
     await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
-    await expect(office.locator(".entry-panel .status-tag")).toHaveText("Submitted");
+    await expect(office.locator(".entry-panel [data-status]")).toHaveText("Submitted");
 
     await office.getByRole("button", { name: "Edit entry" }).click();
     await numberField(office, "Received").fill("8");
