@@ -1,4 +1,4 @@
-import services from "../shared/services.json";
+import services from "../shared/services.json" with { type: "json" };
 
 // What a service is actually counting, taken from the Service Master's
 // Primary Monitoring Unit column rather than a hand-kept list of ids.
