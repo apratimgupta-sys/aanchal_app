@@ -2,7 +2,7 @@ import { useContext, useState, type FormEvent } from "react";
 import { api, RequestError } from "../api";
 import { Language, runtimeText, useText } from "../i18n";
 import { validatePasswordChange } from "../../domain/password";
-import { Field, Input, Notice, Panel } from "../ui";
+import { Field, Input, Notice, Panel } from "../legacy-ui";
 
 export default function ChangePassword({ onChanged }: { onChanged: () => void }) {
   const text = useText();

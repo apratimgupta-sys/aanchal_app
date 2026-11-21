@@ -1,4 +1,4 @@
-import { Field, Input, Panel, Notice } from "../ui";
+import { Field, Input, Panel, Notice } from "../legacy-ui";
 import { useState, useContext, useRef } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { z } from "zod";

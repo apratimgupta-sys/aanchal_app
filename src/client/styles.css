@@ -96,31 +96,6 @@ main {
   margin-bottom: var(--ux4g-gap-row-l);
   min-width: 0;
 }
-.login-layout {
-  width: 100%;
-  max-width: 78rem;
-  margin: var(--ux4g-section-xl) auto;
-  padding: var(--ux4g-padding-2xl);
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  align-items: center;
-  gap: var(--ux4g-section-xl);
-}
-.login-intro h1 {
-  max-width: 15ch;
-}
-.login-intro > p,
-.intro-note {
-  max-width: 40ch;
-}
-.login-card form {
-  display: grid;
-  gap: var(--ux4g-gap-row-l);
-  margin-block: var(--ux4g-gap-row-l);
-}
-.intro-rule {
-  margin-block: var(--ux4g-gap-row-l);
-}
 /* Application grid: different proportions and dense-report breakpoints from
    UX4G's generic 12-column grid. Styling of controls remains with UX4G. */
 .entry-layout {
@@ -315,7 +290,7 @@ pre {
 .portal-footer-new { border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); display: flex; flex-wrap: wrap; gap: 1rem 2rem; padding: 1.25rem 2rem; font-size: .78rem; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .ui-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: 0 2px 8px rgb(15 35 60 / .05); }
-.ui-card, .login-intro, .app-brand { animation: content-rise .45s ease-out both; }
+.ui-card, .app-brand { animation: content-rise .45s ease-out both; }
 .service-number, .metric strong, .report-progress, .balance-strip strong { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
 .ui-card-body { padding: 1.25rem; }
 .ui-field { display: grid; gap: .65rem; min-width: 0; }
@@ -335,19 +310,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .ui-checkbox-control { width: 1.15rem; height: 1.15rem; margin-top: .15rem; accent-color: hsl(var(--primary)); }
 .ui-alert { border: 1px solid hsl(var(--destructive) / .35); border-left: 4px solid hsl(var(--destructive)); border-radius: .35rem; padding: .75rem 1rem; background: hsl(var(--destructive) / .07); color: hsl(var(--foreground)); }
 .ui-alert-success { border-color: hsl(var(--success) / .35); border-left-color: hsl(var(--success)); background: hsl(var(--success) / .08); }
-.ui-progress { display: flex; align-items: center; gap: .7rem; color: hsl(var(--muted-foreground)); font-size: .82rem; }
-.ui-progress-track { flex: 1; height: .5rem; border-radius: 999px; overflow: hidden; background: hsl(var(--muted)); }
-.ui-progress-fill { height: 100%; background: hsl(var(--primary)); transition: width .2s ease; }
-.ui-eyebrow { color: hsl(var(--muted-foreground)); font-size: .74rem; font-weight: 750; letter-spacing: .08em; }
 .ui-display { color: hsl(var(--primary)); font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.08; letter-spacing: -.03em; }
-.ui-heading { color: hsl(var(--primary)); font-size: 1.5rem; margin-block: .65rem; }
-.ui-muted-copy { color: hsl(var(--muted-foreground)); line-height: 1.55; }
 .ui-meta { display: flex; flex-wrap: wrap; gap: 1rem; color: hsl(var(--muted-foreground)); font-size: .85rem; }
 .ui-button { min-height: 2.75rem; border: 1px solid transparent; border-radius: .35rem; padding: .65rem 1rem; font: inherit; font-weight: 700; cursor: pointer; }
 .ui-button-primary { width: 100%; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .ui-button-primary:hover { background: hsl(var(--primary) / .9); }
 .ui-button:disabled { cursor: not-allowed; opacity: .6; }
-.intro-rule { height: 1px; background: hsl(var(--border)); margin-block: 1.5rem; }
 @keyframes shell-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes content-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
@@ -457,9 +425,9 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .app-main { width: 100%; max-width: 112rem; padding: clamp(1.5rem, 4vw, 4rem); }
 .portal-footer-new { background: hsl(0 0% 100% / .42); border-top-color: hsl(211 64% 23% / .12); }
 .page-heading, .section-heading { border-bottom: 1px solid hsl(211 64% 23% / .14); padding-bottom: 1rem; }
-.page-heading h1, .section-heading h2, .login-intro h1 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
+.page-heading h1, .section-heading h2 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
 .page-heading h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: .98; }
-.eyebrow, .ui-eyebrow { color: hsl(var(--muted-foreground)); letter-spacing: .14em; }
+.eyebrow { color: hsl(var(--muted-foreground)); letter-spacing: .14em; }
 .ui-card { border-color: hsl(211 64% 23% / .14); border-radius: .8rem; box-shadow: 0 14px 40px hsl(211 64% 23% / .08); }
 .ui-card-body { padding: clamp(1.4rem, 3vw, 2.5rem); }
 .ui-button-primary, .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-radius: .45rem; box-shadow: 0 8px 16px hsl(211 64% 23% / .16); }
@@ -471,17 +439,6 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .ui-input:focus, .ui-field input:focus, .ui-field select:focus, .ui-field textarea:focus { border-color: hsl(39 84% 48%); box-shadow: 0 0 0 3px hsl(39 84% 58% / .2); outline: 0; }
 .ui-input:focus-visible, .ui-field input:focus-visible, .ui-field select:focus-visible, .ui-field textarea:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
-.login-layout { max-width: 75rem; gap: clamp(2rem, 8vw, 7rem); }
-.login-layout { min-height: calc(100vh - 4rem); display: grid; grid-template-columns: minmax(0, 30rem); place-content: center; margin: 0 auto; padding: 2rem 1rem; }
-.login-intro h1 { font-size: clamp(3rem, 7vw, 6.2rem); max-width: 8ch; }
-.login-card { width: 100%; transform: rotate(.35deg); }
-.login-card .ui-card-body { padding: clamp(2rem, 5vw, 3.5rem); }
-.login-card h2 { margin-top: .75rem; margin-bottom: .9rem; }
-.login-card > .ui-card-body > p { margin: 0 0 1.8rem; line-height: 1.6; }
-.login-card form { display: grid; gap: 1.35rem; margin: 0; }
-.login-card form .ui-field + .ui-field { margin-top: .15rem; }
-.login-card form .ui-button-primary { margin-top: .55rem; }
-.login-card form + .small { display: block; margin: 1.8rem 0 0; line-height: 1.55; }
 .panel { margin-bottom: 1.5rem; }
 .page-heading { margin-bottom: 2rem; }
 .section-heading { margin-bottom: 1.5rem; }
@@ -491,7 +448,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 .ux4g-btn:hover { background: hsl(211 64% 23% / .08); }
 .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-color: hsl(211 64% 23%) !important; color: white !important; box-shadow: 0 6px 14px hsl(211 64% 23% / .18); }
 .ux4g-btn-primary:hover { background: hsl(211 64% 18%) !important; }
-.login-card:hover { transform: rotate(0deg) translateY(-3px); transition: transform .25s ease; }
 .monitoring-table, .details-panel table { border-collapse: separate; border-spacing: 0; }
 .monitoring-table thead th, .details-panel thead th { background: hsl(211 64% 23%); color: white; font-weight: 600; letter-spacing: .02em; }
 .monitoring-table tbody tr:nth-child(even), .details-panel tbody tr:nth-child(even) { background: hsl(211 64% 23% / .035); }
@@ -505,7 +461,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
   .app-mobile-header span { color: hsl(0 0% 100% / .68); }
   .app-menu-button, .app-language-button { background: hsl(0 0% 100% / .1); border-color: hsl(0 0% 100% / .2); color: white; }
   .app-main { padding: 1rem .8rem 2rem; }
-  .login-card { transform: none; }
   .entry-layout { grid-template-columns: 1fr; }
   .service-list { position: static; max-height: 15rem; }
   .service-list ul { max-height: 11rem; }
@@ -532,19 +487,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
   }
   .masthead {
     flex-wrap: wrap;
-  }
-  .login-layout {
-    grid-template-columns: 1fr;
-    padding: var(--ux4g-padding-m);
-    gap: var(--ux4g-gap-row-l);
-    margin-block: var(--ux4g-section-xs);
-  }
-  .login-intro h1 {
-    max-width: 24ch;
-  }
-  .intro-rule,
-  .intro-meta {
-    display: none;
   }
   .entry-layout {
     grid-template-columns: 1fr;

@@ -1,4 +1,4 @@
-import { Field, Panel, Notice } from "../ui";
+import { Button, Field, FieldError, Input, Notice, Panel } from "../ui";
 import { useContext } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -35,62 +35,44 @@ export default function Login({
     }
   };
   return (
-    <main id="main-content" tabIndex={-1} className="login-layout">
-      <Panel className="login-card">
-        <div className="login-actions">
-          <button
-            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-            type="button"
-            onClick={onLanguageToggle}
-          >
+    <main id="main-content" tabIndex={-1} className="w-full px-4 py-10 focus:outline-none sm:py-16">
+      <Panel className="mx-auto grid w-full max-w-[26.25rem] gap-5 p-6 sm:p-8">
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onLanguageToggle}>
             {languageLabel}
-          </button>
+          </Button>
         </div>
-        <div className="eyebrow ui-eyebrow">
-          {t("AUTHORIZED OFFICE ACCESS", "अधिकृत कार्यालय प्रवेश")}
+        <div className="grid gap-2">
+          <div className="text-[11px] font-medium uppercase leading-[1.6] tracking-[0.08em] text-muted-foreground [html[lang=hi]_&]:tracking-normal">
+            {t("AUTHORIZED OFFICE ACCESS", "अधिकृत कार्यालय प्रवेश")}
+          </div>
+          <h2 className="text-[23px] font-semibold leading-[1.4] text-foreground">
+            {t("Office sign in", "कार्यालय लॉगिन")}
+          </h2>
+          <p className="text-[13.5px] leading-[1.6] text-muted-foreground">
+            {t(
+              "Use your Anchal office or commissioner account.",
+              "अपने अंचल कार्यालय या आयुक्त खाते से प्रवेश करें।",
+            )}
+          </p>
         </div>
-        <h2 className="ui-heading">
-          {t("Office sign in", "कार्यालय लॉगिन")}
-        </h2>
-        <p>
-          {t(
-            "Use your Anchal office or commissioner account.",
-            "अपने अंचल कार्यालय या आयुक्त खाते से प्रवेश करें।",
-          )}
-        </p>
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
           <Field>
             {t("Username", "उपयोगकर्ता नाम")}
-            <input
-              autoComplete="username"
-              {...register("username")}
-            />
-            {errors.username && <span className="field-error">{t("Username is required", "उपयोगकर्ता नाम आवश्यक है")}</span>}
+            <Input autoComplete="username" {...register("username")} />
+            {errors.username && <FieldError>{t("Username is required", "उपयोगकर्ता नाम आवश्यक है")}</FieldError>}
           </Field>
           <Field>
             {t("Password", "पासवर्ड")}
-            <input
-              type="password"
-              autoComplete="current-password"
-              {...register("password")}
-            />
-            {errors.password && <span className="field-error">{t("Password is required", "पासवर्ड आवश्यक है")}</span>}
+            <Input type="password" autoComplete="current-password" {...register("password")} />
+            {errors.password && <FieldError>{t("Password is required", "पासवर्ड आवश्यक है")}</FieldError>}
           </Field>
-          {errors.root && (
-            <Notice className="message" role="alert">
-              {runtimeText(errors.root.message ?? "", lang)}
-            </Notice>
-          )}
-          <button
-            className="ui-button ui-button-primary full"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? t("Signing in…", "प्रवेश जारी…")
-              : t("Sign in →", "लॉगिन →")}
-          </button>
+          {errors.root && <Notice role="alert">{runtimeText(errors.root.message ?? "", lang)}</Notice>}
+          <Button disabled={isSubmitting} className="w-full">
+            {isSubmitting ? t("Signing in…", "प्रवेश जारी…") : t("Sign in →", "लॉगिन →")}
+          </Button>
         </form>
-        <p className="small ui-muted-copy">
+        <p className="text-xs leading-[1.6] text-muted-foreground">
           {t(
             "Each Anchal uses one shared office account. Contact your portal administrator for access.",
             "प्रत्येक अंचल का एक साझा कार्यालय खाता है। प्रवेश के लिए पोर्टल प्रशासक से संपर्क करें।",

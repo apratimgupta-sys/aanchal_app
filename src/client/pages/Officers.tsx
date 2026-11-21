@@ -9,7 +9,7 @@ import {
   type NewOfficer,
 } from "../officers";
 import { Language, runtimeText, useText } from "../i18n";
-import { Field, Notice, Panel } from "../ui";
+import { Field, Notice, Panel } from "../legacy-ui";
 import { RequestError } from "../api";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];

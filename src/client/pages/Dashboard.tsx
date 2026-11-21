@@ -1,4 +1,4 @@
-import { Field, Panel, Notice } from "../ui";
+import { Field, Panel, Notice } from "../legacy-ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";

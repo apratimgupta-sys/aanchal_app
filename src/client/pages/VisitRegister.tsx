@@ -9,7 +9,7 @@ import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
 import { Language, runtimeText, useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
-import { Field, Notice, Panel } from "../ui";
+import { Field, Notice, Panel } from "../legacy-ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);

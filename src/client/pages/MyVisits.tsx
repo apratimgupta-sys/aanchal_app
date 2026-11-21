@@ -6,7 +6,7 @@ import { indiaToday } from "../lib/dates";
 import { myVisitsQueryKey } from "../session-caches";
 import { useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
-import { Notice, Panel } from "../ui";
+import { Notice, Panel } from "../legacy-ui";
 
 const DAYS_SHOWN = 30;
 

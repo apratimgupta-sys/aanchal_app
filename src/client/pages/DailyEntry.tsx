@@ -1,4 +1,5 @@
-import { Field, Panel, Notice, ReportProgress } from "../ui";
+import { Field, Panel, Notice } from "../legacy-ui";
+import { ReportProgress } from "../ui";
 import { useContext, useEffect, useState, useRef } from "react";
 import { z } from "zod";
 import { toast } from "sonner";

@@ -11,7 +11,7 @@ import {
   type GeolocationFailureKind,
 } from "../lib/geolocation";
 import { Language, runtimeText, useText } from "../i18n";
-import { Field, Notice, Panel } from "../ui";
+import { Field, Notice, Panel } from "../legacy-ui";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { useContext } from "react";
 

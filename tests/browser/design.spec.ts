@@ -127,8 +127,7 @@ test("login: keyboard access, light/dark contrast and four responsive modes", as
   await page.getByLabel("Username", { exact: true }).focus();
   expect(
     await page
-      .locator(".ui-input")
-      .first()
+      .getByLabel("Username", { exact: true })
       .evaluate((el) => getComputedStyle(el).outlineStyle),
   ).not.toBe("none");
   await page.locator("body").click({ position: { x: 1, y: 1 } });

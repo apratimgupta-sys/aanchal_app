@@ -1,40 +1,198 @@
-import { Children, cloneElement, isValidElement, useId, type HTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode } from "react";
+// The component layer. Every style here is a Tailwind utility resolved from the
+// theme tokens (theme.css via tailwind.config.ts); nothing in this file reads a
+// class name from styles.css. Screens that have not been migrated yet import
+// from ./legacy-ui instead, and flip to this file when their own task lands.
+import { Children, cloneElement, isValidElement, useId, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "./lib/utils";
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`ui-input ${props.className ?? ""}`} />;
+// An outline, not a ring: outline-offset leaves a transparent gap, so the focus
+// indicator stays visible on a bg-primary button without matching the surface
+// behind it. 44px is the touch target and also clears the design's 42px floor.
+const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+const control = cva(
+  [
+    "block min-h-[44px] min-w-0 rounded-[7px] border border-input bg-card px-3 py-[10px] text-[13.5px] leading-[1.6] text-foreground",
+    "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
+    "aria-[invalid=true]:border-destructive",
+    focusRing,
+  ],
+  {
+    variants: {
+      // A figure is sized to its content, not stretched to the container.
+      width: {
+        full: "w-full",
+        count: "w-[84px] text-right font-mono tabular-nums",
+        money: "w-[118px] text-right font-mono tabular-nums",
+      },
+    },
+    defaultVariants: { width: "full" },
+  },
+);
+
+type ControlProps = VariantProps<typeof control>;
+
+export function Input({ width, className, ...props }: Omit<ComponentProps<"input">, "width"> & ControlProps) {
+  return <input {...props} className={cn(control({ width }), className)} />;
 }
 
-export function Field({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Select({ className, ...props }: ComponentProps<"select">) {
+  return <select {...props} className={cn(control(), className)} />;
+}
+
+export function FieldError({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return <span {...props} className={cn("block text-xs leading-[1.5] text-destructive", className)} />;
+}
+
+const isControl = (c: unknown): c is ReactElement<Record<string, unknown>> =>
+  isValidElement(c) && (["input", "textarea", "select"].includes(String(c.type)) || c.type === Input || c.type === Select);
+
+/**
+ * A label above its control, 6px apart. Two ways in, both kept:
+ *   <Field>Label text<input /><FieldError>…</FieldError></Field>   (label is the leading children)
+ *   <Field label="Label text" htmlFor="id"><Input id="id" /></Field>
+ * Anything after the control is help text; a FieldError among it marks the
+ * control invalid and is announced through aria-describedby.
+ */
+export function Field({ children, className, label, htmlFor }: { children: ReactNode; className?: string; label?: ReactNode; htmlFor?: string }) {
   const generatedId = useId();
   const parts = Children.toArray(children).filter((c) => typeof c !== "string" || c.trim());
-  const index = parts.findIndex((c) => isValidElement(c) && ["input", "textarea", "select"].includes(String(c.type)));
+  const index = parts.findIndex(isControl);
   if (index < 0) return <div className={className}>{children}</div>;
-  const control = parts[index] as ReactElement<Record<string, unknown>>;
-  const id = String(control.props.id ?? generatedId);
-  const label = parts.filter((_, i) => i < index);
+  const el = parts[index] as ReactElement<Record<string, unknown> & { className?: string }>;
+  const id = String(htmlFor ?? el.props.id ?? generatedId);
+  const labelParts = label !== undefined ? [label] : parts.slice(0, index);
+  const before = label !== undefined ? parts.slice(0, index) : [];
   const helpers = parts.slice(index + 1);
-  const error = helpers.some((c) => isValidElement<{ className?: string }>(c) && c.props.className?.includes("field-error"));
-  const family = control.type === "textarea" ? "textarea" : control.type === "select" ? "select" : "input";
+  const error = helpers.some((c) => isValidElement(c) && c.type === FieldError);
   const helpId = `${id}-help`;
-  const accessibleControl = cloneElement(control, {
+  const raw = typeof el.type === "string";
+  const accessible = cloneElement(el, {
     id,
-    className: `ui-${family} ${error ? "is-error" : ""} ${control.props.className ?? ""}`,
+    // A bare <input>/<select> is styled here; Input/Select style themselves.
+    className: raw && el.props.type !== "checkbox" ? cn(control(), el.type === "textarea" && "min-h-24 resize-y", el.props.className) : el.props.className,
     "aria-invalid": error || undefined,
-    "aria-describedby": helpers.length ? [control.props["aria-describedby"], helpId].filter(Boolean).join(" ") : control.props["aria-describedby"],
+    "aria-describedby": helpers.length ? [el.props["aria-describedby"], helpId].filter(Boolean).join(" ") : el.props["aria-describedby"],
   });
-  if (control.props.type === "checkbox") return <label className={`ui-checkbox ${className}`}>{cloneElement(control, { id, className: "ui-checkbox-control" })}<span>{label}{helpers}</span></label>;
-  return <div className={`ui-field ${className}`}><label htmlFor={id}>{label}{Boolean(control.props.required) && <span aria-hidden="true"> *</span>}</label>{accessibleControl}{helpers.length > 0 && <div id={helpId} className={`ui-help ${error ? "ui-error" : ""}`}>{helpers}</div>}</div>;
+  if (el.props.type === "checkbox") {
+    return (
+      <label className={cn("flex min-h-[44px] cursor-pointer items-start gap-2.5 text-[13.5px] leading-[1.6]", className)}>
+        {cloneElement(el, { id, className: "mt-[3px] size-[18px] shrink-0 accent-primary" })}
+        <span>{labelParts}{helpers}</span>
+      </label>
+    );
+  }
+  return (
+    <div className={cn("grid min-w-0 gap-1.5", className)}>
+      <label htmlFor={id} className="text-[11px] font-medium leading-[1.6] text-muted-foreground">
+        {labelParts}
+        {Boolean(el.props.required) && <span aria-hidden="true"> *</span>}
+      </label>
+      {before}
+      {accessible}
+      {helpers.length > 0 && (
+        <div id={helpId} className={cn("text-xs leading-[1.5]", error ? "text-destructive" : "text-muted-foreground")}>
+          {helpers}
+        </div>
+      )}
+    </div>
+  );
 }
 
-export function Panel({ children, className = "", ...props }: HTMLAttributes<HTMLElement>) {
-  return <section {...props} className={`ui-card ${className}`}><div className="ui-card-body">{children}</div></section>;
+const button = cva(
+  [
+    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[7px] border px-4 py-2.5 text-center text-[13.5px] font-medium leading-[1.6]",
+    "transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+    focusRing,
+  ],
+  {
+    variants: {
+      variant: {
+        // Hover darkens toward the foreground token rather than hard-coding a shade.
+        primary: "border-transparent bg-primary text-primary-foreground enabled:hover:bg-[color-mix(in_srgb,hsl(var(--primary)),hsl(var(--foreground))_40%)]",
+        outline: "border-input bg-card text-foreground enabled:hover:bg-muted",
+      },
+    },
+    defaultVariants: { variant: "primary" },
+  },
+);
+
+export function Button({ variant, className, ...props }: ComponentProps<"button"> & VariantProps<typeof button>) {
+  return <button {...props} className={cn(button({ variant }), className)} />;
 }
 
-export function Notice({ children, className = "", role = "alert", ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div {...props} role={role} className={`ui-alert ${role === "status" ? "ui-alert-success" : "ui-alert-error"}`}><div className={className}>{children}</div></div>;
+export function Panel({ children, className, ...props }: HTMLAttributes<HTMLElement>) {
+  return (
+    <section {...props} className={cn("min-w-0 rounded-lg border border-border bg-card p-5 text-card-foreground sm:p-6", className)}>
+      {children}
+    </section>
+  );
+}
+export const Card = Panel;
+
+const notice = cva("rounded-[7px] border border-l-4 px-4 py-3 text-[13.5px] leading-[1.6] text-foreground", {
+  variants: {
+    tone: {
+      error: "border-destructive/35 border-l-destructive bg-destructive/[0.07]",
+      success: "border-success/35 border-l-success bg-success/[0.08]",
+    },
+  },
+});
+
+export function Notice({ children, className, role = "alert", ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} role={role} className={notice({ tone: role === "status" ? "success" : "error" })}>
+      <div className={className}>{children}</div>
+    </div>
+  );
+}
+
+// Status colours are reserved for state, and every tone carries its text.
+const badge = cva("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-[1.6]", {
+  variants: {
+    tone: {
+      neutral: "border-border bg-muted text-muted-foreground",
+      settled: "border-accent-foreground/25 bg-accent text-accent-foreground",
+      attention: "border-warning/30 bg-warning-foreground text-warning",
+    },
+  },
+  defaultVariants: { tone: "neutral" },
+});
+
+export function Badge({ tone, className, ...props }: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badge>) {
+  return <span {...props} className={cn(badge({ tone }), className)} />;
+}
+
+/** Wide tables scroll inside this container; the page never does. Devanagari
+ *  takes no letter-spacing, so the header tracking is dropped under lang="hi". */
+export function Table({ className, children, ...props }: ComponentProps<"table">) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+      <table
+        {...props}
+        className={cn(
+          "w-full border-collapse text-left text-[13.5px] leading-[1.6]",
+          "[&_th]:border-b [&_th]:border-border [&_th]:bg-muted [&_th]:px-4 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-[0.05em] [&_th]:text-muted-foreground",
+          "[html[lang=hi]_&_th]:tracking-normal",
+          "[&_td]:px-4 [&_td]:py-3 [&_tbody_tr+tr]:border-t [&_tbody_tr+tr]:border-border/60",
+          className,
+        )}
+      >
+        {children}
+      </table>
+    </div>
+  );
 }
 
 export function ReportProgress({ value, max }: { value: number; max: number }) {
   const percent = max ? Math.round((value / max) * 100) : 0;
-  return <div className="ui-progress" role="progressbar" aria-label="Services submitted" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}><div className="ui-progress-track"><div className="ui-progress-fill" style={{ width: `${percent}%` }} /></div><span>{percent}%</span></div>;
+  return (
+    <div className="flex items-center gap-3 text-[13px] text-muted-foreground" role="progressbar" aria-label="Services submitted" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className="h-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
+      </div>
+      <span>{percent}%</span>
+    </div>
+  );
 }
