@@ -667,16 +667,16 @@ test.describe("all three daily form shapes against a real backend", () => {
     await commissioner
       .getByLabel("Anchal", { exact: true })
       .selectOption({ label: `Anchal ${officeNumber}` });
-    await expect(commissioner.locator(".metrics .metric")).toHaveCount(4);
+    await expect(commissioner.locator("[data-metrics] [data-metric]")).toHaveCount(4);
     await expect(
-      commissioner.locator(".report-count"),
+      commissioner.locator("[data-report-count]"),
       "one report per service filed",
     ).toHaveText(`${FILED.entries} / 25 reports`);
 
     // workDone crosses the wire. The server computes WorkDone and serialises it
     // with the Web defaults, so it must arrive as workDone; read as WorkDone the
     // tile would total undefined and show NaN, not 11.
-    const workDoneTile = commissioner.locator(".metric", {
+    const workDoneTile = commissioner.locator("[data-metric]", {
       hasText: "Work done this period",
     });
     await expect(workDoneTile.locator("strong")).toHaveText(String(FILED.workDone));
@@ -694,16 +694,16 @@ test.describe("all three daily form shapes against a real backend", () => {
     for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending"])
       await expect(commissioner.getByText(gone), `${gone} tile`).toHaveCount(0);
 
-    const pendingTile = commissioner.locator(".metric", { hasText: "Total pending" });
+    const pendingTile = commissioner.locator("[data-metric]", { hasText: "Total pending" });
     await expect(pendingTile.locator("strong")).toHaveText(String(FILED.counterPending));
     const disposal = (FILED.counterCompleted / FILED.counterReceived) * 100;
-    const disposalTile = commissioner.locator(".metric", { hasText: "Disposal" });
+    const disposalTile = commissioner.locator("[data-metric]", { hasText: "Disposal" });
     await expect(disposalTile.locator("strong")).toHaveText(disposal.toFixed(1) + "%");
     await expect(disposalTile.locator("small")).toHaveText(
       `${FILED.counterCompleted} / ${FILED.counterReceived}`,
     );
     // The sum of the two revenue entries, not either one of them.
-    const collectionTile = commissioner.locator(".metric", { hasText: "Total collection" });
+    const collectionTile = commissioner.locator("[data-metric]", { hasText: "Total collection" });
     await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
     expect(row.amountPaise, "collection accumulates across revenue entries").toBe(
       FILED.collectionPaise,
@@ -712,8 +712,8 @@ test.describe("all three daily form shapes against a real backend", () => {
     // jsdom does no layout, so the six-tile-to-four CSS change has never been
     // seen. Measured, not eyeballed: four tiles, one row, no overflow.
     const layout = await commissioner.evaluate(() => {
-      const grid = document.querySelector(".metrics") as HTMLElement;
-      const tiles = Array.from(document.querySelectorAll(".metrics .metric")) as HTMLElement[];
+      const grid = document.querySelector("[data-metrics]") as HTMLElement;
+      const tiles = Array.from(document.querySelectorAll("[data-metrics] [data-metric]")) as HTMLElement[];
       return {
         tiles: tiles.length,
         rows: new Set(tiles.map((t) => t.getBoundingClientRect().top.toFixed(0))).size,
@@ -749,7 +749,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(
       commissioner.getByRole("heading", { name: "Service entry register" }),
     ).toBeVisible();
-    const register = commissioner.locator(".details-panel table");
+    const register = commissioner.locator("[data-register] table");
     const headers = await register.locator("thead th").allInnerTexts();
     for (const gone of [
       "SLA Within Time",
@@ -791,8 +791,8 @@ test.describe("all three daily form shapes against a real backend", () => {
         return { floor, min, max, columns: table.querySelectorAll("thead th").length };
       };
       return {
-        anchal: measure(".monitoring-table"),
-        register: measure(".details-panel table"),
+        anchal: measure("[aria-label='Anchal-wise performance table'] table"),
+        register: measure("[data-register] table"),
       };
     });
     for (const [name, t] of Object.entries(widths)) {
@@ -803,19 +803,24 @@ test.describe("all three daily form shapes against a real backend", () => {
       ).toBeLessThanOrEqual(1.35);
     }
 
-    // And the page itself must not scroll sideways on a phone: the tables
-    // scroll inside their own wrapper, not by dragging the whole document.
+    // And the page itself must not scroll sideways on a phone. Below lg each row
+    // is a card, so the tables no longer need to scroll at all: every column is
+    // still there (as a labelled cell) and nothing overflows its container.
     await commissioner.setViewportSize({ width: 375, height: 800 });
     const phone = await commissioner.evaluate(() => ({
       page:
         document.documentElement.scrollWidth >
         document.documentElement.clientWidth,
-      wrappers: Array.from(document.querySelectorAll(".table-wrap")).map(
+      overflowing: Array.from(document.querySelectorAll("[data-scroll-x]")).map(
         (w) => w.scrollWidth > w.clientWidth,
+      ),
+      labelled: Array.from(document.querySelectorAll("[data-scroll-x] tbody td")).every((td) =>
+        td.hasAttribute("data-label"),
       ),
     }));
     expect(phone.page, "the document must not scroll sideways at 375px").toBe(false);
-    expect(phone.wrappers.every(Boolean), "each table scrolls in its wrapper").toBe(true);
+    expect(phone.overflowing.some(Boolean), "no table needs horizontal dragging at 375px").toBe(false);
+    expect(phone.labelled, "every cell names its column for the card layout").toBe(true);
     await commissioner.setViewportSize({ width: 1600, height: 1000 });
   });
 });

@@ -1,4 +1,5 @@
-import { Field, Panel, Notice } from "../legacy-ui";
+import { Badge, Button, Field, Notice, Panel, Table, leadingBody, leadingHeading, leadingHelp } from "../ui";
+import { cn } from "../lib/utils";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,6 +20,22 @@ const currency = (paise: number) =>
 const usableStamp = (v?: string | null) =>
   v && !Number.isNaN(new Date(v).getTime()) ? v : null;
 const percent = (v: number | null) => (v === null ? "—" : v.toFixed(1) + "%");
+// One column per figure, three shapes in the rows below: received is cases or
+// transactions, and completed is disposals or work done, so both labels name both.
+const registerHeads: [string, string, boolean][] = [
+  ["Service date", "सेवा तिथि", false],
+  ["Reporting date", "रिपोर्टिंग तिथि", false],
+  ["Registered at", "पंजीकरण समय", false],
+  ["Anchal", "अंचल", false],
+  ["Ward", "वार्ड", false],
+  ["Service No", "सेवा संख्या", true],
+  ["Service", "सेवा", false],
+  ["Opening Pending", "प्रारंभिक लंबित", true],
+  ["Received / Transactions", "प्राप्त / लेन-देन", true],
+  ["Completed / Work done", "पूर्ण / किया गया कार्य", true],
+  ["Amount (₹)", "राशि (₹)", true],
+  ["Remarks", "टिप्पणियाँ", false],
+];
 export default function Dashboard() {
   const lang = useContext(Language),
     t = useText();
@@ -142,38 +159,160 @@ export default function Dashboard() {
       t("Field work completed", "पूर्ण क्षेत्रीय कार्य"),
     ],
   ];
+  // Filing status is about one day. Under any other period the heading must not
+  // say "today", so it is named for what it is and the period is printed beneath.
+  const isToday = from === todayIST() && to === todayIST();
+  const filing = (r: MonitoringRow) =>
+    !r.configured
+      ? { tone: "neutral" as const, label: t("Not set up", "सेटअप नहीं हुआ") }
+      : r.expected === 0
+        ? { tone: "neutral" as const, label: t("Nothing due", "कुछ देय नहीं") }
+        : r.submitted >= r.expected
+          ? { tone: "settled" as const, label: t("Filed", "दर्ज") }
+          : r.submitted === 0
+            ? { tone: "attention" as const, label: t("Not filed", "दर्ज नहीं") }
+            : { tone: "attention" as const, label: t("Partly filed", "आंशिक दर्ज") };
+  const period = from + (from !== to ? " — " + to : "");
+
+  // Below lg a row becomes a card and every cell carries its own header through
+  // data-label, so no column is dropped; at lg and up it is an ordinary table that
+  // scrolls inside its own container. One DOM serves both. Explicit roles keep the
+  // table semantics that display:block/grid would otherwise strip in Safari.
+  const cardTable = [
+    "max-lg:block max-lg:[&_thead]:sr-only",
+    "max-lg:[&_tbody]:grid max-lg:[&_tbody]:gap-3 max-lg:[&_tfoot]:grid max-lg:[&_tfoot]:mt-3",
+    "max-lg:[&_tr]:grid max-lg:[&_tr]:gap-y-2 max-lg:[&_tr]:rounded-lg max-lg:[&_tr]:border max-lg:[&_tr]:border-border max-lg:[&_tr]:bg-card max-lg:[&_tr]:p-4",
+    "max-lg:[&_tbody_tr+tr]:border-border max-lg:[&_td]:p-0 max-lg:[&_tfoot_tr]:bg-muted",
+    "[&_td]:align-top lg:[&_tfoot_td]:border-t lg:[&_tfoot_td]:border-border lg:[&_tfoot_td]:bg-muted lg:[&_tfoot_td]:font-medium",
+  ].join(" ");
+  const cardWrap = "max-lg:overflow-visible max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent";
+  const cell = [
+    "max-lg:flex max-lg:items-baseline max-lg:justify-between max-lg:gap-4 max-lg:[overflow-wrap:anywhere]",
+    "max-lg:before:shrink-0 max-lg:before:content-[attr(data-label)] max-lg:before:text-[11px] max-lg:before:font-medium max-lg:before:font-sans max-lg:before:text-left max-lg:before:text-muted-foreground",
+  ].join(" ");
+  const figure = "lg:text-right font-mono tabular-nums";
+  const title = "max-lg:block max-lg:before:hidden max-lg:font-medium";
+  const stacked = "max-lg:grid max-lg:justify-normal max-lg:gap-0.5";
+  const Td = ({ label, className, children }: { label: string; className?: string; children?: React.ReactNode }) => (
+    <td role="cell" data-label={label} className={cn(cell, className)}>
+      {children}
+    </td>
+  );
+  const Th = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <th role="columnheader" scope="col" className={cn("text-left", className)}>
+      {children}
+    </th>
+  );
+  const heading = `text-[15px] font-semibold ${leadingHeading} text-foreground`;
+  const eyebrow = `text-[11px] font-medium uppercase tracking-[0.05em] [html[lang=hi]_&]:tracking-normal ${leadingBody} text-muted-foreground`;
+  const anchalLabel = t("Anchal", "अंचल");
+  const perAnchalHeads: [string, boolean][] = [
+    [anchalLabel, false],
+    // Neutral wording: these three are counter-shape figures
+    // only, so naming transactions or field work would be wrong.
+    [t("Received", "प्राप्त"), true],
+    [t("Completed", "पूर्ण"), true],
+    [t("Pending", "लंबित"), true],
+    [t("Disposal %", "निस्तारण %"), true],
+    // Field work has no place in the four above, and without a
+    // column of its own it can only be read as a cross-office
+    // total, so no Anchal can be compared with another.
+    [t("Work done", "किया गया कार्य"), true],
+    [t("Amount Collected (₹)", "संग्रहित राशि (₹)"), true],
+    [t("Remarks / Review", "टिप्पणियाँ / समीक्षा"), false],
+  ];
+  const [hAnchal, hReceived, hCompleted, hPending, hDisposal, hWork, hAmount, hRemarks] = perAnchalHeads.map(([h]) => h);
+
   return (
-    <>
-      <div className="page-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
-        <div>
-          <div className="eyebrow ux4g-label-m-strong ux4g-text-neutral-secondary">
-            {t("COMMISSIONER REVIEW", "आयुक्त समीक्षा")}
-          </div>
-          <h1 className="ux4g-heading-xl-strong">
-            {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
-          </h1>
-          {updated && (
-            <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
-              {t(
-                `Figures as of ${formatIndiaDateTime(updated)}`,
-                `आंकड़े ${formatIndiaDateTime(updated)} तक`,
-              )}
-            </p>
-          )}
-          {/* Fewer fields are collected from this date on, so figures fall at
-              the cutover. Without saying so, that reads as a fall in work. And
-              the ledger is derived on read, so an October period is recomputed
-              on today's shape rules too — saying only "not comparable" would
-              imply the earlier figures are as they were filed. */}
-          <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
+    <div className="grid min-w-0 gap-6">
+      <header className="grid gap-1.5">
+        <div className={eyebrow}>{t("COMMISSIONER REVIEW", "आयुक्त समीक्षा")}</div>
+        <h1 className={`text-[23px] font-semibold ${leadingHeading} text-foreground`}>
+          {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
+        </h1>
+        {updated && (
+          <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
             {t(
-              `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
-              `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
+              `Figures as of ${formatIndiaDateTime(updated)}`,
+              `आंकड़े ${formatIndiaDateTime(updated)} तक`,
             )}
           </p>
+        )}
+      </header>
+
+      {error && (
+        <Notice role="alert">
+          {from > to
+            ? t(
+                "Start date must be on or before the end date.",
+                "आरंभ तिथि समाप्ति तिथि से पहले या उसी दिन होनी चाहिए।",
+              )
+            : runtimeText(error, lang)}
+        </Notice>
+      )}
+
+      <Panel aria-labelledby="filing-heading" className="grid gap-4">
+        <div className="grid gap-1">
+          <h2 id="filing-heading" className={heading}>
+            {isToday ? t("Filed today", "आज दर्ज") : t("Filing status", "दर्ज स्थिति")}
+          </h2>
+          <p className={`text-[13px] ${leadingHelp} text-muted-foreground`}>
+            {t("Services reported, out of those due, by Anchal", "अंचलवार दर्ज सेवाएँ, देय सेवाओं में से")}
+            <span className={`ml-2 font-mono tabular-nums text-foreground`}>{period}</span>
+          </p>
         </div>
+        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {rows.map((r) => {
+            const status = filing(r);
+            return (
+              <li
+                key={r.officeId}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[7px] border border-border px-4 py-2.5"
+              >
+                <div className="grid min-w-0 gap-0.5">
+                  <span className={`text-[13.5px] font-medium ${leadingBody} text-foreground`}>
+                    {anchalLabel} {r.officeId}
+                  </span>
+                  <span className={`font-mono text-[12px] tabular-nums ${leadingHelp} text-muted-foreground`}>
+                    {r.submitted} / {r.expected}
+                  </span>
+                </div>
+                <Badge tone={status.tone} className="whitespace-nowrap">
+                  {status.label}
+                </Badge>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
+
+      {/* Fewer fields are collected from this date on, so figures fall at
+          the cutover. Without saying so, that reads as a fall in work. And
+          the ledger is derived on read, so an October period is recomputed
+          on today's shape rules too — saying only "not comparable" would
+          imply the earlier figures are as they were filed. */}
+      <p className={`max-w-3xl rounded-[7px] border border-border bg-muted px-3 py-2 text-[13px] ${leadingHelp} text-muted-foreground`}>
+        {t(
+          `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
+          `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
+        )}
+      </p>
+
+      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+        {metrics.map(([label, value, note]) => (
+          <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
+            <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{label}</span>
+            <strong
+              className={`block min-h-[2.25rem] font-mono text-[26px] font-semibold tabular-nums ${leadingHeading} [overflow-wrap:anywhere] text-foreground`}
+            >
+              {value}
+            </strong>
+            <small className={`block text-[12px] ${leadingHelp} text-muted-foreground`}>{note}</small>
+          </Panel>
+        ))}
       </div>
-      <Panel className="panel filters">
+
+      <Panel className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <Field>
           {t("View", "दृश्य")}
           <select
@@ -250,17 +389,17 @@ export default function Dashboard() {
           </>
         )}
         <Field>
-          {t("Anchal", "अंचल")}
+          {anchalLabel}
           <select value={office} onChange={(e) => setOffice(e.target.value)}>
             <option value="">{t("All offices", "सभी कार्यालय")}</option>
             {Array.from({ length: 6 }, (_, i) => (
               <option key={i} value={i + 1}>
-                {t("Anchal", "अंचल")} {i + 1}
+                {anchalLabel} {i + 1}
               </option>
             ))}
           </select>
         </Field>
-        <Field className="service-filter">
+        <Field className="sm:col-span-2">
           {t("Service", "सेवा")}
           <select value={service} onChange={(e) => setService(e.target.value)}>
             <option value="">{t("All 25 services", "सभी 25 सेवाएँ")}</option>
@@ -271,123 +410,99 @@ export default function Dashboard() {
             ))}
           </select>
         </Field>
-        <button
-          className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-          onClick={() => loadRef.current()}
-        >
+        <Button variant="outline" onClick={() => loadRef.current()}>
           {t("Refresh", "रिफ्रेश")}
-        </button>
+        </Button>
       </Panel>
-      {error && (
-        <Notice role="alert" className="message">
-          {from > to
-            ? t(
-                "Start date must be on or before the end date.",
-                "आरंभ तिथि समाप्ति तिथि से पहले या उसी दिन होनी चाहिए।",
-              )
-            : runtimeText(error, lang)}
-        </Notice>
-      )}
-      <div className="metrics">
-        {metrics.map(([label, value, note]) => (
-          <Panel key={label} className="metric">
-            <span>{label}</span>
-            <strong className="ux4g-heading-xl-strong">{value}</strong>
-            <small className="ux4g-d-block ux4g-mt-xs">{note}</small>
-          </Panel>
-        ))}
-      </div>
-      <Panel className="panel">
-        <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
-          <div>
-            <div className="section-eyebrow">{t("REPORT OVERVIEW", "रिपोर्ट अवलोकन")}</div>
-            <h2 className="ux4g-heading-m-strong section-title">
-              {t("Anchal-wise performance", "अंचलवार प्रदर्शन")}
-            </h2>
-            <p className="section-subtitle">
+
+      <Panel className="grid min-w-0 gap-5">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="grid min-w-0 gap-1">
+            <div className={eyebrow}>{t("REPORT OVERVIEW", "रिपोर्ट अवलोकन")}</div>
+            <h2 className={heading}>{t("Anchal-wise performance", "अंचलवार प्रदर्शन")}</h2>
+            <p className={`text-[13px] ${leadingHelp} text-muted-foreground`}>
               {t("Activity totals and closing balances", "गतिविधि योग और अंतिम शेष")}
-              <span className="section-date">{from}{from !== to ? " — " + to : ""}</span>
+              <span className="ml-2 font-mono tabular-nums text-foreground">{period}</span>
             </p>
           </div>
-          <span className="status-tag report-count">
+          <Badge data-report-count="" className="whitespace-nowrap font-mono tabular-nums">
             {totals.submitted} / {totals.expected} {t("reports", "रिपोर्ट")}
-          </span>
+          </Badge>
         </div>
-        <div className="table-wrap ux4g-table-responsive" tabIndex={0} aria-label={t("Anchal-wise performance table", "अंचलवार प्रदर्शन तालिका")}>
-          <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows monitoring-table">
-            <thead>
-              <tr>
-                {[
-                  t("Anchal", "अंचल"),
-                  // Neutral wording: these three are counter-shape figures
-                  // only, so naming transactions or field work would be wrong.
-                  t("Received", "प्राप्त"),
-                  t("Completed", "पूर्ण"),
-                  t("Pending", "लंबित"),
-                  t("Disposal %", "निस्तारण %"),
-                  // Field work has no place in the four above, and without a
-                  // column of its own it can only be read as a cross-office
-                  // total, so no Anchal can be compared with another.
-                  t("Work done", "किया गया कार्य"),
-                  t("Amount Collected (₹)", "संग्रहित राशि (₹)"),
-                  t("Remarks / Review", "टिप्पणियाँ / समीक्षा"),
-                ].map((h) => (
-                  <th key={h}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.officeId}>
-                  <td>
-                    <strong>
-                      {t("Anchal", "अंचल")} {r.officeId}
-                    </strong>
-                  </td>
-                  <td>{counterCell(r.received)}</td>
-                  <td>{counterCell(r.completed)}</td>
-                  <td>{counterCell(r.pending)}</td>
-                  <td>{counterCell(percent(r.disposalPct))}</td>
-                  <td>{fieldWorkCell(r.workDone)}</td>
-                  <td className="nowrap">{currency(r.amountPaise)}</td>
-                  <td className="review-cell">
-                    {r.reviewReasons.length ? (
-                      <details>
-                        <summary className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-l">
-                          {t("REVIEW", "समीक्षा")} ({r.reviewReasons.length})
-                        </summary>
-                        {r.reviewReasons.map((reason) => (
-                          <p key={reason}>{runtimeText(reason, lang)}</p>
-                        ))}
-                      </details>
-                    ) : (
-                      t("No threshold flags", "कोई सीमा चेतावनी नहीं")
-                    )}
-                    {r.submitted < r.expected && (
-                      <small className="ux4g-d-block ux4g-mt-xs">
-                        {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
-                      </small>
-                    )}
-                  </td>
-                </tr>
+        <Table
+          role="table"
+          className={cardTable}
+          containerClassName={cardWrap}
+          containerProps={{
+            tabIndex: 0,
+            role: "region",
+            "aria-label": t("Anchal-wise performance table", "अंचलवार प्रदर्शन तालिका"),
+          }}
+        >
+          <thead role="rowgroup">
+            <tr role="row">
+              {perAnchalHeads.map(([h, numeric]) => (
+                <Th key={h} className={numeric ? "lg:text-right" : undefined}>
+                  {h}
+                </Th>
               ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>{t("TOTAL", "कुल")}</td>
-                <td>{counterCell(totals.received)}</td>
-                <td>{counterCell(totals.completed)}</td>
-                <td>{counterCell(totals.pending)}</td>
-                <td>{counterCell(percent(disposal))}</td>
-                <td>{fieldWorkCell(totals.workDone)}</td>
-                <td className="nowrap">{currency(totals.amountPaise)}</td>
-                <td>—</td>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {rows.map((r) => (
+              <tr role="row" key={r.officeId}>
+                <Td label={hAnchal} className={title}>
+                  {anchalLabel} {r.officeId}
+                </Td>
+                <Td label={hReceived} className={figure}>{counterCell(r.received)}</Td>
+                <Td label={hCompleted} className={figure}>{counterCell(r.completed)}</Td>
+                <Td label={hPending} className={figure}>{counterCell(r.pending)}</Td>
+                <Td label={hDisposal} className={figure}>{counterCell(percent(r.disposalPct))}</Td>
+                <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
+                <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(r.amountPaise)}</Td>
+                <Td label={hRemarks} className={stacked}>
+                  {r.reviewReasons.length ? (
+                    <details>
+                      <summary
+                        className={`flex min-h-[44px] cursor-pointer items-center rounded-[7px] text-[13.5px] font-medium ${leadingBody} text-warning focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+                      >
+                        {t("REVIEW", "समीक्षा")} ({r.reviewReasons.length})
+                      </summary>
+                      {r.reviewReasons.map((reason) => (
+                        <p key={reason} className={`pb-2 text-[13px] ${leadingHelp} text-foreground`}>
+                          {runtimeText(reason, lang)}
+                        </p>
+                      ))}
+                    </details>
+                  ) : (
+                    <span className="text-muted-foreground">{t("No threshold flags", "कोई सीमा चेतावनी नहीं")}</span>
+                  )}
+                  {r.submitted < r.expected && (
+                    <small className={`block text-[12px] ${leadingHelp} text-warning`}>
+                      {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
+                    </small>
+                  )}
+                </Td>
               </tr>
-            </tfoot>
-          </table>
-        </div>
-        <button
-          className="ui-button ui-button-secondary details-trigger"
+            ))}
+          </tbody>
+          <tfoot role="rowgroup">
+            <tr role="row">
+              <Td label={hAnchal} className={title}>{t("TOTAL", "कुल")}</Td>
+              <Td label={hReceived} className={figure}>{counterCell(totals.received)}</Td>
+              <Td label={hCompleted} className={figure}>{counterCell(totals.completed)}</Td>
+              <Td label={hPending} className={figure}>{counterCell(totals.pending)}</Td>
+              <Td label={hDisposal} className={figure}>{counterCell(percent(disposal))}</Td>
+              <Td label={hWork} className={figure}>{fieldWorkCell(totals.workDone)}</Td>
+              <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(totals.amountPaise)}</Td>
+              {/* A bare dash carries nothing; on the phone card it is left out. */}
+              <Td label={hRemarks} className="max-lg:hidden">—</Td>
+            </tr>
+          </tfoot>
+        </Table>
+        <Button
+          variant="outline"
+          className="justify-self-start max-sm:justify-self-stretch"
           onClick={async () => {
             try {
               const requestedQuery = query;
@@ -408,91 +523,82 @@ export default function Dashboard() {
             "View service entries and remarks →",
             "सेवा प्रविष्टियाँ और टिप्पणियाँ देखें →",
           )}
-        </button>
+        </Button>
       </Panel>
+
       {details && (
-        <Panel className="panel details-panel">
-          <div className="section-heading ux4g-d-flex ux4g-ai-center ux4g-jc-between ux4g-gap-x-l ux4g-mb-l">
-            <h2 className="ux4g-heading-m-strong">
-              {t("Service entry register", "सेवा प्रविष्टि रजिस्टर")}
-            </h2>
-            <button
-              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
+        <Panel data-register="" className="grid min-w-0 gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <h2 className={heading}>{t("Service entry register", "सेवा प्रविष्टि रजिस्टर")}</h2>
+            <Button
+              variant="outline"
               onClick={() => {
                 detailsOpen.current = false;
                 setDetails(null);
               }}
             >
               {t("Close", "बंद करें")}
-            </button>
+            </Button>
           </div>
-          <div className="table-wrap ux4g-table-responsive" tabIndex={0} aria-label={t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका")}>
-            <table className="ux4g-table ux4g-table-m ux4g-table-zebra-rows">
-              <thead>
-                <tr>
-                  {[
-                    ["Service date", "सेवा तिथि"],
-                    ["Reporting date", "रिपोर्टिंग तिथि"],
-                    ["Registered at", "पंजीकरण समय"],
-                    ["Anchal", "अंचल"],
-                    ["Ward", "वार्ड"],
-                    ["Service No", "सेवा संख्या"],
-                    ["Service", "सेवा"],
-                    ["Opening Pending", "प्रारंभिक लंबित"],
-                    // One column per figure, three shapes in the rows below:
-                    // received is cases or transactions, and completed is
-                    // disposals or work done, so both labels name both.
-                    ["Received / Transactions", "प्राप्त / लेन-देन"],
-                    ["Completed / Work done", "पूर्ण / किया गया कार्य"],
-                    ["Amount (₹)", "राशि (₹)"],
-                    ["Remarks", "टिप्पणियाँ"],
-                  ].map(([en, hi]) => (
-                    <th key={en}>{t(en, hi)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {details.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.serviceDate}</td>
-                    <td>{e.reportingDate}</td>
-                    <td>
-                      {formatIndiaDateTime(e.createdAt)}
-                    </td>
-                    <td>{e.officeId}</td>
-                    <td>{e.ward}</td>
-                    <td>{e.serviceId}</td>
-                    <td>
+          <Table
+            role="table"
+            className={cardTable}
+            containerClassName={cardWrap}
+            containerProps={{
+              tabIndex: 0,
+              role: "region",
+              "aria-label": t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका"),
+            }}
+          >
+            <thead role="rowgroup">
+              <tr role="row">
+                {registerHeads.map(([en, hi, numeric]) => (
+                  <Th key={en} className={numeric ? "lg:text-right" : undefined}>
+                    {t(en, hi)}
+                  </Th>
+                ))}
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {details.map((e) => {
+                const label = (i: number) => t(registerHeads[i][0], registerHeads[i][1]);
+                return (
+                  <tr role="row" key={e.id}>
+                    <Td label={label(0)}>{e.serviceDate}</Td>
+                    <Td label={label(1)}>{e.reportingDate}</Td>
+                    <Td label={label(2)} className="lg:whitespace-nowrap">{formatIndiaDateTime(e.createdAt)}</Td>
+                    <Td label={label(3)}>{e.officeId}</Td>
+                    <Td label={label(4)}>{e.ward}</Td>
+                    <Td label={label(5)} className={figure}>{e.serviceId}</Td>
+                    <Td label={label(6)} className="max-lg:order-first max-lg:block max-lg:font-medium max-lg:before:hidden">
                       {lang === "hi"
                         ? services[e.serviceId - 1].name
                         : services[e.serviceId - 1].en}
-                    </td>
+                    </Td>
                     {/* Blank, not 0: the service balance of a revenue or
                         field-work service is frozen and means nothing. */}
-                    <td>
-                      {formShape(e.serviceId) === "counter"
-                        ? e.opening.service
-                        : ""}
-                    </td>
-                    <td>{e.received}</td>
-                    <td>{e.completed}</td>
-                    <td>{currency(e.amountPaise)}</td>
-                    <td>{e.remarks || "—"}</td>
+                    <Td label={label(7)} className={figure}>
+                      {formShape(e.serviceId) === "counter" ? e.opening.service : ""}
+                    </Td>
+                    <Td label={label(8)} className={figure}>{e.received}</Td>
+                    <Td label={label(9)} className={figure}>{e.completed}</Td>
+                    <Td label={label(10)} className={`${figure} lg:whitespace-nowrap`}>{currency(e.amountPaise)}</Td>
+                    <Td label={label(11)} className={stacked}>{e.remarks || "—"}</Td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {!details.length && (
-              <p className="empty ux4g-body-m-default ux4g-text-neutral-secondary ux4g-p-xl">
-                {t(
-                  "No entries submitted for this period.",
-                  "इस अवधि के लिए कोई प्रविष्टि जमा नहीं है।",
-                )}
-              </p>
-            )}
-          </div>
+                );
+              })}
+            </tbody>
+          </Table>
+          {!details.length && (
+            <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
+              {t(
+                "No entries submitted for this period.",
+                "इस अवधि के लिए कोई प्रविष्टि जमा नहीं है।",
+              )}
+            </p>
+          )}
         </Panel>
       )}
-    </>
+    </div>
   );
 }

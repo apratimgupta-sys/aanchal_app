@@ -122,52 +122,11 @@
   flex: 1;
   min-width: 10rem;
 }
-.filters .service-filter {
-  flex: 2;
-}
-/* Four tiles since the form stopped collecting complaint, field and SLA
-   figures: Total pending, Disposal, Total collection, Work done. */
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--ux4g-gap-column-l);
-  margin-block: var(--ux4g-gap-row-l);
-}
-.metric {
-  min-width: 0;
-}
-.metric > .ux4g-card-body > span,
-.metric strong,
-.metric small {
-  display: block;
-}
-.metric strong {
-  margin-block: var(--ux4g-gap-row-m);
-  overflow-wrap: anywhere;
-}
 /* Reports intentionally scroll horizontally inside their own regions; the
    service register must not force the page wider on mobile. */
 .table-wrap {
   overflow: auto;
   max-width: 100%;
-}
-.monitoring-table {
-  /* The floor the table drops to before the wrapper scrolls. Measured against
-     the eight columns that are left: min-content is 54.4rem, max-content
-     65.8rem. 72rem was set for ten columns and forced the table wider than its
-     content ever needs. */
-  min-width: 58rem;
-}
-.details-panel table {
-  /* Twelve columns now, not eighteen: min-content 79.4rem. 115rem held the
-     width of the six that were dropped. */
-  min-width: 84rem;
-}
-.review-cell {
-  min-width: 10rem;
-}
-.nowrap {
-  white-space: nowrap;
 }
 .table-notes {
   margin-block: var(--ux4g-gap-row-m);
@@ -194,14 +153,11 @@ pre {
   max-height: 22rem;
   overflow: auto;
 }
-.empty {
-  text-align: center;
-}
 
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .ui-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: 0 2px 8px rgb(15 35 60 / .05); }
 .ui-card { animation: content-rise .45s ease-out both; }
-.service-number, .metric strong, .report-progress, .balance-strip strong { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
+.service-number, .report-progress, .balance-strip strong { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
 .ui-card-body { padding: 1.25rem; }
 .ui-field { display: grid; gap: .65rem; min-width: 0; }
 .ui-field > label { color: hsl(var(--foreground)); font-size: .88rem; font-weight: 650; }
@@ -270,9 +226,6 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .ui-card-body { padding: clamp(1.4rem, 3vw, 2.5rem); }
 .ui-button-primary, .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-radius: .45rem; box-shadow: 0 8px 16px hsl(211 64% 23% / .16); }
 .ui-button-primary:hover, .ux4g-btn-primary:hover { background: hsl(211 64% 18%) !important; }
-.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; width: fit-content; color: hsl(211 64% 23%); background: hsl(0 0% 100% / .8); border: 1px solid hsl(211 64% 23% / .28); }
-.ui-button-secondary:hover { background: hsl(211 64% 23% / .08); border-color: hsl(211 64% 23% / .5); }
-.details-trigger { margin-top: 1.5rem; }
 .ui-input, .ui-field input, .ui-field select, .ui-field textarea { background: hsl(0 0% 100% / .78); border-color: hsl(211 64% 23% / .22); border-radius: .45rem; }
 .ui-input:focus, .ui-field input:focus, .ui-field select:focus, .ui-field textarea:focus { border-color: hsl(39 84% 48%); box-shadow: 0 0 0 3px hsl(39 84% 58% / .2); outline: 0; }
 .ui-input:focus-visible, .ui-field input:focus-visible, .ui-field select:focus-visible, .ui-field textarea:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
@@ -286,9 +239,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 .ux4g-btn:hover { background: hsl(211 64% 23% / .08); }
 .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-color: hsl(211 64% 23%) !important; color: white !important; box-shadow: 0 6px 14px hsl(211 64% 23% / .18); }
 .ux4g-btn-primary:hover { background: hsl(211 64% 18%) !important; }
-.monitoring-table, .details-panel table { border-collapse: separate; border-spacing: 0; }
-.monitoring-table thead th, .details-panel thead th { background: hsl(211 64% 23%); color: white; font-weight: 600; letter-spacing: .02em; }
-.monitoring-table tbody tr:nth-child(even), .details-panel tbody tr:nth-child(even) { background: hsl(211 64% 23% / .035); }
 .status-tag, .live-status { border-radius: 999px; }
 .live-dot { background: hsl(39 84% 58%) !important; }
 .form-actions button, .report-toolbar button { min-height: 2.75rem; border-radius: .45rem; }
@@ -301,9 +251,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
   .entry-panel .form-grid .wide { grid-column: auto; }
 }
 @media (max-width: 1439px) {
-  .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -323,9 +270,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
   .section-heading {
     flex-wrap: wrap;
     align-items: start;
-  }
-  .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 480px) {
@@ -352,16 +296,9 @@ select {
   background-size: 1rem;
 }
 .filters .ui-card-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.4rem 1.6rem; align-items: end; }
-.filters .ui-field.service-filter { grid-column: span 2; }
 .filters .ui-card-body > button { min-height: 2.75rem; }
-.metrics { gap: clamp(1rem, 2vw, 1.5rem); }
-.metrics .ui-card-body { min-height: 7rem; display: flex; flex-direction: column; justify-content: center; gap: .55rem; }
-.metrics .ui-card-body > strong { font-size: clamp(1.6rem, 3vw, 2.35rem); line-height: 1; }
-.monitoring-table th, .monitoring-table td, .details-panel th, .details-panel td { padding: 1rem 1.1rem; vertical-align: top; line-height: 1.45; }
-.monitoring-table tbody tr, .details-panel tbody tr { border-bottom: 1px solid hsl(var(--border)); }
 .page-heading p, .section-heading p, .table-notes { margin-top: .75rem; line-height: 1.6; }
 .table-wrap { margin-top: 1.25rem; }
-.section-eyebrow { color: hsl(var(--muted-foreground)); font-size: .7rem; font-weight: 700; letter-spacing: .14em; margin-bottom: .5rem; }
 [data-title=""] { color: hsl(var(--foreground)); }
 .setup-panel { max-width: 100%; }
 .setup-heading { align-items: flex-end; }
@@ -381,12 +318,8 @@ select {
 @media (max-width: 700px) { .setup-panel .ui-card-body { padding: 1.25rem; } .setup-heading { align-items: start; } .setup-table th, .setup-table td { padding: .65rem .75rem; } }
 .page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .section-title { margin: 0; line-height: 1.15; }
-.section-subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; color: hsl(var(--muted-foreground)); margin: .65rem 0 0; font-size: .9rem; }
-.section-date { color: hsl(var(--foreground)); font-family: "IBM Plex Mono", monospace; font-size: .8rem; }
-.report-count { display: inline-flex; align-items: center; min-height: 2.25rem; padding: .4rem .75rem; border-radius: 999px; background: hsl(211 64% 23% / .08); color: hsl(211 64% 23%); font-family: "IBM Plex Mono", monospace; font-size: .78rem; white-space: nowrap; }
 @media (max-width: 900px) {
   .filters .ui-card-body { grid-template-columns: 1fr; }
-  .filters .ui-field.service-filter { grid-column: auto; }
 }
 
 /* Field visit module ---------------------------------------------------- */

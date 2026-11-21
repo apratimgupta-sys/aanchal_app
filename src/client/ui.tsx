@@ -181,10 +181,19 @@ export function Badge({ tone, className, ...props }: HTMLAttributes<HTMLSpanElem
 }
 
 /** Wide tables scroll inside this container; the page never does. Devanagari
- *  takes no letter-spacing, so the header tracking is dropped under lang="hi". */
-export function Table({ className, children, ...props }: ComponentProps<"table">) {
+ *  takes no letter-spacing, so the header tracking is dropped under lang="hi".
+ *  `data-scroll-x` marks the container for tests and tooling. `containerProps` and
+ *  `containerClassName` reach the wrapper, which is where a scroll region's
+ *  label and tabIndex belong. */
+export function Table({
+  className,
+  children,
+  containerClassName,
+  containerProps,
+  ...props
+}: ComponentProps<"table"> & { containerClassName?: string; containerProps?: HTMLAttributes<HTMLDivElement> }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <div {...containerProps} data-scroll-x="" className={cn("overflow-x-auto rounded-lg border border-border bg-card", containerClassName)}>
       <table
         {...props}
         className={cn(

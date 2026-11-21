@@ -183,7 +183,7 @@ describe("AppShell styling contract", () => {
   // every component. Pin that each explicit leading has its own Hindi counterpart,
   // so deleting that rule changes nothing.
   it("gives every explicit leading-* in the component layer a Hindi counterpart", () => {
-    const files = ["src/client/ui.tsx", "src/client/pages/FieldVisit.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
+    const files = ["src/client/ui.tsx", "src/client/pages/FieldVisit.tsx", "src/client/pages/Dashboard.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
     const bare = /(?<![:\w-])leading-[\w.[\]-]+/g;
     const offenders: string[] = [];
     for (const f of files)
@@ -199,7 +199,7 @@ describe("AppShell styling contract", () => {
   // measuring: the shell's 12px Hindi spans fell from 1.65 to 1.33 once the legacy rule
   // stopped covering them.
   it("never lets a named text size fix the line height without a leading-* beside it", () => {
-    const files = ["src/client/ui.tsx", "src/client/pages/FieldVisit.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
+    const files = ["src/client/ui.tsx", "src/client/pages/FieldVisit.tsx", "src/client/pages/Dashboard.tsx", "src/client/pages/Login.tsx", "src/client/components/AppShell.tsx", "src/client/App.tsx"];
     const sized = /(?<![:\w-])text-(xs|sm|base|lg|xl|[2-9]xl)(?![\w-])/;
     const offenders: string[] = [];
     for (const f of files)

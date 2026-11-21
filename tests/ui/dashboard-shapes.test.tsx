@@ -134,7 +134,7 @@ describe("commissioner dashboard after the form shapes", () => {
   it("shows work done for the period", async () => {
     mockApi([row({ workDone: 18 }), row({ officeId: 2, workDone: 4 })]);
     await renderDashboard();
-    const tile = screen.getByText("Work done this period").closest(".metric");
+    const tile = screen.getByText("Work done this period").closest("[data-metric]");
     expect(tile).not.toBeNull();
     expect(within(tile as HTMLElement).getByText("22")).toBeTruthy();
     cleanup();
@@ -302,7 +302,7 @@ describe("commissioner dashboard after the form shapes", () => {
     // One row above the table, the same reading: Total pending 0 and Disposal —
     // for a field-work service, Amount Collected ₹0.00 for anything but revenue.
     const tile = (label: string) => {
-      const found = screen.getByText(label).closest(".metric") as HTMLElement;
+      const found = screen.getByText(label).closest("[data-metric]") as HTMLElement;
       return {
         value: found.querySelector("strong")!.textContent,
         note: found.querySelector("small")!.textContent,
