@@ -221,3 +221,44 @@ export function ReportProgress({ value, max }: { value: number; max: number }) {
     </div>
   );
 }
+
+// Wide tables below lg: each row becomes a card and every cell carries its own header
+// through data-label, so no column is dropped; at lg and up it is an ordinary table that
+// scrolls inside its own container. One DOM serves both. Pass `role="table"` on <Table>
+// and use <Th>/<Td> so the explicit roles keep the table semantics that
+// display:block/grid would otherwise strip in Safari. Same treatment as the dashboard's.
+export const cardTable = [
+  "max-lg:block max-lg:[&_thead]:sr-only",
+  "max-lg:[&_tbody]:grid max-lg:[&_tbody]:gap-3 max-lg:[&_tfoot]:grid max-lg:[&_tfoot]:mt-3",
+  "max-lg:[&_tr]:grid max-lg:[&_tr]:gap-y-2 max-lg:[&_tr]:rounded-lg max-lg:[&_tr]:border max-lg:[&_tr]:border-border max-lg:[&_tr]:bg-card max-lg:[&_tr]:p-4",
+  "max-lg:[&_tbody_tr+tr]:border-border max-lg:[&_td]:p-0 max-lg:[&_tfoot_tr]:bg-muted",
+  "[&_td]:align-top",
+].join(" ");
+export const cardTableWrap = "max-lg:overflow-visible max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent";
+const cardCell = [
+  "max-lg:flex max-lg:items-baseline max-lg:justify-between max-lg:gap-4 max-lg:[overflow-wrap:anywhere]",
+  "max-lg:before:shrink-0 max-lg:before:content-[attr(data-label)] max-lg:before:text-[11px] max-lg:before:font-medium max-lg:before:font-sans max-lg:before:text-left max-lg:before:text-muted-foreground",
+].join(" ");
+/** A cell's own value as the card's heading: label hidden, value first. */
+export const cardTitle = "max-lg:block max-lg:before:hidden max-lg:font-medium";
+/** Label above value instead of beside it, for long or multi-part values. */
+export const cardStacked = "max-lg:grid max-lg:justify-normal max-lg:gap-0.5";
+
+export function Td({ label, className, children, ...props }: Omit<ComponentProps<"td">, "label"> & { label: string }) {
+  return (
+    <td {...props} role="cell" data-label={label} className={cn(cardCell, className)}>
+      {children}
+    </td>
+  );
+}
+export function Th({ className, children, ...props }: ComponentProps<"th">) {
+  return (
+    <th {...props} role="columnheader" scope="col" className={cn("text-left", className)}>
+      {children}
+    </th>
+  );
+}
+
+/** The sticky confirmation bar a destructive action asks in, at the foot of its panel. */
+export const confirmBar =
+  "sticky bottom-0 z-10 mt-1 grid justify-items-start gap-3 rounded-lg border-2 border-primary bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg";

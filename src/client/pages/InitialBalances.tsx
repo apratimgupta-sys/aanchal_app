@@ -1,4 +1,4 @@
-import { Field, Input, Panel, Notice } from "../legacy-ui";
+import { Button, Field, FieldError, Input, Notice, Panel, Table, Td, Th, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp } from "../ui";
 import { useState, useContext, useRef } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { z } from "zod";
@@ -69,60 +69,66 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
     setError(t("Please correct the highlighted fields.", "कृपया चिह्नित फ़ील्ड ठीक करें।"));
     toast.error(t("Could not save opening balances", "प्रारंभिक शेष सहेजे नहीं जा सके"));
   };
+  const heads = [t("Service", "सेवा"), t("Pending work", "लंबित कार्य"), t("Pending complaints", "लंबित शिकायतें"), t("Pending field tasks", "लंबित क्षेत्रीय कार्य")];
   return (
-    <Panel className="panel setup-panel">
-      <div className="section-heading setup-heading">
-        <div>
-          <div className="eyebrow">
-            {t("OFFICE SETUP", "कार्यालय सेटअप")}
-          </div>
-          <h2 className="section-title">
-            {t("Set opening balances", "प्रारंभिक शेष दर्ज करें")}
-          </h2>
+    <div className="grid min-w-0 gap-6">
+      <header className="grid gap-1.5">
+        <div className={`text-[11px] font-medium uppercase tracking-[0.05em] [html[lang=hi]_&]:tracking-normal ${leadingBody} text-muted-foreground`}>
+          {t("OFFICE SETUP", "कार्यालय सेटअप")}
         </div>
-      </div>
-      <p className="setup-intro">
-        {t(
-          "Confirm pending service work, complaints and field tasks for all 25 services before the reporting start date. These balances carry forward automatically.",
-          "रिपोर्टिंग प्रारंभ तिथि से पहले सभी 25 सेवाओं के लंबित कार्य, शिकायतें और क्षेत्रीय कार्य की पुष्टि करें। ये शेष स्वतः आगे बढ़ेंगे।",
-        )}
-      </p>
-      <form className="setup-form" onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
-        <Field className="short-field setup-date">
-          {t("Reporting start date", "रिपोर्टिंग प्रारंभ तिथि")}
-          <input
-            type="date"
-            required
-            max={todayIST()}
-            aria-invalid={errors.date ? true : undefined}
-            {...register("date")}
-          />
-          {errors.date && (
-            <small className="field-error">{runtimeText(errors.date.message ?? "", lang)}</small>
+        <h1 className={`text-[23px] font-semibold ${leadingHeading} text-foreground`}>
+          {t("Set opening balances", "प्रारंभिक शेष दर्ज करें")}
+        </h1>
+        <p className={`max-w-3xl text-[13.5px] ${leadingBody} text-muted-foreground`}>
+          {t(
+            "Confirm pending service work, complaints and field tasks for all 25 services before the reporting start date. These balances carry forward automatically.",
+            "रिपोर्टिंग प्रारंभ तिथि से पहले सभी 25 सेवाओं के लंबित कार्य, शिकायतें और क्षेत्रीय कार्य की पुष्टि करें। ये शेष स्वतः आगे बढ़ेंगे।",
           )}
-        </Field>
-        <div className="table-wrap setup-table-wrap" tabIndex={0} aria-label={t("Opening balances table", "प्रारंभिक शेष तालिका")}>
-          <table className="setup-table">
-            <thead>
-              <tr>
-                <th>{t("Service", "सेवा")}</th>
-                <th>{t("Pending work", "लंबित कार्य")}</th>
-                <th>{t("Pending complaints", "लंबित शिकायतें")}</th>
-                <th>{t("Pending field tasks", "लंबित क्षेत्रीय कार्य")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((s, i) => (
-                <tr key={s.id}>
-                  <td>
-                    <span className="service-number">
+        </p>
+      </header>
+      <form className="grid min-w-0 gap-6" onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
+        <Panel className="sm:max-w-sm">
+          <Field>
+            {t("Reporting start date", "रिपोर्टिंग प्रारंभ तिथि")}
+            <input
+              type="date"
+              required
+              max={todayIST()}
+              aria-invalid={errors.date ? true : undefined}
+              {...register("date")}
+            />
+            {errors.date && <FieldError>{runtimeText(errors.date.message ?? "", lang)}</FieldError>}
+          </Field>
+        </Panel>
+        <Table
+          role="table"
+          className={cardTable}
+          containerClassName={cardTableWrap}
+          containerProps={{ tabIndex: 0, role: "region", "aria-label": t("Opening balances table", "प्रारंभिक शेष तालिका") }}
+        >
+          <thead role="rowgroup">
+            <tr role="row">
+              {heads.map((h, i) => (
+                <Th key={h} className={i === 0 ? "lg:w-[42%]" : "lg:text-right"}>{h}</Th>
+              ))}
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {services.map((s, i) => (
+              <tr role="row" key={s.id}>
+                <Td label={heads[0]} className={`${cardTitle} lg:align-middle`}>
+                  <span className="flex items-baseline gap-3 lg:min-h-[44px] lg:items-center">
+                    <span className={`font-mono text-xs ${leadingHelp} tabular-nums text-muted-foreground`}>
                       {String(s.id).padStart(2, "0")}
                     </span>
-                    {lang === "hi" ? s.name : s.en}
-                  </td>
-                  {(["service", "complaints", "field"] as const).map((k) => (
-                    <td key={k}>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{lang === "hi" ? s.name : s.en}</span>
+                  </span>
+                </Td>
+                {(["service", "complaints", "field"] as const).map((k, n) => (
+                  <Td key={k} label={heads[n + 1]}>
+                    <div className="grid min-w-0 justify-items-end gap-1">
                       <Input
+                        width="count"
                         aria-label={`${s.id} ${k}`}
                         type="number"
                         required
@@ -133,40 +139,35 @@ export default function InitialBalances({ onSaved }: { onSaved: () => void }) {
                         {...register(`balances.${i}.opening.${k}`, { valueAsNumber: true })}
                       />
                       {errors.balances?.[i]?.opening?.[k] && (
-                        <small className="field-error">
+                        <FieldError className="text-right">
                           {runtimeText(errors.balances[i]?.opening?.[k]?.message ?? "", lang)}
-                        </small>
+                        </FieldError>
                       )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <Field className="checkbox setup-confirmation">
-          <input
-            type="checkbox"
-            {...register("confirmed")}
-          />
-          {t(
-            "I confirm all opening balances, including zero balances.",
-            "मैं शून्य शेष सहित सभी प्रारंभिक शेष की पुष्टि करता/करती हूँ।",
-          )}
-        </Field>
-        {error && (
-          <Notice role="alert" className="message">
-            {runtimeText(error, lang)}
-          </Notice>
-        )}
-        <div className="setup-actions">
-          <button className="ui-button ui-button-primary" disabled={!confirmed || isSubmitting}>
-          {isSubmitting
-            ? t("Saving…", "सहेजा जा रहा है…")
-            : t("Save opening balances", "प्रारंभिक शेष सहेजें")}
-          </button>
+                    </div>
+                  </Td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+        <Panel className="bg-muted">
+          <Field>
+            <input type="checkbox" {...register("confirmed")} />
+            {t(
+              "I confirm all opening balances, including zero balances.",
+              "मैं शून्य शेष सहित सभी प्रारंभिक शेष की पुष्टि करता/करती हूँ।",
+            )}
+          </Field>
+        </Panel>
+        {error && <Notice role="alert">{runtimeText(error, lang)}</Notice>}
+        <div className="flex justify-end max-sm:[&>button]:w-full">
+          <Button disabled={!confirmed || isSubmitting}>
+            {isSubmitting
+              ? t("Saving…", "सहेजा जा रहा है…")
+              : t("Save opening balances", "प्रारंभिक शेष सहेजें")}
+          </Button>
         </div>
       </form>
-    </Panel>
+    </div>
   );
 }

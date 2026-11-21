@@ -48,32 +48,12 @@
   margin-inline: auto;
   padding: var(--ux4g-padding-2xl);
 }
-.section-heading p {
-  margin-bottom: 0;
-}
-.panel {
-  margin-bottom: var(--ux4g-gap-row-l);
-  min-width: 0;
-}
-.service-number {
-  font-variant-numeric: tabular-nums;
-}
-.message {
-  margin-block: var(--ux4g-gap-row-m);
-}
-.message button {
-  margin-top: var(--ux4g-gap-row-s);
-}
 .filters .ux4g-input-container {
   flex: 1;
   min-width: 10rem;
 }
 /* Reports intentionally scroll horizontally inside their own regions; the
    service register must not force the page wider on mobile. */
-.table-wrap {
-  overflow: auto;
-  max-width: 100%;
-}
 .table-notes {
   margin-block: var(--ux4g-gap-row-m);
 }
@@ -82,13 +62,6 @@
   width: 0.5em;
   height: 0.5em;
   margin-inline-end: var(--ux4g-gap-column-xs);
-}
-.short-field {
-  max-width: 16rem;
-  margin-block: var(--ux4g-gap-row-l);
-}
-.checkbox {
-  margin-block: var(--ux4g-gap-row-l);
 }
 .audit-values {
   max-width: 26rem;
@@ -103,7 +76,6 @@ pre {
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .ui-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: 0 2px 8px rgb(15 35 60 / .05); }
 .ui-card { animation: content-rise .45s ease-out both; }
-.service-number { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
 .ui-card-body { padding: 1.25rem; }
 .ui-field { display: grid; gap: .65rem; min-width: 0; }
 .ui-field > label { color: hsl(var(--foreground)); font-size: .88rem; font-weight: 650; }
@@ -138,10 +110,6 @@ html[lang="hi"] h1, html[lang="hi"] h2, html[lang="hi"] h3, html[lang="hi"] p,
 html[lang="hi"] button, html[lang="hi"] label, html[lang="hi"] input, html[lang="hi"] select,
 html[lang="hi"] textarea, html[lang="hi"] span { line-height: 1.65; }
 html[lang="hi"] .ui-field > label { line-height: 1.55; }
-html[lang="hi"] .section-title { line-height: 1.35; }
-.section-heading { border-bottom: 1px solid hsl(211 64% 23% / .14); padding-bottom: 1rem; }
-.section-heading h2 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
-.eyebrow { color: hsl(var(--muted-foreground)); letter-spacing: .14em; }
 .ui-card { border-color: hsl(211 64% 23% / .14); border-radius: .8rem; box-shadow: 0 14px 40px hsl(211 64% 23% / .08); }
 .ui-card-body { padding: clamp(1.4rem, 3vw, 2.5rem); }
 .ui-button-primary, .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-radius: .45rem; box-shadow: 0 8px 16px hsl(211 64% 23% / .16); }
@@ -150,8 +118,6 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .ui-input:focus, .ui-field input:focus, .ui-field select:focus, .ui-field textarea:focus { border-color: hsl(39 84% 48%); box-shadow: 0 0 0 3px hsl(39 84% 58% / .2); outline: 0; }
 .ui-input:focus-visible, .ui-field input:focus-visible, .ui-field select:focus-visible, .ui-field textarea:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
-.panel { margin-bottom: 1.5rem; }
-.section-heading { margin-bottom: 1.5rem; }
 .ux4g-btn { min-height: 2.75rem; border-radius: .45rem; padding: .65rem 1rem; border: 1px solid hsl(211 64% 23% / .25); background: hsl(0 0% 100% / .8); color: hsl(211 64% 23%); font: inherit; font-weight: 650; cursor: pointer; }
 .ux4g-btn:hover { background: hsl(211 64% 23% / .08); }
 .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-color: hsl(211 64% 23%) !important; color: white !important; box-shadow: 0 6px 14px hsl(211 64% 23% / .18); }
@@ -162,10 +128,6 @@ button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 @media (max-width: 1023px) {
   .workspace {
     padding: var(--ux4g-padding-m);
-  }
-  .section-heading {
-    flex-wrap: wrap;
-    align-items: start;
   }
 }
 
@@ -181,27 +143,7 @@ select {
 }
 .filters .ui-card-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.4rem 1.6rem; align-items: end; }
 .filters .ui-card-body > button { min-height: 2.75rem; }
-.section-heading p, .table-notes { margin-top: .75rem; line-height: 1.6; }
-.table-wrap { margin-top: 1.25rem; }
 [data-title=""] { color: hsl(var(--foreground)); }
-.setup-panel { max-width: 100%; }
-.setup-heading { align-items: flex-end; }
-.setup-intro { max-width: 72ch; color: hsl(var(--muted-foreground)); line-height: 1.65; margin: 0 0 1.75rem; }
-.setup-form { display: grid; gap: 1.5rem; }
-.setup-date { max-width: 22rem; }
-.setup-table-wrap { margin: 0; border: 1px solid hsl(var(--border)); border-radius: .75rem; overflow: auto; background: hsl(var(--card)); }
-.setup-table { width: 100%; min-width: 52rem; border-collapse: separate; border-spacing: 0; }
-.setup-table th { background: hsl(211 64% 23%); color: white; font-size: .78rem; letter-spacing: .02em; text-align: left; padding: .9rem 1rem; white-space: nowrap; }
-.setup-table th:first-child { width: 42%; }
-.setup-table td { padding: .55rem 1rem; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; }
-.setup-table tbody tr:nth-child(even) { background: hsl(211 64% 23% / .03); }
-.setup-table .service-number { display: inline-grid; place-items: center; width: 2rem; height: 2rem; margin-right: .7rem; border-radius: .4rem; background: hsl(211 64% 23% / .08); color: hsl(var(--primary)); font: 700 .75rem/1 "IBM Plex Mono", monospace; }
-.setup-table .ui-input { min-width: 8rem; text-align: right; }
-.setup-confirmation { padding: 1rem 1.15rem; border: 1px solid hsl(var(--border)); border-radius: .65rem; background: hsl(var(--muted) / .55); }
-.setup-actions { display: flex; justify-content: flex-end; padding-top: .25rem; }
-@media (max-width: 700px) { .setup-panel .ui-card-body { padding: 1.25rem; } .setup-heading { align-items: start; } .setup-table th, .setup-table td { padding: .65rem .75rem; } }
-.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-.section-title { margin: 0; line-height: 1.15; }
 @media (max-width: 900px) {
   .filters .ui-card-body { grid-template-columns: 1fr; }
 }
