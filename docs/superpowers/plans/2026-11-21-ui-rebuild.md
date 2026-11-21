@@ -15,7 +15,9 @@
 - **Nothing new is installed.** Every dependency is already in `package.json`: `tailwindcss ^3.4.17`, nine `@radix-ui/*` primitives, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, `sonner`, `@tanstack/react-table`. A task that needs a package not on that list is a plan defect — rule on it and record the ruling; do not add a dependency.
 - **No behaviour change.** Props, state, queries, mutations, validation and error handling stay as they are. A rewritten screen must still satisfy every test that screen already has, unchanged. If an existing test fails after a rewrite, the rewrite is wrong — not the test.
 - **Paired literals stay paired.** Every label is `t("English", "हिन्दी")`. No label is sized to the English string; Hindi runs 30–40% longer.
-- **Tokens, never literals.** After Task 1, no component file contains a hex colour, a hardcoded font family, or a pixel radius. Spacing comes from the scale.
+- **Tailwind utilities only — no hand-written CSS rules.** Stated by the user on 21 November. All styling is utility classes in the markup. The only CSS that survives this plan is `src/client/styles/theme.css` (the token variables Tailwind resolves), the three `@tailwind` directives, and the Google Fonts `@import`. A selector, pseudo-class, keyframe or media query written anywhere else is a finding. Arbitrary values (`w-[84px]`), arbitrary variants (`[&>tr]:border-b`) and group/peer variants are utilities and are the right tool.
+- **No task may add a rule to `styles.css`.** It shrinks as screens migrate and is deleted when the last screen stops depending on it. A screen is not finished while it still uses a class name that file defines.
+- **Tokens, never literals.** No component file contains a hex colour, a hardcoded font family, or a pixel radius. Spacing comes from the scale.
 - **Vite base is `/anchal/`.** Any asset path added must respect it; use the existing `portal-path.ts` helper rather than writing a path.
 - **Untouched files:** `src/domain/*`, `src/shared/*`, `src/client/api.ts`, `src/client/mutation.ts`, `src/client/portal-path.ts`, `src/client/lib/geolocation.ts`, and everything under `src/Anchal.*`.
 - Suites that must stay green at every commit: `npx vitest run` (230 at start), `npx tsc --noEmit`, and `npx playwright test tests/browser/daily-form-live.spec.ts` after a reset (10).
@@ -37,7 +39,7 @@
 
 **Files:**
 - Create: `src/client/styles/tokens.css`
-- Modify: `tailwind.config.js` (map the tokens into the theme), `src/client/main.tsx` (import `tokens.css` before `styles.css`), `index.html` (the font link)
+- Modify: `tailwind.config.ts` (note: `.ts`, not `.js`), `src/client/main.tsx` (import `tokens.css` before `styles.css`), `index.html` (the font link)
 - Test: `tests/ui/tokens.test.ts` (create)
 
 **Interfaces:**
@@ -102,7 +104,8 @@ Expected: PASS, 233 tests, `tsc` clean. No visual change on any screen.
 ### Task 2: The component set
 
 **Files:**
-- Create: `src/client/components/ui/button.tsx`, `input.tsx`, `label.tsx`, `field.tsx`, `select.tsx`, `card.tsx`, `table.tsx`, `badge.tsx`, `dialog.tsx`, `lib/cn.ts`
+- Modify: `src/client/ui.tsx` — **this file already exists and is imported by all nine pages.** It exports `Input`, `Field`, `Panel`, `Notice`, `ReportProgress`. Evolve it; do not create parallel components under another path while nine pages keep importing these.
+- Create: `src/client/lib/cn.ts`, plus whatever new components the screens need (`Button`, `Select`, `Table`, `Badge`, `Dialog`)
 - Test: `tests/ui/components.test.tsx` (create)
 
 **Interfaces:**

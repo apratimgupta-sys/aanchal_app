@@ -25,6 +25,36 @@ behind.
 - No redesign of the entry *flow* in this work. Layout and styling only; the flow rethink waits
   for observed usage.
 
+## Styling: Tailwind utilities only
+
+Stated by the user on 21 November, and binding on every task from here:
+
+**No hand-written CSS rules.** All styling is Tailwind utility classes in the markup. When this
+plan is done, `src/client/styles.css`'s 689 lines and all 217 `ux4g-` class names are gone, along
+with every `app-`, `ui-` and `visit-` class name the stylesheet defines.
+
+Three things stay as CSS, because they cannot be utilities:
+
+1. `src/client/styles/theme.css` — the token variable definitions. Tailwind's own theme resolves
+   `hsl(var(--background))`, so the variables must exist as CSS custom properties. This is the
+   contract Tailwind consumes, not component styling.
+2. The `@tailwind base; @tailwind components; @tailwind utilities;` directives, which need a CSS
+   entry file.
+3. The Google Fonts `@import`.
+
+That is about thirty lines of declarations and zero component rules. Anything beyond it — a
+selector, a pseudo-class, a keyframe, a media query — is a finding, with one exception: a rule that
+genuinely has no utility equivalent may live in `@layer base`, and only after the task's report
+states what was tried and why it could not be expressed as a utility. Arbitrary values
+(`w-[84px]`), arbitrary variants (`[&>tr]:border-b`) and group/peer variants are utilities and are
+the right tool; reaching for a stylesheet because a utility is awkward is not.
+
+**This changes when the stylesheet dies.** The original plan deleted it in a final task while every
+earlier task left it serving the screens not yet migrated. It still shrinks screen by screen — each
+screen's rebuild removes the rules only it used — but the file is now deleted the moment the last
+screen stops importing anything from it, and no task may add a rule to it. A screen is not finished
+while it still depends on a class name from that file.
+
 ## Anti-goals
 
 - A fourth styling system. Today there are three half-present at once — UX4G class names, a
@@ -36,26 +66,56 @@ behind.
 
 ### Colour
 
-| Token | Value | Used for |
-|---|---|---|
-| `bg` | `#F7F7F5` | page ground |
-| `surface` | `#FFFFFF` | cards, table bodies, inputs |
-| `sunken` | `#FAFAF8` | table headers |
-| `fg` | `#15181C` | primary text |
-| `muted` | `#5A6270` | labels, secondary text, Hindi sub-labels |
-| `line` | `#E4E6EA` | card and table borders |
-| `control-line` | `#D7DAE0` | input and select borders |
-| `row-line` | `#F0F1F3` | row dividers inside a card |
-| `accent` | `#0B6257` | primary buttons, active state, links |
-| `accent-hover` | `#073F38` | link hover |
+**Correction to the first draft of this spec, made before implementation.** The portal already has
+a working token layer and this spec originally proposed a second one. `src/client/styles/theme.css`
+is imported at `main.tsx:8` and defines the full shadcn variable contract as HSL triplets;
+`tailwind.config.ts` maps its entire theme onto those variables; and `styles.css` consumes them in
+fourteen places plus six `bg-primary` utilities. So the work is to **re-value the existing
+variables**, not to introduce `--bg`/`--surface`/`--line` beside them. Inventing a second set of
+names would be the "fourth styling system" this spec's anti-goals forbid.
 
-Two status pairs, each differing in lightness as well as hue so they are distinguishable
-without colour vision:
+The practical consequence is that the palette change is one file, and it propagates to every screen
+at once without touching any markup.
+
+The design values below are authoritative as hex, taken from the approved mockups. They are stored
+as space-separated HSL triplets, because that is the form `hsl(var(--token))` and Tailwind's theme
+both require.
+
+| Existing variable | Design value | Role |
+|---|---|---|
+| `--background` | `#F7F7F5` | page ground |
+| `--card`, `--card-foreground` | `#FFFFFF`, `#15181C` | cards, table bodies, inputs |
+| `--foreground` | `#15181C` | primary text |
+| `--muted` | `#FAFAF8` | table headers, hover grounds |
+| `--muted-foreground` | `#5A6270` | labels, secondary text, Hindi sub-labels |
+| `--border` | `#E4E6EA` | card and table borders |
+| `--input` | `#D7DAE0` | input and select borders |
+| `--primary`, `--primary-foreground` | `#0B6257`, `#FFFFFF` | primary buttons, active state, links |
+| `--ring` | `#0B6257` | focus ring |
+| `--accent`, `--accent-foreground` | `#F2F8F6`, `#0B6257` | the settled pair |
+| `--warning`, `--warning-foreground` | `#7A4A00`, `#FDF3DF` | the attention pair |
+| `--destructive` | unchanged | errors |
+| `--radius` | see below | cards 10px, controls 7px |
+
+Row dividers inside a card (`#F0F1F3` in the mockups) and the accent hover (`#073F38`) have no
+variable in the existing contract. Add them as new variables only if a component needs them;
+otherwise derive them.
+
+`--radius` is a single value from which Tailwind derives `md` and `sm`. Pick the value that gives
+10px cards and lands controls nearest 7px, and record the arithmetic in the file.
+
+Two status pairs, each differing in lightness as well as hue so they are distinguishable without
+colour vision:
 
 - **Settled** — fill `#F2F8F6`, border `#C8E2DB`, ink `#0B6257`
 - **Attention** — fill `#FDF3DF`, border `#F0D79B`, ink `#7A4A00`
 
 Status colours are reserved for state. They are never reused as decoration.
+
+**Dark mode is out of scope and stays dead.** `theme.css` carries a `.dark` block and
+`tailwind.config.ts` sets `darkMode: ["class"]`, but nothing in the product ever adds that class.
+Leave the block as it is rather than re-valuing it: a half-designed dark theme that nobody can
+reach is worse than an undesigned one, and an office monitoring portal is used in daylight.
 
 ### Type
 
@@ -70,7 +130,7 @@ Status colours are reserved for state. They are never reused as decoration.
 
 ### Controls
 
-- Inputs and selects: **42px minimum height**, `10px 12px` padding, 7px radius, 1px
+- Inputs and selects: **44px minimum height**. The mockups drew 42px, but the accessibility gate requires a 44px touch target and the two must not disagree; 44 satisfies both., `10px 12px` padding, 7px radius, 1px
   `control-line` border.
 - Label sits above its control with a **6px** gap. Never a placeholder in place of a label.
 - Number inputs are **sized to their content** — 84px for a count, 118px for money — not
