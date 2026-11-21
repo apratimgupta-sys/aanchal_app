@@ -71,14 +71,14 @@ test.describe("field visit module against the real backend", () => {
     await page.getByLabel("Reason").fill("Filed against the wrong ward by mistake.");
     await page.getByRole("button", { name: "Confirm void" }).click();
     await expect(row).toContainText("Voided: Filed against the wrong ward by mistake.");
-    await expect(row).toHaveClass(/is-voided/);
+    await expect(row).toHaveAttribute("data-voided", "");
 
     // Voided rows are retained, never deleted (spec 7.4): it is still there
     // after a reload.
     await page.reload();
     const reloaded = page.locator("[data-testid^='visit-']").filter({ hasText: marker });
     await expect(reloaded).toHaveCount(1);
-    await expect(reloaded).toHaveClass(/is-voided/);
+    await expect(reloaded).toHaveAttribute("data-voided", "");
   });
 
   /// This is the step the earlier live run skipped: the password change had

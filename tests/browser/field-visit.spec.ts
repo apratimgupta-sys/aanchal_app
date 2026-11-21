@@ -136,7 +136,7 @@ test.describe("field visit module", () => {
     // The spec requires a voided record to read as struck through, not merely
     // to carry a class name.
     const row = page.getByTestId("visit-v1");
-    await expect(row).toHaveClass(/is-voided/);
+    await expect(row).toHaveAttribute("data-voided", "");
     const decoration = await row.evaluate(
       (node) => getComputedStyle(node).textDecorationLine,
     );

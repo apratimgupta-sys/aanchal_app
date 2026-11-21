@@ -9,7 +9,7 @@ import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
 import { Language, runtimeText, useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
-import { Field, Notice, Panel } from "../legacy-ui";
+import { Button, Field, FieldError, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, confirmBar, leadingBody, leadingHeading } from "../ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
@@ -90,174 +90,205 @@ export default function VisitRegister() {
     voidMutation.mutate({ id: voiding.id, why: reason.trim() });
   }
 
+  const note = `text-[13.5px] ${leadingBody} text-muted-foreground`;
+  const heads = [
+    text("Date and time", "तिथि और समय"),
+    text("Officer", "अधिकारी"),
+    text("Anchal and ward", "अंचल और वार्ड"),
+    text("Activity", "गतिविधि"),
+    text("Issue / Action", "समस्या / कार्रवाई"),
+    text("Location", "स्थान"),
+    text("Status", "स्थिति"),
+  ];
+  const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
   return (
-    <main id="main-content" tabIndex={-1} className="workspace">
-      <Panel>
-        <h1>{text("Field visit register", "क्षेत्रीय निरीक्षण रजिस्टर")}</h1>
-        <div className="filters">
-          <Field>
-            {text("From", "से")}
-            <input type="date" value={filters.from} onChange={(e) => setFilter({ from: e.target.value })} />
-          </Field>
-          <Field>
-            {text("To", "तक")}
-            <input type="date" value={filters.to} onChange={(e) => setFilter({ to: e.target.value })} />
-          </Field>
-          <Field>
-            {text("Anchal", "अंचल")}
-            <select
-              value={filters.officeId ?? ""}
-              onChange={(e) => setFilter({ officeId: e.target.value === "" ? undefined : Number(e.target.value) })}
-            >
-              <option value="">{text("All Anchals", "सभी अंचल")}</option>
-              {ANCHALS.map((id) => (
-                <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
-              ))}
-            </select>
-          </Field>
-          <Field>
-            {text("Ward", "वार्ड")}
-            <select
-              value={filters.ward ?? ""}
-              onChange={(e) => setFilter({ ward: e.target.value === "" ? undefined : Number(e.target.value) })}
-            >
-              <option value="">{text("All wards", "सभी वार्ड")}</option>
-              {WARDS.map((number) => (
-                <option key={number} value={number}>{number}</option>
-              ))}
-            </select>
-          </Field>
-          <Field>
-            {text("Activity", "गतिविधि")}
-            <select
-              value={filters.serviceId ?? ""}
-              onChange={(e) => setFilter({ serviceId: e.target.value === "" ? undefined : Number(e.target.value) })}
-            >
-              <option value="">{text("All activities", "सभी गतिविधियाँ")}</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field>
-            {text("Officer", "अधिकारी")}
-            <select
-              value={filters.officerId ?? ""}
-              onChange={(e) => setFilter({ officerId: e.target.value === "" ? undefined : e.target.value })}
-            >
-              <option value="">{text("All officers", "सभी अधिकारी")}</option>
-              {(officers.data ?? []).map((person) => (
-                <option key={person.id} value={person.id}>
-                  {`${person.name} · ${person.designation}`}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
+    <div className="grid min-w-0 gap-6">
+      <header className="grid gap-1.5">
+        <h1 className={`text-[23px] font-semibold ${leadingHeading} text-foreground`}>{text("Field visit register", "क्षेत्रीय निरीक्षण रजिस्टर")}</h1>
+      </header>
+      <Panel className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Field>
+          {text("From", "से")}
+          <input type="date" value={filters.from} onChange={(e) => setFilter({ from: e.target.value })} />
+        </Field>
+        <Field>
+          {text("To", "तक")}
+          <input type="date" value={filters.to} onChange={(e) => setFilter({ to: e.target.value })} />
+        </Field>
+        <Field>
+          {text("Anchal", "अंचल")}
+          <select
+            value={filters.officeId ?? ""}
+            onChange={(e) => setFilter({ officeId: e.target.value === "" ? undefined : Number(e.target.value) })}
+          >
+            <option value="">{text("All Anchals", "सभी अंचल")}</option>
+            {ANCHALS.map((id) => (
+              <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
+            ))}
+          </select>
+        </Field>
+        <Field>
+          {text("Ward", "वार्ड")}
+          <select
+            value={filters.ward ?? ""}
+            onChange={(e) => setFilter({ ward: e.target.value === "" ? undefined : Number(e.target.value) })}
+          >
+            <option value="">{text("All wards", "सभी वार्ड")}</option>
+            {WARDS.map((number) => (
+              <option key={number} value={number}>{number}</option>
+            ))}
+          </select>
+        </Field>
+        <Field>
+          {text("Activity", "गतिविधि")}
+          <select
+            value={filters.serviceId ?? ""}
+            onChange={(e) => setFilter({ serviceId: e.target.value === "" ? undefined : Number(e.target.value) })}
+          >
+            <option value="">{text("All activities", "सभी गतिविधियाँ")}</option>
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field>
+          {text("Officer", "अधिकारी")}
+          <select
+            value={filters.officerId ?? ""}
+            onChange={(e) => setFilter({ officerId: e.target.value === "" ? undefined : e.target.value })}
+          >
+            <option value="">{text("All officers", "सभी अधिकारी")}</option>
+            {(officers.data ?? []).map((person) => (
+              <option key={person.id} value={person.id}>
+                {`${person.name} · ${person.designation}`}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </Panel>
 
-        {isPending && <p>{text("Loading…", "लोड हो रहा है…")}</p>}
-        {isError && (
-          <Notice>{text("Could not load the register. Try again.", "रजिस्टर लोड नहीं हो सका। पुनः प्रयास करें।")}</Notice>
-        )}
-        {data && data.rows.length === 0 && (
-          <p>{text("No visits for these filters.", "इन फ़िल्टरों के लिए कोई निरीक्षण नहीं।")}</p>
-        )}
+      {isPending && <p className={note}>{text("Loading…", "लोड हो रहा है…")}</p>}
+      {isError && (
+        <Notice>{text("Could not load the register. Try again.", "रजिस्टर लोड नहीं हो सका। पुनः प्रयास करें।")}</Notice>
+      )}
+      {data && data.rows.length === 0 && (
+        <p className={note}>{text("No visits for these filters.", "इन फ़िल्टरों के लिए कोई निरीक्षण नहीं।")}</p>
+      )}
 
-        {data && data.rows.length > 0 && (
-          <p className="visit-count">
+      {data && data.rows.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <p className={`${note} font-mono tabular-nums`}>
             {text(
-              `${data.total} visits · page ${page} of ${Math.max(1, Math.ceil(data.total / PAGE_SIZE))}`,
-              `${data.total} निरीक्षण · पृष्ठ ${page} / ${Math.max(1, Math.ceil(data.total / PAGE_SIZE))}`,
+              `${data.total} visits · page ${page} of ${pages}`,
+              `${data.total} निरीक्षण · पृष्ठ ${page} / ${pages}`,
             )}
           </p>
-        )}
-        {data && data.total > PAGE_SIZE && (
-          <div className="visit-paging">
-            <button
-              type="button"
-              className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page === 1}
-            >
-              {text("Previous", "पिछला")}
-            </button>
-            <button
-              type="button"
-              className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
-              onClick={() => setPage((current) => current + 1)}
-              disabled={page >= Math.ceil(data.total / PAGE_SIZE)}
-            >
-              {text("Next", "अगला")}
-            </button>
-          </div>
-        )}
-        {data && data.rows.length > 0 && (
-          <ul className="visit-list">
+          {data.total > PAGE_SIZE && (
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1}
+              >
+                {text("Previous", "पिछला")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={page >= Math.ceil(data.total / PAGE_SIZE)}
+              >
+                {text("Next", "अगला")}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {data && data.rows.length > 0 && (
+        <Table
+          role="table"
+          className={cardTable}
+          containerClassName={cardTableWrap}
+          containerProps={{ tabIndex: 0, role: "region", "aria-label": text("Field visit register table", "क्षेत्रीय निरीक्षण रजिस्टर तालिका") }}
+        >
+          <thead role="rowgroup">
+            <tr role="row">
+              {heads.map((h) => (
+                <Th key={h}>{h}</Th>
+              ))}
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
             {data.rows.map((row) => (
-              <li
+              <tr
+                role="row"
                 key={row.id}
                 data-testid={`visit-${row.id}`}
-                className={`visit-row ${row.voidedAt ? "is-voided" : ""}`}
+                data-voided={row.voidedAt ? "" : undefined}
+                className={row.voidedAt ? "text-muted-foreground line-through" : undefined}
               >
-                <strong>{row.visitDate} · {row.visitTime}</strong>
-                <span>{row.officerName} · {row.officerDesignation}</span>
-                <span>
-                  {text("Anchal", "अंचल")} {row.officeId} · {text("Ward", "वार्ड")} {row.ward}
-                </span>
-                <span>{serviceName(row.serviceId)}</span>
-                <p>{row.issueAction}</p>
-                <VisitLocation gps={row.gps} ward={row.ward} visitDate={row.visitDate} visitTime={row.visitTime} />
-                {row.voidedAt ? (
-                  <span className="visit-void">{text("Voided", "निरस्त")}: {row.voidReason}</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="ux4g-btn ux4g-btn-s ux4g-btn-outline-neutral"
-                    onClick={() => {
-                      setVoiding(row);
-                      setReason("");
-                      setReasonError(null);
-                    }}
-                  >
-                    {text("Void", "निरस्त करें")}
-                  </button>
-                )}
-              </li>
+                <Td label={heads[0]} className={`${cardTitle} lg:whitespace-nowrap`}>{row.visitDate} · {row.visitTime}</Td>
+                <Td label={heads[1]} className="max-lg:grid max-lg:justify-normal max-lg:gap-0.5 lg:min-w-[10rem]">
+                  <span className="block font-medium">{row.officerName}</span>
+                  <span className="block text-muted-foreground">{row.officerDesignation}</span>
+                </Td>
+                <Td label={heads[2]} className="lg:whitespace-nowrap">
+                  <span>{text("Anchal", "अंचल")} {row.officeId} · {text("Ward", "वार्ड")} {row.ward}</span>
+                </Td>
+                <Td label={heads[3]} className="lg:min-w-[9rem]">{serviceName(row.serviceId)}</Td>
+                <Td label={heads[4]} className={`${cardStacked} whitespace-pre-wrap lg:min-w-[16rem]`}>{row.issueAction}</Td>
+                <Td label={heads[5]} className={`${cardStacked} lg:grid lg:min-w-[14rem] lg:gap-0.5`}>
+                  <VisitLocation gps={row.gps} ward={row.ward} visitDate={row.visitDate} visitTime={row.visitTime} />
+                </Td>
+                <Td label={heads[6]} className={cardStacked}>
+                  {row.voidedAt ? (
+                    // Atomic inline: the row's strike-through does not run through the reason.
+                    <span className="inline-block font-medium text-destructive">{text("Voided", "निरस्त")}: {row.voidReason}</span>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="justify-self-start"
+                      onClick={() => {
+                        setVoiding(row);
+                        setReason("");
+                        setReasonError(null);
+                      }}
+                    >
+                      {text("Void", "निरस्त करें")}
+                    </Button>
+                  )}
+                </Td>
+              </tr>
             ))}
-          </ul>
-        )}
+          </tbody>
+        </Table>
+      )}
 
-        {voiding && (
-          <div className="void-dialog" role="dialog" aria-label={text("Void visit", "निरीक्षण निरस्त करें")}>
-            <p>
-              {text("Voiding keeps the record and marks it struck through.", "निरस्त करने पर अभिलेख बना रहता है और काटकर दिखाया जाता है।")}
-            </p>
-            <Field>
-              {text("Reason", "कारण")}
-              <textarea ref={reasonRef} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
-              {reasonError && <span className="field-error">{reasonError}</span>}
-            </Field>
-            {voidError && <Notice>{voidError}</Notice>}
-            <button
-              className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
-              type="button"
-              onClick={confirmVoid}
-              disabled={voidMutation.isPending}
-            >
+      {voiding && (
+        <div className={confirmBar} role="dialog" aria-label={text("Void visit", "निरीक्षण निरस्त करें")}>
+          <p className={`text-[13.5px] ${leadingBody} text-foreground`}>
+            {text("Voiding keeps the record and marks it struck through.", "निरस्त करने पर अभिलेख बना रहता है और काटकर दिखाया जाता है।")}
+          </p>
+          <Field className="w-full max-w-xl">
+            {text("Reason", "कारण")}
+            <textarea ref={reasonRef} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+            {reasonError && <FieldError>{reasonError}</FieldError>}
+          </Field>
+          {voidError && <Notice>{voidError}</Notice>}
+          <div className="grid gap-3 max-sm:w-full sm:flex">
+            <Button type="button" onClick={confirmVoid} disabled={voidMutation.isPending}>
               {text("Confirm void", "निरस्तीकरण पुष्टि करें")}
-            </button>
-            <button
-              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-              type="button"
-              onClick={() => setVoiding(null)}
-            >
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setVoiding(null)}>
               {text("Cancel", "रद्द करें")}
-            </button>
+            </Button>
           </div>
-        )}
-      </Panel>
-    </main>
+        </div>
+      )}
+    </div>
   );
 }

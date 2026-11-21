@@ -45,7 +45,7 @@ export default function VisitLocation({
     );
   return (
     <>
-      <span className={`font-mono text-[12.5px] tabular-nums ${leadingBody} text-muted-foreground`}>
+      <span className={`font-mono text-[12.5px] tabular-nums whitespace-nowrap ${leadingBody} text-muted-foreground`}>
         {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.accuracyMetres)} m
       </span>
       <a

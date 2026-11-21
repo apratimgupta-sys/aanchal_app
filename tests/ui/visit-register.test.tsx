@@ -105,7 +105,7 @@ describe("VisitRegister", () => {
     });
     renderRegister();
     await screen.findByTestId("visit-v2");
-    const names = within(screen.getByRole("list")).getAllByRole("link").map((link) => link.getAttribute("aria-label"));
+    const names = within(screen.getByRole("table")).getAllByRole("link").map((link) => link.getAttribute("aria-label"));
     expect(names).toEqual([
       "Open in Google Maps — Ward 24, 2026-11-19 10:30",
       "Open in Google Maps — Ward 24, 2026-11-19 14:05",
