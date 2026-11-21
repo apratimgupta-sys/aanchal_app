@@ -181,15 +181,3 @@ select {
   justify-items: start;
 }
 
-.officer-list { list-style: none; margin: 1.2rem 0 0; padding: 0; display: grid; gap: 0.7rem; }
-.officer-list > li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem 1.1rem;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--rmc-border, #c9cfdb);
-  border-radius: 0.5rem;
-}
-.officer-list > li.is-inactive { opacity: 0.6; }
-.temp-password code { font-size: 1.1rem; letter-spacing: 0.06em; }
