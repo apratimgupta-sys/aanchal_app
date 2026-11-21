@@ -20,7 +20,7 @@ import {
   entryCrossFieldErrors,
   type EntryCounts,
 } from "../../domain/entry-rules";
-import { formShape } from "../../domain/service-kind";
+import { collects, formShape } from "../../domain/service-kind";
 const COUNT_KEYS = [
   "received",
   "completed",
@@ -781,20 +781,17 @@ export default function DailyEntry({
                   className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
                   type="button"
                   onClick={() => {
-                    setInput((p) => ({
-                      ...blank(date, selected),
-                      received: 0,
-                      completed: 0,
-                      slaWithinTime: 0,
-                      complaintsReceived: 0,
-                      complaintsResolved: 0,
-                      fieldReceived: 0,
-                      fieldCompleted: 0,
-                      ward: p.ward,
-                      remarks: p.remarks,
-                      nothingToReport: true,
-                    }));
-                    setMoney("0.00");
+                    // Zero only what this shape asks for. Every other field is
+                    // retired but may hold a figure already filed, and a
+                    // correction must not erase it.
+                    const shown = shownKeys(selected);
+                    setInput((p) => {
+                      const next: EntryInput = { ...p, nothingToReport: true };
+                      for (const k of COUNT_KEYS) if (shown.has(k)) next[k] = 0;
+                      if (collects(selected, "amountPaise")) next.amountPaise = 0;
+                      return next;
+                    });
+                    if (collects(selected, "amountPaise")) setMoney("0.00");
                     setDirty(true);
                   }}
                 >
