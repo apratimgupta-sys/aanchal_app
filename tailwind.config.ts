@@ -5,6 +5,25 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // One family across both scripts: Plex Sans for Latin, Plex Sans Devanagari
+      // for Hindi, each with a real fallback. Devanagari Plex also carries Latin,
+      // so it is the face that renders if only it has loaded.
+      fontFamily: {
+        sans: [
+          '"IBM Plex Sans"',
+          '"IBM Plex Sans Devanagari"',
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          '"Segoe UI"',
+          '"Noto Sans Devanagari"',
+          "Roboto",
+          "sans-serif",
+        ],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+      },
+      // Devanagari matras need more room than Latin; the default scale clips them.
+      lineHeight: { body: "1.6", help: "1.5", heading: "1.4" },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

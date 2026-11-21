@@ -80,22 +80,33 @@ async function accessible(page: import("@playwright/test").Page) {
     })),
   ).toEqual([]);
 }
+// Selects by element, not by class, so it keeps watching a screen after its
+// stylesheet classes are gone. A checkbox or radio is tapped through its label,
+// so the label is what gets measured. The two button exclusions are shell
+// classes (AppShell.tsx); delete them with the shell in the app-shell task.
 async function touchTargets(page: import("@playwright/test").Page) {
   const undersized = await page
     .locator(
-      "button:not(:disabled):not(.app-menu-button):not(.app-drawer-close), .ui-input, .ui-select, .ui-textarea, .ui-checkbox-control, summary",
+      "button:not(:disabled):not(.app-menu-button):not(.app-drawer-close), input:not([type=hidden]), select, textarea, summary",
     )
     .evaluateAll((elements) =>
       elements
-        .filter((el) => {
-          const r = el.getBoundingClientRect();
+        .map((el) => ({
+          el,
+          target:
+            el instanceof HTMLInputElement && ["checkbox", "radio"].includes(el.type)
+              ? (el.closest("label") ?? el)
+              : el,
+        }))
+        .filter(({ target }) => {
+          const r = target.getBoundingClientRect();
           return r.width > 0 && r.height > 0 && (r.width < 44 || r.height < 44);
         })
-        .map((el) => ({
+        .map(({ el, target }) => ({
           tag: el.tagName,
           name: el.textContent?.trim(),
-          width: el.getBoundingClientRect().width,
-          height: el.getBoundingClientRect().height,
+          width: target.getBoundingClientRect().width,
+          height: target.getBoundingClientRect().height,
         })),
     );
   expect(undersized).toEqual([]);

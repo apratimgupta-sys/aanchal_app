@@ -42,3 +42,24 @@ describe("theme.css token contract", () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe("tailwind font families", () => {
+  const ff = (config.theme?.extend as { fontFamily?: Record<string, string[]> }).fontFamily ?? {};
+  it("sans leads with IBM Plex Sans and carries Devanagari in the same stack", () => {
+    expect(ff.sans?.[0]).toBe('"IBM Plex Sans"');
+    expect(ff.sans).toContain('"IBM Plex Sans Devanagari"');
+  });
+  it("mono is IBM Plex Mono", () => {
+    expect(ff.mono?.[0]).toBe('"IBM Plex Mono"');
+  });
+  it("every stack ends in a generic family, so a blocked font still renders sensibly", () => {
+    for (const key of ["sans", "mono"]) {
+      expect(ff[key]?.at(-1)).toMatch(/^(sans-serif|monospace)$/);
+    }
+  });
+  it("defines explicit line heights for the Devanagari-safe body, help and heading text", () => {
+    const lh = (config.theme?.extend as { lineHeight?: Record<string, string> }).lineHeight ?? {};
+    for (const k of ["body", "help", "heading"]) expect(Number(lh[k])).toBeGreaterThanOrEqual(1.4);
+    expect(Number(lh.body)).toBeGreaterThanOrEqual(1.6);
+  });
+});

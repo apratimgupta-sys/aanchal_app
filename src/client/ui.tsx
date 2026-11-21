@@ -13,7 +13,7 @@ const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:o
 
 const control = cva(
   [
-    "block min-h-[44px] min-w-0 rounded-[7px] border border-input bg-card px-3 py-[10px] text-[13.5px] leading-[1.6] text-foreground",
+    "block min-h-[44px] min-w-0 rounded-[7px] border border-input bg-card px-3 py-[10px] text-[13.5px] leading-body text-foreground",
     "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
     "aria-[invalid=true]:border-destructive",
     focusRing,
@@ -42,7 +42,7 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
 }
 
 export function FieldError({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return <span {...props} className={cn("block text-xs leading-[1.5] text-destructive", className)} />;
+  return <span {...props} className={cn("block text-xs leading-help text-destructive", className)} />;
 }
 
 const isControl = (c: unknown): c is ReactElement<Record<string, unknown>> =>
@@ -77,7 +77,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
   });
   if (el.props.type === "checkbox") {
     return (
-      <label className={cn("flex min-h-[44px] cursor-pointer items-start gap-2.5 text-[13.5px] leading-[1.6]", className)}>
+      <label className={cn("flex min-h-[44px] cursor-pointer items-start gap-2.5 text-[13.5px] leading-body", className)}>
         {cloneElement(el, { id, className: "mt-[3px] size-[18px] shrink-0 accent-primary" })}
         <span>{labelParts}{helpers}</span>
       </label>
@@ -85,14 +85,14 @@ export function Field({ children, className, label, htmlFor }: { children: React
   }
   return (
     <div className={cn("grid min-w-0 gap-1.5", className)}>
-      <label htmlFor={id} className="text-[11px] font-medium leading-[1.6] text-muted-foreground">
+      <label htmlFor={id} className="text-[11px] font-medium leading-body text-muted-foreground">
         {labelParts}
         {Boolean(el.props.required) && <span aria-hidden="true"> *</span>}
       </label>
       {before}
       {accessible}
       {helpers.length > 0 && (
-        <div id={helpId} className={cn("text-xs leading-[1.5]", error ? "text-destructive" : "text-muted-foreground")}>
+        <div id={helpId} className={cn("text-xs leading-help", error ? "text-destructive" : "text-muted-foreground")}>
           {helpers}
         </div>
       )}
@@ -102,7 +102,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
 
 const button = cva(
   [
-    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[7px] border px-4 py-2.5 text-center text-[13.5px] font-medium leading-[1.6]",
+    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[7px] border px-4 py-2.5 text-center text-[13.5px] font-medium leading-body",
     "transition-colors disabled:cursor-not-allowed disabled:opacity-60",
     focusRing,
   ],
@@ -131,7 +131,7 @@ export function Panel({ children, className, ...props }: HTMLAttributes<HTMLElem
 }
 export const Card = Panel;
 
-const notice = cva("rounded-[7px] border border-l-4 px-4 py-3 text-[13.5px] leading-[1.6] text-foreground", {
+const notice = cva("rounded-[7px] border border-l-4 px-4 py-3 text-[13.5px] leading-body text-foreground", {
   variants: {
     tone: {
       error: "border-destructive/35 border-l-destructive bg-destructive/[0.07]",
@@ -149,7 +149,7 @@ export function Notice({ children, className, role = "alert", ...props }: HTMLAt
 }
 
 // Status colours are reserved for state, and every tone carries its text.
-const badge = cva("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-[1.6]", {
+const badge = cva("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-body", {
   variants: {
     tone: {
       neutral: "border-border bg-muted text-muted-foreground",
@@ -172,7 +172,7 @@ export function Table({ className, children, ...props }: ComponentProps<"table">
       <table
         {...props}
         className={cn(
-          "w-full border-collapse text-left text-[13.5px] leading-[1.6]",
+          "w-full border-collapse text-left text-[13.5px] leading-body",
           "[&_th]:border-b [&_th]:border-border [&_th]:bg-muted [&_th]:px-4 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-[0.05em] [&_th]:text-muted-foreground",
           "[html[lang=hi]_&_th]:tracking-normal",
           "[&_td]:px-4 [&_td]:py-3 [&_tbody_tr+tr]:border-t [&_tbody_tr+tr]:border-border/60",
