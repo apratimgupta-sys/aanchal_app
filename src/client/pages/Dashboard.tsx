@@ -15,6 +15,9 @@ const currency = (paise: number) =>
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(paise / 100);
+// A stamp we can print, or null. Never lets "Invalid Date" reach the screen.
+const usableStamp = (v?: string | null) =>
+  v && !Number.isNaN(new Date(v).getTime()) ? v : null;
 const percent = (v: number | null) => (v === null ? "—" : v.toFixed(1) + "%");
 export default function Dashboard() {
   const lang = useContext(Language),
@@ -26,7 +29,6 @@ export default function Dashboard() {
     [service, setService] = useState(""),
     [rows, setRows] = useState<MonitoringRow[]>([]),
     [updated, setUpdated] = useState(""),
-    [status, setStatus] = useState("Connecting"),
     [error, setError] = useState(""),
     [details, setDetails] = useState<EntryView[] | null>(null);
   const queryClient = useQueryClient();
@@ -42,14 +44,14 @@ export default function Dashboard() {
   activeQuery.current = query;
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", query],
-    queryFn: () => api<{ rows: MonitoringRow[]; updatedAt: string }>("/dashboard?" + query),
+    queryFn: () => api<{ rows: MonitoringRow[]; updatedAt: string; retrievedAt?: string }>("/dashboard?" + query),
   });
   useEffect(() => {
     detailsOpen.current = false;
     setDetails(null);
     if (dashboardQuery.data) {
       setRows(dashboardQuery.data.rows);
-      setUpdated(dashboardQuery.data.updatedAt);
+      setUpdated(usableStamp(dashboardQuery.data.updatedAt) ?? usableStamp(dashboardQuery.data.retrievedAt) ?? "");
       setError("");
     }
     if (dashboardQuery.error) {
@@ -62,50 +64,17 @@ export default function Dashboard() {
     }
     loadRef.current = () => void dashboardQuery.refetch();
   }, [dashboardQuery.data, dashboardQuery.error, dashboardQuery.refetch]);
+  // There is no live feed on the server, so these two are what keep the
+  // dashboard current: a poll while the tab is visible, and a refresh on focus.
   useEffect(() => {
-    let closed = false;
-    let ws: WebSocket;
-    let retry: ReturnType<typeof setTimeout>;
-    let heartbeat: ReturnType<typeof setInterval>;
-    let attempt = 0;
-    const connect = () => {
-      if (closed) return;
-      setStatus("Connecting");
-      ws = new WebSocket(
-        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/live`,
-      );
-      ws.onopen = () => {
-        attempt = 0;
-        setStatus("Connected");
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      };
-      ws.onmessage = (e) => {
-        if (e.data === "pong") return;
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      };
-      ws.onclose = () => {
-        if (closed) return;
-        setStatus("Reconnecting");
-        retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
-      };
-      ws.onerror = () => ws.close();
-    };
-    connect();
-    heartbeat = setInterval(() => {
-      if (ws?.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 20000);
-    const fallback = setInterval(() => {
+    const poll = setInterval(() => {
       if (document.visibilityState === "visible") queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     }, 15000);
     const focus = () => queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     window.addEventListener("focus", focus);
     return () => {
-      closed = true;
-      clearTimeout(retry);
-      clearInterval(heartbeat);
-      clearInterval(fallback);
+      clearInterval(poll);
       window.removeEventListener("focus", focus);
-      ws?.close();
     };
   }, [queryClient]);
   const totals = rows.reduce(
@@ -188,6 +157,14 @@ export default function Dashboard() {
               the ledger is derived on read, so an October period is recomputed
               on today's shape rules too — saying only "not comparable" would
               imply the earlier figures are as they were filed. */}
+          {updated && (
+            <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
+              {t(
+                `Figures as of ${formatIndiaDateTime(updated)}`,
+                `आंकड़े ${formatIndiaDateTime(updated)} तक`,
+              )}
+            </p>
+          )}
           <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
             {t(
               `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
