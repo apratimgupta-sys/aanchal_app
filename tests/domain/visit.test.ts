@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  VERIFY_ACCURACY_METRES,
-  VERIFY_WINDOW_MINUTES,
-  WARD_MAX,
-  validateVisitInput,
-  verifyOnSite,
-} from "../../src/domain/visit";
+import { WARD_MAX, validateVisitInput } from "../../src/domain/visit";
 import { isCanonicalWard } from "../../src/domain/entry-rules";
 import type { FieldVisitInput, GpsReading } from "../../src/shared/types";
-
-const RECEIVED_AT = "2026-11-19T06:00:00.000Z";
 
 function reading(overrides: Partial<GpsReading> = {}): GpsReading {
   return {
@@ -20,71 +12,6 @@ function reading(overrides: Partial<GpsReading> = {}): GpsReading {
     ...overrides,
   };
 }
-
-function minutesBefore(iso: string, minutes: number): string {
-  return new Date(Date.parse(iso) - minutes * 60_000).toISOString();
-}
-
-describe("verifyOnSite", () => {
-  it("verifies a tight reading received straight away", () => {
-    expect(verifyOnSite(reading(), RECEIVED_AT)).toEqual({ verified: true, reason: "ok" });
-  });
-
-  it("rejects a reading accurate only to kilometres", () => {
-    expect(verifyOnSite(reading({ accuracyMetres: 5000 }), RECEIVED_AT)).toEqual({
-      verified: false,
-      reason: "accuracy",
-    });
-  });
-
-  it("rejects a reading captured outside the window", () => {
-    const capturedAt = minutesBefore(RECEIVED_AT, VERIFY_WINDOW_MINUTES + 1);
-    expect(verifyOnSite(reading({ capturedAt }), RECEIVED_AT)).toEqual({
-      verified: false,
-      reason: "stale",
-    });
-  });
-
-  it("accepts the accuracy and window boundaries", () => {
-    const capturedAt = minutesBefore(RECEIVED_AT, VERIFY_WINDOW_MINUTES);
-    expect(
-      verifyOnSite(reading({ accuracyMetres: VERIFY_ACCURACY_METRES, capturedAt }), RECEIVED_AT),
-    ).toEqual({ verified: true, reason: "ok" });
-  });
-
-  it("reports accuracy first when the reading is both coarse and stale", () => {
-    const capturedAt = minutesBefore(RECEIVED_AT, VERIFY_WINDOW_MINUTES + 10);
-    expect(verifyOnSite(reading({ accuracyMetres: 5000, capturedAt }), RECEIVED_AT)).toEqual({
-      verified: false,
-      reason: "accuracy",
-    });
-  });
-
-  it("rejects a reading with a negative or non-finite accuracy", () => {
-    expect(verifyOnSite(reading({ accuracyMetres: -1 }), RECEIVED_AT).reason).toBe("accuracy");
-    expect(verifyOnSite(reading({ accuracyMetres: Number.NaN }), RECEIVED_AT).reason).toBe("accuracy");
-  });
-
-  it("tolerates a device clock running slightly ahead of the server", () => {
-    const capturedAt = minutesBefore(RECEIVED_AT, -5);
-    expect(verifyOnSite(reading({ capturedAt }), RECEIVED_AT)).toEqual({ verified: true, reason: "ok" });
-  });
-
-  it("rejects a device clock running far ahead of the server", () => {
-    const capturedAt = minutesBefore(RECEIVED_AT, -(VERIFY_WINDOW_MINUTES + 1));
-    expect(verifyOnSite(reading({ capturedAt }), RECEIVED_AT)).toEqual({
-      verified: false,
-      reason: "stale",
-    });
-  });
-
-  it("rejects an unparseable capture timestamp", () => {
-    expect(verifyOnSite(reading({ capturedAt: "not a date" }), RECEIVED_AT)).toEqual({
-      verified: false,
-      reason: "stale",
-    });
-  });
-});
 
 const TODAY = "2026-11-19";
 

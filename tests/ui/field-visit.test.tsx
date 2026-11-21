@@ -76,7 +76,7 @@ describe("FieldVisit", () => {
   it("submits the captured reading with the typed observation", async () => {
     const user = userEvent.setup();
     capturePosition.mockResolvedValue(goodReading);
-    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: true, receivedAt: "2026-11-19T05:01:00.000Z" });
+    createVisit.mockResolvedValue({ id: "v1", receivedAt: "2026-11-19T05:01:00.000Z" });
     renderForm();
     await fillAndCapture(user);
     await waitFor(() => expect(screen.getByRole("button", { name: /submit/i })).toBeTruthy());
@@ -166,7 +166,7 @@ describe("FieldVisit — review findings", () => {
     const submit = screen.getByRole("button", { name: /submit/i });
     await user.click(submit);
     await user.click(submit);
-    resolveCreate({ id: "v1", verifiedOnSite: true });
+    resolveCreate({ id: "v1" });
 
     await waitFor(() => expect(createVisit).toHaveBeenCalledTimes(1));
   });
@@ -209,7 +209,7 @@ describe("FieldVisit — review findings", () => {
     const times = [new Date("2026-11-19T10:30:00"), new Date("2026-11-19T11:40:00")];
     let call = 0;
     capturePosition.mockResolvedValue(goodReading);
-    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: true });
+    createVisit.mockResolvedValue({ id: "v1" });
     renderForm("en", () => times[Math.min(call++, times.length - 1)]);
     expect((screen.getByLabelText(/time of visit/i) as HTMLInputElement).value).toBe("10:30");
     await fillAndCapture(user);
@@ -223,27 +223,6 @@ describe("FieldVisit — review findings", () => {
     renderForm();
     expect((screen.getByRole("button", { name: /submit/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/capture the location.*before/i)).toBeTruthy();
-  });
-
-  it("warns the officer when the server could not verify the visit on site", async () => {
-    const user = userEvent.setup();
-    capturePosition.mockResolvedValue(goodReading);
-    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: false });
-    renderForm();
-    await fillAndCapture(user);
-    await user.click(screen.getByRole("button", { name: /submit/i }));
-    expect(await screen.findByText(/not verified on site/i)).toBeTruthy();
-  });
-
-  it("does not warn when the visit was verified", async () => {
-    const user = userEvent.setup();
-    capturePosition.mockResolvedValue(goodReading);
-    createVisit.mockResolvedValue({ id: "v1", verifiedOnSite: true });
-    renderForm();
-    await fillAndCapture(user);
-    await user.click(screen.getByRole("button", { name: /submit/i }));
-    await screen.findByText(/visit recorded/i);
-    expect(screen.queryByText(/not verified on site/i)).toBeNull();
   });
 
   it("shows validation messages in Hindi", async () => {

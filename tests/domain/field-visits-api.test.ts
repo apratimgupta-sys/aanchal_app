@@ -30,8 +30,8 @@ describe("createVisit", () => {
   });
 
   it("returns the stored visit the server echoes back", async () => {
-    api.mockResolvedValue({ id: "v1", verifiedOnSite: true });
-    await expect(createVisit(input, "req-1")).resolves.toMatchObject({ id: "v1", verifiedOnSite: true });
+    api.mockResolvedValue({ id: "v1" });
+    await expect(createVisit(input, "req-1")).resolves.toMatchObject({ id: "v1" });
   });
 });
 

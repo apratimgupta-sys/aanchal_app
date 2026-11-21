@@ -56,10 +56,6 @@ export type GpsReading = {
   accuracyMetres: number;
   capturedAt: string;
 };
-export type VerificationResult = {
-  verified: boolean;
-  reason: "ok" | "accuracy" | "stale";
-};
 export type FieldVisitInput = {
   visitDate: string;
   visitTime: string;
@@ -75,7 +71,6 @@ export type StoredFieldVisit = FieldVisitInput & {
   officerName: string;
   officerDesignation: string;
   receivedAt: string;
-  verifiedOnSite: boolean;
   voidedAt: string | null;
   voidReason: string | null;
 };

@@ -27,7 +27,6 @@ function visit(overrides: Partial<FieldVisitView> = {}): FieldVisitView {
     officerName: "A. Kumar",
     officerDesignation: "Junior Engineer",
     receivedAt: "2026-11-19T05:01:00.000Z",
-    verifiedOnSite: true,
     voidedAt: null,
     voidReason: null,
     ...overrides,
@@ -56,7 +55,7 @@ beforeEach(() => {
 });
 
 describe("VisitRegister", () => {
-  it("shows the officer, place, activity and verification state of each visit", async () => {
+  it("shows the officer, place and activity of each visit", async () => {
     listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
     renderRegister();
     // Scoped to the row: the officer filter lists the same name.
@@ -71,6 +70,32 @@ describe("VisitRegister", () => {
     listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
     renderRegister();
     expect(await screen.findByText(/23\.34410, 85\.30960/)).toBeTruthy();
+  });
+
+  it("links each visit's coordinates to Google Maps and passes no verdict on them", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ gps: { latitude: 23.37412, longitude: 85.33891, accuracyMetres: 400, capturedAt: "2026-11-19T03:00:00.000Z" } })],
+      total: 1,
+    });
+    renderRegister();
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByText(/23\.37412, 85\.33891/)).toBeTruthy();
+    const link = within(row).getByRole("link", { name: /ward 24/i }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://maps.google.com/?q=23.37412,85.33891");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toBe("Open in Google Maps");
+    // A coarse, late reading is shown as it was recorded, with no wording about trust.
+    expect(within(row).queryByText(/verif/i)).toBeNull();
+  });
+
+  it("labels the map link in Hindi", async () => {
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    renderRegister("hi");
+    const row = await screen.findByTestId("visit-v1");
+    const link = within(row).getByRole("link") as HTMLAnchorElement;
+    expect(link.textContent).toBe("गूगल मैप्स में खोलें");
+    expect(link.getAttribute("aria-label")).toContain("24");
   });
 
   it("composes the chosen filters into one query", async () => {
@@ -107,12 +132,6 @@ describe("VisitRegister", () => {
 
     await waitFor(() => expect(voidVisit).toHaveBeenCalledWith("v1", "Wrong ward"));
     expect(await screen.findByTestId("visit-v1")).toBeTruthy();
-  });
-
-  it("marks a visit that was not verified on site", async () => {
-    listVisits.mockResolvedValue({ rows: [visit({ verifiedOnSite: false })], total: 1 });
-    renderRegister();
-    expect(await screen.findByText(/not verified on site/i)).toBeTruthy();
   });
 
   it("says plainly when the filters match nothing", async () => {

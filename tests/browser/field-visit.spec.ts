@@ -38,7 +38,6 @@ function storedVisit(overrides: Record<string, unknown> = {}) {
     officerName: "A. Kumar",
     officerDesignation: "Junior Engineer",
     receivedAt: new Date().toISOString(),
-    verifiedOnSite: true,
     voidedAt: null,
     voidReason: null,
     ...overrides,

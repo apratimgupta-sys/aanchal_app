@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Language } from "../../src/client/i18n";
 import MyVisits from "../../src/client/pages/MyVisits";
@@ -23,7 +23,6 @@ function visit(overrides: Partial<FieldVisitView> = {}): FieldVisitView {
     officerName: "A. Kumar",
     officerDesignation: "Junior Engineer",
     receivedAt: "2026-11-19T05:01:00.000Z",
-    verifiedOnSite: true,
     voidedAt: null,
     voidReason: null,
     ...overrides,
@@ -57,17 +56,26 @@ describe("MyVisits", () => {
     expect(screen.getByText("Fogging")).toBeTruthy();
   });
 
-  it("marks a visit that was not verified on site", async () => {
-    listVisits.mockResolvedValue({ rows: [visit({ verifiedOnSite: false })], total: 1 });
+  it("shows where the visit was made with a link that opens it in Google Maps", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ gps: { latitude: 23.37412, longitude: 85.33891, accuracyMetres: 400, capturedAt: "2026-11-19T03:00:00.000Z" } })],
+      total: 1,
+    });
     renderList();
-    expect(await screen.findByText(/not verified on site/i)).toBeTruthy();
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByText(/23\.37412, 85\.33891/)).toBeTruthy();
+    const link = within(row).getByRole("link", { name: /ward 24/i }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://maps.google.com/?q=23.37412,85.33891");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.textContent).toBe("Open in Google Maps");
+    expect(within(row).queryByText(/verif/i)).toBeNull();
   });
 
-  it("does not claim verification for a visit that was verified", async () => {
-    listVisits.mockResolvedValue({ rows: [visit({ verifiedOnSite: true })], total: 1 });
-    renderList();
-    await screen.findByText(/Fogging done along the main lane\./);
-    expect(screen.queryByText(/not verified on site/i)).toBeNull();
+  it("labels the map link in Hindi", async () => {
+    listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
+    renderList("hi");
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByRole("link").textContent).toBe("गूगल मैप्स में खोलें");
   });
 
   it("strikes through a voided visit and gives the reason", async () => {

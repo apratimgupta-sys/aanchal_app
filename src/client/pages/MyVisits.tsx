@@ -5,6 +5,7 @@ import { listVisits } from "../field-visits";
 import { indiaToday } from "../lib/dates";
 import { myVisitsQueryKey } from "../session-caches";
 import { useText } from "../i18n";
+import VisitLocation from "../components/VisitLocation";
 import { Notice, Panel } from "../ui";
 
 const DAYS_SHOWN = 30;
@@ -63,11 +64,7 @@ export default function MyVisits({ officerId }: { officerId: string }) {
                 </span>
                 <span>{serviceName(row.serviceId)}</span>
                 <p>{firstLine(row.issueAction)}</p>
-                {!row.verifiedOnSite && (
-                  <span className="visit-flag">
-                    {text("Not verified on site", "मौके पर सत्यापित नहीं")}
-                  </span>
-                )}
+                <VisitLocation gps={row.gps} ward={row.ward} />
                 {row.voidedAt && (
                   <span className="visit-void">
                     {text("Voided", "निरस्त")}: {row.voidReason}

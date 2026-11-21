@@ -8,6 +8,7 @@ import { listOfficers } from "../officers";
 import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
 import { Language, runtimeText, useText } from "../i18n";
+import VisitLocation from "../components/VisitLocation";
 import { Field, Notice, Panel } from "../ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
@@ -207,12 +208,7 @@ export default function VisitRegister() {
                 </span>
                 <span>{serviceName(row.serviceId)}</span>
                 <p>{row.issueAction}</p>
-                <span className="visit-coords">
-                  {row.gps.latitude.toFixed(5)}, {row.gps.longitude.toFixed(5)} · ±{Math.round(row.gps.accuracyMetres)} m
-                </span>
-                {!row.verifiedOnSite && (
-                  <span className="visit-flag">{text("Not verified on site", "मौके पर सत्यापित नहीं")}</span>
-                )}
+                <VisitLocation gps={row.gps} ward={row.ward} />
                 {row.voidedAt ? (
                   <span className="visit-void">{text("Voided", "निरस्त")}: {row.voidReason}</span>
                 ) : (

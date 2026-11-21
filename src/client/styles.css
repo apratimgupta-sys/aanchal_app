@@ -647,17 +647,9 @@ select {
 .visit-row > p { margin: 0.35rem 0 0; white-space: pre-wrap; }
 .visit-row.is-voided { text-decoration: line-through; opacity: 0.65; }
 .visit-row.is-voided .visit-void { text-decoration: none; }
-.visit-flag {
-  justify-self: start;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.25rem;
-  background: #f9eeda;
-  color: #7a5200;
-}
 .visit-void { font-size: 0.85rem; font-weight: 600; color: #a52a2a; }
 .visit-coords { font-family: var(--rmc-mono, monospace); font-size: 0.8rem; color: #5a6477; }
+.visit-map-link { justify-self: start; font-size: 0.85rem; }
 .visit-count { margin-top: 1rem; font-size: 0.9rem; color: #5a6477; }
 .visit-paging { display: flex; gap: 0.6rem; margin-top: 0.6rem; }
 

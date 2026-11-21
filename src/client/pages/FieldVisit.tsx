@@ -46,7 +46,6 @@ export default function FieldVisit({
   const [serverError, setServerError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [unverified, setUnverified] = useState(false);
   // Held in a ref, not state: two submits in the same flush must share one
   // request id, and a state update has not committed by then.
   const intentRef = useRef<MutationIntent | null>(null);
@@ -116,7 +115,6 @@ export default function FieldVisit({
     try {
       const stored = await createVisit(input, next.requestId);
       setSaved(stored.id);
-      setUnverified(stored.verifiedOnSite === false);
       setWard("");
       setServiceId("");
       setIssueAction("");
@@ -148,15 +146,6 @@ export default function FieldVisit({
         {saved && (
           <Notice role="status">
             {text("Visit recorded.", "निरीक्षण दर्ज हो गया।")}
-            {unverified && (
-              <span>
-                {" "}
-                {text(
-                  "This visit was not verified on site — the location fix was poor or late. Capture again from the site if you can.",
-                  "यह निरीक्षण मौके पर सत्यापित नहीं हुआ — स्थान सटीक नहीं था या देर से मिला। हो सके तो मौके से पुनः कैप्चर करें।",
-                )}
-              </span>
-            )}
           </Notice>
         )}
         {serverError && <Notice>{serverError}</Notice>}
