@@ -35,7 +35,7 @@ export default function Login({
     }
   };
   return (
-    <main id="main-content" tabIndex={-1} className="w-full px-4 py-10 focus:outline-none sm:py-16">
+    <main id="main-content" tabIndex={-1} className="flex w-full flex-1 items-center px-4 py-10 focus:outline-none sm:py-16">
       <Panel className="mx-auto grid w-full max-w-[26.25rem] gap-5 p-6 sm:p-8">
         <div className="flex justify-end">
           <Button type="button" variant="outline" onClick={onLanguageToggle}>

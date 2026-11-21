@@ -9,7 +9,7 @@ import { cn } from "./lib/utils";
 // An outline, not a ring: outline-offset leaves a transparent gap, so the focus
 // indicator stays visible on a bg-primary button without matching the surface
 // behind it. 44px is the touch target and also clears the design's 42px floor.
-const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const control = cva(
   [

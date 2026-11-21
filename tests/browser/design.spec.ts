@@ -82,12 +82,12 @@ async function accessible(page: import("@playwright/test").Page) {
 }
 // Selects by element, not by class, so it keeps watching a screen after its
 // stylesheet classes are gone. A checkbox or radio is tapped through its label,
-// so the label is what gets measured. The two button exclusions are shell
-// classes (AppShell.tsx); delete them with the shell in the app-shell task.
+// so the label is what gets measured. No exclusions: the shell's icon buttons
+// are 44px, so every button is held to the same bar.
 async function touchTargets(page: import("@playwright/test").Page) {
   const undersized = await page
     .locator(
-      "button:not(:disabled):not(.app-menu-button):not(.app-drawer-close), input:not([type=hidden]), select, textarea, summary",
+      "button:not(:disabled), input:not([type=hidden]), select, textarea, summary",
     )
     .evaluateAll((elements) =>
       elements
@@ -174,6 +174,8 @@ test("dashboard and entry: responsive tables, labelled controls and colour contr
       fullPage: true,
     });
   }
+  // Below the desktop breakpoint Sign out lives in the drawer, not the header.
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await signIn(page, testOfficeAccount);
   await expect(

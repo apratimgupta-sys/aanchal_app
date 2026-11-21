@@ -8,7 +8,6 @@ import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./off
 import { indiaToday } from "./lib/dates";
 import { clearSessionCaches } from "./session-caches";
 import { queryClient } from "./query";
-import rmcLogo from "./assets/rmc-logo.jpg";
 import { portalPath, portalRoute } from "./portal-path";
 const DailyEntry = lazy(() => import("./pages/DailyEntry"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -127,66 +126,9 @@ export default function App() {
   }, [loading, session, setup, pathname]);
   return (
     <Language.Provider value={lang}>
-      <a href="#main-content" className="skip-link">
+      <a href="#main-content" className="fixed left-0 top-0 z-50 -translate-y-[150%] bg-card px-4 py-3 text-sm font-medium text-primary underline focus:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
         {text("Skip to main content", "मुख्य सामग्री पर जाएँ")}
       </a>
-      <div className="utility ux4g-bg-neutral-subtle ux4g-body-xs-default ux4g-d-flex ux4g-jc-between ux4g-gap-x-l">
-        <span>
-          {text(
-            "Government of Jharkhand · Urban Development",
-            "झारखण्ड सरकार · नगर विकास",
-          )}
-        </span>
-        <span>
-          {text("First iteration · Demonstration", "प्रथम संस्करण · प्रदर्शन")}
-        </span>
-      </div>
-      <header className="masthead ux4g-bg-neutral-elevated ux4g-d-flex ux4g-jc-between ux4g-ai-center ux4g-gap-x-l legacy-header">
-        <div className="wordmark ux4g-title-s-strong ux4g-d-flex ux4g-ai-center ux4g-gap-x-l">
-          <img className="rmc-logo" src={rmcLogo} alt="Ranchi Municipal Corporation emblem" />
-          <div>
-            <strong className="ux4g-d-block">
-              {text("Ranchi Municipal Corporation", "रांची नगर निगम")}
-            </strong>
-            <span className="ux4g-d-block ux4g-body-xs-default">
-              {text(
-                "Anchal Office Monitoring Portal",
-                "अंचल कार्यालय निगरानी पोर्टल",
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="header-actions ux4g-d-flex ux4g-ai-center ux4g-flex-wrap ux4g-gap-x-s">
-          <button
-            className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-            onClick={() => setLang(lang === "en" ? "hi" : "en")}
-          >
-            {lang === "en" ? "हिन्दी" : "English"}
-          </button>
-          {session && (
-            <>
-              <span className="account ux4g-label-l-default">
-                {session.role === "commissioner"
-                  ? text("Commissioner", "आयुक्त")
-                  : `${text("Anchal", "अंचल")} ${session.officeId}`}
-              </span>
-              <button
-                className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-                onClick={async () => {
-                  if (!mayNavigate("/")) return;
-                  await api("/logout", "POST", {});
-                  clearSessionCaches(queryClient);
-                  setSession(null);
-                  setSetup(undefined);
-                  navigate("/", true);
-                }}
-              >
-                {text("Sign out", "लॉगआउट")}
-              </button>
-            </>
-          )}
-        </div>
-      </header>
       {loading ? (
         <main id="main-content" tabIndex={-1}>
           <p>{text("Loading portal…", "पोर्टल लोड हो रहा है…")}</p>
@@ -231,7 +173,7 @@ export default function App() {
           }}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
           signOutLabel={text("Sign out", "लॉगआउट")}
-          footer={<footer className="portal-footer-new"><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
+          footer={<footer className="flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs text-muted-foreground sm:px-8"><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               pathname === "/commissioner/visits" ? <VisitRegister /> : pathname === "/commissioner/officers" ? <Officers /> : <Dashboard />
