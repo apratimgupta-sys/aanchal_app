@@ -5,16 +5,16 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "sonner";
 import App from "./App";
 import { queryClient } from "./query";
-import "./styles/theme.css";
-import "./styles.css";
+import { Button, leadingBody, leadingHeading } from "./ui";
+import "./index.css";
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary
       fallbackRender={({ resetErrorBoundary }) => (
-        <main className="app-crash-state">
-          <h1>Something went wrong</h1>
-          <p>Please reload the portal and try again.</p>
-          <button className="ui-button ui-button-primary" onClick={resetErrorBoundary}>Try again</button>
+        <main className="grid min-h-screen place-content-center justify-items-center gap-3 bg-background p-8 text-center text-foreground">
+          <h1 className={`text-xl font-semibold ${leadingHeading}`}>Something went wrong</h1>
+          <p className={leadingBody}>Please reload the portal and try again.</p>
+          <Button onClick={resetErrorBoundary}>Try again</Button>
         </main>
       )}
     >

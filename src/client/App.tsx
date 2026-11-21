@@ -4,7 +4,7 @@ import { api } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import { leadingBody, leadingHelp } from "./ui";
-import { AppShell, commissionerNav, officeNav, officerNav } from "./components/AppShell";
+import { AppShell, commissionerNav, mainFrame, officeNav, officerNav } from "./components/AppShell";
 import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
 import { indiaToday } from "./lib/dates";
 import { clearSessionCaches } from "./session-caches";
@@ -30,7 +30,11 @@ export default function App() {
     [entryReset, setEntryReset] = useState(0),
     [preserveDraftSignal, setPreserveDraftSignal] = useState(0);
   const text = (en: string, hi: string) => (lang === "hi" ? hi : en);
-  const pageFallback = <main id="main-content" tabIndex={-1} className="workspace page-loading"><p>{text("Loading page…", "पृष्ठ लोड हो रहा है…")}</p></main>;
+  const loadingText = text("Loading page…", "पृष्ठ लोड हो रहा है…");
+  // Inside the shell the shell's own <main> is the landmark, so the fallback is a
+  // plain block; with no shell (the forced password change) it is the page's <main>.
+  const pageFallback = <div className={`grid min-h-48 place-content-center ${leadingBody} text-muted-foreground`}><p>{loadingText}</p></div>;
+  const barePageFallback = <main id="main-content" tabIndex={-1} className={`${mainFrame} grid min-h-48 place-content-center ${leadingBody} text-muted-foreground`}><p>{loadingText}</p></main>;
   function mayNavigate(path: string, preserveDraft = false) {
     if (
       path !== pathname &&
@@ -131,7 +135,7 @@ export default function App() {
         {text("Skip to main content", "मुख्य सामग्री पर जाएँ")}
       </a>
       {loading ? (
-        <main id="main-content" tabIndex={-1}>
+        <main id="main-content" tabIndex={-1} className={mainFrame}>
           <p>{text("Loading portal…", "पोर्टल लोड हो रहा है…")}</p>
         </main>
       ) : !session ? (
@@ -141,17 +145,17 @@ export default function App() {
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
         />
       ) : session.role === "officer" && session.mustChangePassword ? (
-        <Suspense fallback={pageFallback}>
+        <Suspense fallback={barePageFallback}>
           <ChangePassword onChanged={() => void refresh()} />
         </Suspense>
       ) : session.role === "office" && setup === undefined ? (
-        <main id="main-content" tabIndex={-1} className="workspace">
+        <main id="main-content" tabIndex={-1} className={mainFrame}>
           <p>
             {text("Loading office setup…", "कार्यालय सेटअप लोड हो रहा है…")}
           </p>
         </main>
       ) : session.role === "office" && !setup ? (
-        <main id="main-content" tabIndex={-1} className="workspace">
+        <main id="main-content" tabIndex={-1} className={mainFrame}>
           {pathname === "/office/setup" && (
             <Suspense fallback={pageFallback}><InitialSetup onSaved={() => void refresh()} /></Suspense>
           )}
@@ -209,7 +213,8 @@ function OfficerPages({
   if (pathname === OFFICER_VISITS_ROUTE) return <MyVisits officerId={officer.id} />;
   if (pathname === OFFICER_VISIT_ROUTE)
     return <FieldVisit officer={officer} today={indiaToday()} />;
-  return <main id="main-content" tabIndex={-1} className="workspace" />;
+  // An unknown officer route renders nothing; the shell's own <main> is already there.
+  return null;
 }
 
 function InitialSetup({ onSaved }: { onSaved: () => void }) {

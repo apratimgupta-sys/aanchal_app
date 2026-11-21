@@ -219,14 +219,18 @@ describe("AppShell styling contract", () => {
     expect(hi("leadingHeading")).toBeLessThan(hi("leadingBody"));
   });
 
-  it("no longer carries the global body, font, gradient or shell rules in styles.css", () => {
-    const css = readFileSync("src/client/styles.css", "utf8");
-    expect(css).not.toMatch(/(^|\n)\s*body\s*\{/);
-    expect(css).not.toMatch(/font-family:\s*"IBM Plex Sans Devanagari"/);
-    // The per-element Hindi line heights stay only for the unmigrated screens
-    // whose own rules set tight Latin line heights; the body-level one has moved.
-    expect(css).not.toMatch(/html\[lang="hi"\] body/);
-    expect(css).not.toMatch(/\.app-(?!crash)/);
-    expect(css).not.toMatch(/shell-enter|\.skip-link|\.portal-footer-new|\.legacy-header|\.utility\b|\.masthead/);
+  it("holds no CSS rule at all: index.css is only the font import, the token file and the Tailwind directives", () => {
+    // Replaces the old assertions about styles.css's body/font/shell rules: that file
+    // is deleted, and the stronger statement is that no rule exists to carry them.
+    const css = readFileSync("src/client/index.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/url\([^)]*\)/g, "url(font-url)");
+    expect(css).not.toMatch(/[{}]/);
+    const statements = css.split(";").map((x) => x.trim()).filter(Boolean);
+    expect(statements.every((x) => /^@(import|tailwind)\b/.test(x))).toBe(true);
+    expect(statements.filter((x) => x.startsWith("@tailwind"))).toEqual(["@tailwind base", "@tailwind components", "@tailwind utilities"]);
+    const imports = statements.filter((x) => x.startsWith("@import"));
+    expect(imports).toHaveLength(2);
+    expect(readFileSync("src/client/index.css", "utf8")).toMatch(/@import url\(['"]https:\/\/fonts\.googleapis\.com/);
+    expect(imports[1]).toMatch(/theme\.css/);
+    expect(readFileSync("src/client/main.tsx", "utf8")).toMatch(/import "\.\/index\.css"/);
   });
 });

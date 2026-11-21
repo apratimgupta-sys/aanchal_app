@@ -172,8 +172,7 @@ type Payload = {
   entries: EntryView[];
   openings: { serviceId: number; opening: Balances }[];
 };
-// Hindi leading rides on the leading constants, so nothing here depends on the
-// element-level line-height rule that styles.css still carries.
+// Hindi leading rides on the leading constants, not on any element-level rule.
 // `eyebrow` is also a bare hook: tests read the panel's own eyebrow through it.
 const eyebrow = `eyebrow text-[11px] font-medium uppercase tracking-[0.05em] [html[lang=hi]_&]:tracking-normal ${leadingBody} text-muted-foreground`;
 const pageHeading = `text-[23px] font-semibold ${leadingHeading} text-foreground`;
@@ -474,7 +473,7 @@ export default function DailyEntry({
                       aria-current={selected === s.id ? "true" : undefined}
                       onClickCapture={(event) => {
                         // React owns selection and the draft guard. Intercept before
-                        // UX4G's target listener can mutate its independent .active state.
+                        // The retired UI kit's delegated click listener used to mutate its own .active state.
                         event.stopPropagation();
                         switchSelection(() => {
                           setSelected(s.id);

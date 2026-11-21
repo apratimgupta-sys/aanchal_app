@@ -1,5 +1,4 @@
-import { Badge, Button, Field, Notice, Panel, Table, leadingBody, leadingHeading, leadingHelp } from "../ui";
-import { cn } from "../lib/utils";
+import { Badge, Button, Field, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp } from "../ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -181,35 +180,7 @@ export default function Dashboard() {
             : { tone: "attention" as const, label: t("Partly filed", "आंशिक दर्ज") };
   const period = from + (from !== to ? " — " + to : "");
 
-  // Below lg a row becomes a card and every cell carries its own header through
-  // data-label, so no column is dropped; at lg and up it is an ordinary table that
-  // scrolls inside its own container. One DOM serves both. Explicit roles keep the
-  // table semantics that display:block/grid would otherwise strip in Safari.
-  const cardTable = [
-    "max-lg:block max-lg:[&_thead]:sr-only",
-    "max-lg:[&_tbody]:grid max-lg:[&_tbody]:gap-3 max-lg:[&_tfoot]:grid max-lg:[&_tfoot]:mt-3",
-    "max-lg:[&_tr]:grid max-lg:[&_tr]:gap-y-2 max-lg:[&_tr]:rounded-lg max-lg:[&_tr]:border max-lg:[&_tr]:border-border max-lg:[&_tr]:bg-card max-lg:[&_tr]:p-4",
-    "max-lg:[&_tbody_tr+tr]:border-border max-lg:[&_td]:p-0 max-lg:[&_tfoot_tr]:bg-muted",
-    "[&_td]:align-top lg:[&_tfoot_td]:border-t lg:[&_tfoot_td]:border-border lg:[&_tfoot_td]:bg-muted lg:[&_tfoot_td]:font-medium",
-  ].join(" ");
-  const cardWrap = "max-lg:overflow-visible max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent";
-  const cell = [
-    "max-lg:flex max-lg:items-baseline max-lg:justify-between max-lg:gap-4 max-lg:[overflow-wrap:anywhere]",
-    "max-lg:before:shrink-0 max-lg:before:content-[attr(data-label)] max-lg:before:text-[11px] max-lg:before:font-medium max-lg:before:font-sans max-lg:before:text-left max-lg:before:text-muted-foreground",
-  ].join(" ");
   const figure = "lg:text-right font-mono tabular-nums";
-  const title = "max-lg:block max-lg:before:hidden max-lg:font-medium";
-  const stacked = "max-lg:grid max-lg:justify-normal max-lg:gap-0.5";
-  const Td = ({ label, className, children }: { label: string; className?: string; children?: React.ReactNode }) => (
-    <td role="cell" data-label={label} className={cn(cell, className)}>
-      {children}
-    </td>
-  );
-  const Th = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <th role="columnheader" scope="col" className={cn("text-left", className)}>
-      {children}
-    </th>
-  );
   const heading = `text-[15px] font-semibold ${leadingHeading} text-foreground`;
   const eyebrow = `text-[11px] font-medium uppercase tracking-[0.05em] [html[lang=hi]_&]:tracking-normal ${leadingBody} text-muted-foreground`;
   const anchalLabel = t("Anchal", "अंचल");
@@ -440,7 +411,7 @@ export default function Dashboard() {
         <Table
           role="table"
           className={cardTable}
-          containerClassName={cardWrap}
+          containerClassName={cardTableWrap}
           containerProps={{
             tabIndex: 0,
             role: "region",
@@ -459,7 +430,7 @@ export default function Dashboard() {
           <tbody role="rowgroup">
             {rows.map((r) => (
               <tr role="row" key={r.officeId}>
-                <Td label={hAnchal} className={title}>
+                <Td label={hAnchal} className={cardTitle}>
                   {anchalLabel} {r.officeId}
                 </Td>
                 <Td label={hReceived} className={figure}>{counterCell(r.received)}</Td>
@@ -468,7 +439,7 @@ export default function Dashboard() {
                 <Td label={hDisposal} className={figure}>{counterCell(percent(r.disposalPct))}</Td>
                 <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
                 <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(r.amountPaise)}</Td>
-                <Td label={hRemarks} className={stacked}>
+                <Td label={hRemarks} className={cardStacked}>
                   {r.reviewReasons.length > 1 ? (
                     <details>
                       <summary
@@ -506,7 +477,7 @@ export default function Dashboard() {
           </tbody>
           <tfoot role="rowgroup">
             <tr role="row">
-              <Td label={hAnchal} className={title}>{t("TOTAL", "कुल")}</Td>
+              <Td label={hAnchal} className={cardTitle}>{t("TOTAL", "कुल")}</Td>
               <Td label={hReceived} className={figure}>{counterCell(totals.received)}</Td>
               <Td label={hCompleted} className={figure}>{counterCell(totals.completed)}</Td>
               <Td label={hPending} className={figure}>{counterCell(totals.pending)}</Td>
@@ -561,7 +532,7 @@ export default function Dashboard() {
           <Table
             role="table"
             className={cardTable}
-            containerClassName={cardWrap}
+            containerClassName={cardTableWrap}
             containerProps={{
               tabIndex: 0,
               role: "region",
@@ -601,7 +572,7 @@ export default function Dashboard() {
                     <Td label={label(8)} className={figure}>{e.received}</Td>
                     <Td label={label(9)} className={figure}>{e.completed}</Td>
                     <Td label={label(10)} className={`${figure} lg:whitespace-nowrap`}>{currency(e.amountPaise)}</Td>
-                    <Td label={label(11)} className={stacked}>{e.remarks || "—"}</Td>
+                    <Td label={label(11)} className={cardStacked}>{e.remarks || "—"}</Td>
                   </tr>
                 );
               })}

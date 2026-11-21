@@ -17,6 +17,10 @@ const ROLE_TITLE: Record<ShellRole, [en: string, hi: string]> = {
   officer: ["Field Visits", "क्षेत्रीय निरीक्षण"],
 };
 
+// The page frame: max width, side gutter (16px, 32px from sm) and vertical padding.
+// Exported so a <main> rendered outside the shell (App.tsx) gets the same gutter.
+export const mainFrame = "mx-auto w-full max-w-[100rem] flex-1 px-4 pb-8 pt-5 focus:outline-none sm:px-8 sm:pb-10 sm:pt-[26px]";
+
 // Where the top navigation takes over from the drawer: Tailwind's `lg`.
 const DESKTOP = "(min-width: 1024px)";
 
@@ -132,7 +136,7 @@ export function AppShell({
           </div>
           <Button variant="outline" className="shrink-0 px-3" onClick={onLanguageToggle}>{languageLabel}</Button>
         </header>
-        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[100rem] flex-1 px-4 pb-8 pt-5 focus:outline-none sm:px-8 sm:pb-10 sm:pt-[26px]">
+        <main id="main-content" tabIndex={-1} className={mainFrame}>
           {children}
         </main>
         {footer}

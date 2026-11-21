@@ -1,7 +1,7 @@
 // The component layer. Every style here is a Tailwind utility resolved from the
-// theme tokens (theme.css via tailwind.config.ts); nothing in this file reads a
-// class name from styles.css. Screens that have not been migrated yet import
-// from ./legacy-ui instead, and flip to this file when their own task lands.
+// theme tokens (theme.css via tailwind.config.ts); no class name here is defined
+// by a stylesheet. index.css holds only the Tailwind directives, the font import
+// and the token file.
 import { Children, cloneElement, isValidElement, useId, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./lib/utils";
@@ -12,10 +12,9 @@ import { cn } from "./lib/utils";
 export const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 // Line heights, with their Hindi counterparts attached. Devanagari matras clip at
-// Latin leading, and the element-level `html[lang="hi"] button, label, span ...`
-// rule in styles.css used to supply the lift (specificity beats a utility, so these
-// tokens were being ignored in Hindi). The lift lives here now, so deleting that
-// rule is a no-op. Hindi body/help 1.65 matches what that rule gave; headings get
+// Latin leading, and an element-level `html[lang="hi"] button, label, span ...`
+// stylesheet rule used to supply the lift (specificity beats a utility, so these
+// tokens were being ignored in Hindi). The lift lives here now; that rule is gone. Hindi body/help 1.65 matches what that rule gave; headings get
 // 1.5, above their Latin 1.4 but below body because leading shrinks as type grows.
 // Unverified in rendered IBM Plex Devanagari: fonts are blocked in the container.
 export const leadingBody = "leading-body [html[lang=hi]_&]:leading-[1.65]";
@@ -94,7 +93,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
   if (el.props.type === "checkbox") {
     return (
       <label className={cn(`flex min-h-[44px] cursor-pointer items-start gap-2.5 text-[13.5px] ${leadingBody}`, className)}>
-        {cloneElement(el, { id, className: "mt-[3px] size-[18px] shrink-0 accent-primary" })}
+        {cloneElement(el, { id, className: `mt-[3px] size-[18px] shrink-0 accent-primary ${focusRing}` })}
         <span>{labelParts}{helpers}</span>
       </label>
     );
@@ -119,7 +118,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
 const button = cva(
   [
     `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[7px] border px-4 py-2.5 text-center text-[13.5px] font-medium ${leadingBody}`,
-    "transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+    "transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60",
     focusRing,
   ],
   {
@@ -215,7 +214,7 @@ export function ReportProgress({ value, max }: { value: number; max: number }) {
   return (
     <div className="flex items-center gap-3 text-[13px] text-muted-foreground" role="progressbar" aria-label="Services submitted" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
+        <div className="h-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
       </div>
       <span>{percent}%</span>
     </div>
@@ -232,7 +231,7 @@ export const cardTable = [
   "max-lg:[&_tbody]:grid max-lg:[&_tbody]:gap-3 max-lg:[&_tfoot]:grid max-lg:[&_tfoot]:mt-3",
   "max-lg:[&_tr]:grid max-lg:[&_tr]:gap-y-2 max-lg:[&_tr]:rounded-lg max-lg:[&_tr]:border max-lg:[&_tr]:border-border max-lg:[&_tr]:bg-card max-lg:[&_tr]:p-4",
   "max-lg:[&_tbody_tr+tr]:border-border max-lg:[&_td]:p-0 max-lg:[&_tfoot_tr]:bg-muted",
-  "[&_td]:align-top",
+  "[&_td]:align-top lg:[&_tfoot_td]:border-t lg:[&_tfoot_td]:border-border lg:[&_tfoot_td]:bg-muted lg:[&_tfoot_td]:font-medium",
 ].join(" ");
 export const cardTableWrap = "max-lg:overflow-visible max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent";
 const cardCell = [
