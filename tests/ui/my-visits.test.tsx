@@ -86,13 +86,15 @@ describe("MyVisits", () => {
       rows: [
         visit({ id: "zero", gps: { latitude: 0, longitude: 0, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
         visit({ id: "nan", gps: { latitude: Number.NaN, longitude: 85.3, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
+        visit({ id: "nanlon", gps: { latitude: 23.3, longitude: Number.NaN, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
+        visit({ id: "inf", gps: { latitude: Number.POSITIVE_INFINITY, longitude: 85.3, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
         visit({ id: "none", gps: undefined as unknown as FieldVisitView["gps"] }),
         visit({ id: "ok" }),
       ],
-      total: 4,
+      total: 6,
     });
     renderList();
-    for (const id of ["zero", "nan", "none"]) {
+    for (const id of ["zero", "nan", "nanlon", "inf", "none"]) {
       const row = await screen.findByTestId(`visit-${id}`);
       expect(within(row).getByText("No location recorded")).toBeTruthy();
       expect(within(row).queryByRole("link")).toBeNull();
@@ -101,6 +103,26 @@ describe("MyVisits", () => {
     const ok = screen.getByTestId("visit-ok");
     expect(within(ok).getByText(/23\.34410, 85\.30960/)).toBeTruthy();
     expect(within(ok).getByRole("link")).toBeTruthy();
+  });
+
+  // Only a reading of exactly 0,0 is absent. A single zero is a real coordinate
+  // (on the equator or the prime meridian) and must keep its link.
+  it("keeps the link when only one coordinate is zero", async () => {
+    const at = "2026-11-19T05:00:00.000Z";
+    listVisits.mockResolvedValue({
+      rows: [
+        visit({ id: "lat0", gps: { latitude: 0, longitude: 85.3, accuracyMetres: 5, capturedAt: at } }),
+        visit({ id: "lon0", gps: { latitude: 23.3, longitude: 0, accuracyMetres: 5, capturedAt: at } }),
+      ],
+      total: 2,
+    });
+    renderList();
+    const lat0 = within(await screen.findByTestId("visit-lat0"));
+    const lon0 = within(screen.getByTestId("visit-lon0"));
+    expect(lat0.getByRole("link").getAttribute("href")).toBe("https://maps.google.com/?q=0,85.3");
+    expect(lon0.getByRole("link").getAttribute("href")).toBe("https://maps.google.com/?q=23.3,0");
+    expect(lat0.queryByText("No location recorded")).toBeNull();
+    expect(lon0.queryByText("No location recorded")).toBeNull();
   });
 
   it("writes a tiny coordinate into the link without exponent notation", async () => {
