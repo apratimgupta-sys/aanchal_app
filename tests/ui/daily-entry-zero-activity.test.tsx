@@ -136,3 +136,55 @@ describe("set zero activity on a correction", () => {
     expect(sent.nothingToReport).toBe(true);
   });
 });
+
+describe("set zero activity, more shapes", () => {
+  it("handles service 12, grievance by kind but counter by shape", async () => {
+    const sent = await correctAndZero(12);
+    expect(sent.received).toBe(0);
+    expect(sent.completed).toBe(0);
+    expect(sent.nothingToReport).toBe(true);
+    expect(sent.complaintsReceived).toBe(12);
+    expect(sent.complaintsResolved).toBe(11);
+    expect(sent.slaWithinTime).toBe(6);
+    expect(sent.amountPaise).toBe(15000);
+  });
+
+  it("on a new entry sends numbers, never the NaN of an empty box, for every figure", async () => {
+    cleanup();
+    api.mockReset();
+    api.mockImplementation(async (_p: string, method = "GET") =>
+      method === "GET" ? { setup: null, entries: [], openings: [] } : {},
+    );
+    const user = userEvent.setup();
+    render(
+      <Language.Provider value="en">
+        <DailyEntry
+          officeId={1}
+          mode="today"
+          startDate="2020-01-01"
+          onDirtyChange={() => {}}
+          preserveDraftSignal={0}
+          onContinueDraftInBackdate={() => {}}
+        />
+      </Language.Provider>,
+    );
+    await screen.findByText(/daily service entry/i);
+    await user.type(screen.getByRole("textbox", { name: "Ward number / name" }), "Ward 4");
+    await user.click(screen.getByRole("button", { name: /Set zero activity/ }));
+    await user.click(screen.getByRole("button", { name: /submit entry/i }));
+    await waitFor(() =>
+      expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(true),
+    );
+    // NaN would serialize to null, which the API rejects with a 422.
+    const wire = JSON.parse(
+      JSON.stringify(api.mock.calls.find((c) => c[1] === "POST")![2].input),
+    );
+    for (const k of [
+      "received", "completed", "slaWithinTime", "amountPaise",
+      "complaintsReceived", "complaintsResolved", "fieldReceived", "fieldCompleted",
+    ])
+      expect(wire[k], k).toBe(0);
+    expect(wire.nothingToReport).toBe(true);
+    expect(wire.ward).toBe("Ward 4");
+  });
+});

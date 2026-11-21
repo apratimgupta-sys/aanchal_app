@@ -783,15 +783,17 @@ export default function DailyEntry({
                   onClick={() => {
                     // Zero only what this shape asks for. Every other field is
                     // retired but may hold a figure already filed, and a
-                    // correction must not erase it.
-                    const shown = shownKeys(selected);
+                    // correction must not erase it. Keyed to the draft's own
+                    // service, like the rest of the panel, not the selection.
+                    const shown = shownKeys(input.serviceId);
+                    const money0 = collects(input.serviceId, "amountPaise");
                     setInput((p) => {
                       const next: EntryInput = { ...p, nothingToReport: true };
                       for (const k of COUNT_KEYS) if (shown.has(k)) next[k] = 0;
-                      if (collects(selected, "amountPaise")) next.amountPaise = 0;
+                      if (money0) next.amountPaise = 0;
                       return next;
                     });
-                    if (collects(selected, "amountPaise")) setMoney("0.00");
+                    if (money0) setMoney("0.00");
                     setDirty(true);
                   }}
                 >
