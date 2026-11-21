@@ -1,16 +1,17 @@
 import { collects } from "./service-kind";
+import { WARD_MAX } from "./visit";
 
-// A ward is filed as "Ward N": one space, ASCII digits, no leading zero, 1 to 53.
+// A ward is filed as "Ward N": one space, ASCII digits, no leading zero, 1 to WARD_MAX (src/domain/visit.ts, shared with field visits).
 // The server enforces the same format and neither side keeps a list of wards, so
 // the two cannot drift. The message is the one the field-visit form already
 // translates, so it needs no new Hindi key.
-export const WARD_COUNT = 53;
 export const WARD_MESSAGE = "Select a ward from 1 to 53";
 const WARD_FORMAT = /^Ward ([1-9][0-9]?)$/;
 export function isCanonicalWard(value: unknown): boolean {
   if (typeof value !== "string") return false;
-  const n = WARD_FORMAT.exec(value)?.[1];
-  return n !== undefined && Number(n) <= WARD_COUNT;
+  // The server trims before it stores, so surrounding whitespace is tolerated here too.
+  const n = WARD_FORMAT.exec(value.trim())?.[1];
+  return n !== undefined && Number(n) <= WARD_MAX;
 }
 
 export type EntryCounts = {

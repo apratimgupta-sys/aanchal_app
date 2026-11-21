@@ -19,10 +19,10 @@ import { formatIndiaDateTime } from "../lib/dates";
 import {
   entryCrossFieldErrors,
   isCanonicalWard,
-  WARD_COUNT,
   WARD_MESSAGE,
   type EntryCounts,
 } from "../../domain/entry-rules";
+import { WARD_MAX, WARD_MIN } from "../../domain/visit";
 import { collects, formShape } from "../../domain/service-kind";
 const COUNT_KEYS = [
   "received",
@@ -94,7 +94,7 @@ const countsOf = (value: Record<string, unknown>): EntryCounts => {
 };
 // Same format as the server; the picker's options are generated from the range.
 export const wardSchema = z.string().refine(isCanonicalWard, WARD_MESSAGE);
-const WARDS = Array.from({ length: WARD_COUNT }, (_, i) => `Ward ${i + 1}`);
+const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => `Ward ${WARD_MIN + i}`);
 const countField = z.number().int().min(0);
 // Loose, so the fields the shape hides pass through to the cross-field check
 // below instead of being stripped before it runs.

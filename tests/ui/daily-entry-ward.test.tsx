@@ -44,13 +44,13 @@ beforeEach(() => {
 // Break caught: the stored string drifting from `Ward N` (one space, no leading
 // zero, 1 to 53). The server enforces the same format; neither side holds a list.
 describe("the ward schema", () => {
-  it.each(["Ward 1", "Ward 11", "Ward 53"])("accepts %s", (ward) => {
+  it.each(["Ward 1", "Ward 11", "Ward 53", " Ward 11 "])("accepts %j", (ward) => {
     expect(wardSchema.safeParse(ward).success).toBe(true);
   });
 
   it.each([
     "Ward 0", "Ward 54", "ward 11", "Ward 011", "Ward 11, Konka",
-    "Ward  11", " Ward 11 ", "11", "Ward", "",
+    "Ward  11", "11", "Ward", "", "  ",
   ])("rejects %j with the message the field-visit form already translates", (ward) => {
     const parsed = wardSchema.safeParse(ward);
     expect(parsed.success).toBe(false);

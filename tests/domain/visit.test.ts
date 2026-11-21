@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   VERIFY_ACCURACY_METRES,
   VERIFY_WINDOW_MINUTES,
+  WARD_MAX,
   validateVisitInput,
   verifyOnSite,
 } from "../../src/domain/visit";
+import { isCanonicalWard } from "../../src/domain/entry-rules";
 import type { FieldVisitInput, GpsReading } from "../../src/shared/types";
 
 const RECEIVED_AT = "2026-11-19T06:00:00.000Z";
@@ -98,6 +100,17 @@ function visit(overrides: Partial<FieldVisitInput> = {}): FieldVisitInput {
     ...overrides,
   };
 }
+
+describe("the ward bound", () => {
+  // Break caught: two constants for one municipal fact. The field-visit form and the
+  // daily-entry format must agree on the last ward (also pinned in entry-rules.test.ts).
+  it("is the one the daily entry format uses", () => {
+    expect(validateVisitInput(visit({ ward: WARD_MAX }), TODAY)).not.toHaveProperty("ward");
+    expect(validateVisitInput(visit({ ward: WARD_MAX + 1 }), TODAY)).toHaveProperty("ward");
+    expect(isCanonicalWard(`Ward ${WARD_MAX}`)).toBe(true);
+    expect(isCanonicalWard(`Ward ${WARD_MAX + 1}`)).toBe(false);
+  });
+});
 
 describe("validateVisitInput", () => {
   it("accepts a complete visit for today", () => {
