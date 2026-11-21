@@ -95,7 +95,46 @@ describe("VisitRegister", () => {
     const row = await screen.findByTestId("visit-v1");
     const link = within(row).getByRole("link") as HTMLAnchorElement;
     expect(link.textContent).toBe("गूगल मैप्स में खोलें");
-    expect(link.getAttribute("aria-label")).toContain("24");
+    expect(link.getAttribute("aria-label")).toBe("गूगल मैप्स में खोलें — वार्ड 24, 2026-11-19 10:30");
+  });
+
+  it("gives each row's map link a name that tells the visits apart", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit(), visit({ id: "v2", visitTime: "14:05" })],
+      total: 2,
+    });
+    renderRegister();
+    await screen.findByTestId("visit-v2");
+    const names = screen.getAllByRole("link").map((link) => link.getAttribute("aria-label"));
+    expect(names).toEqual([
+      "Open in Google Maps — Ward 24, 2026-11-19 10:30",
+      "Open in Google Maps — Ward 24, 2026-11-19 14:05",
+    ]);
+  });
+
+  it("says no location was recorded for a 0,0 reading and offers no link", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ gps: { latitude: 0, longitude: 0, accuracyMetres: 18, capturedAt: "2026-11-19T05:00:00.000Z" } })],
+      total: 1,
+    });
+    renderRegister();
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByText("No location recorded")).toBeTruthy();
+    expect(within(row).queryByRole("link")).toBeNull();
+    expect(within(row).queryByText(/0\.00000/)).toBeNull();
+    expect(within(row).queryByText(/±/)).toBeNull();
+  });
+
+  it("does not blank the register for a visit with no gps at all", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ gps: null as unknown as FieldVisitView["gps"] }), visit({ id: "v2" })],
+      total: 2,
+    });
+    renderRegister("hi");
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).getByText("कोई स्थान दर्ज नहीं")).toBeTruthy();
+    expect(within(row).queryByRole("link")).toBeNull();
+    expect(within(await screen.findByTestId("visit-v2")).getByRole("link")).toBeTruthy();
   });
 
   it("composes the chosen filters into one query", async () => {

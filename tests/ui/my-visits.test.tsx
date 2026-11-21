@@ -67,6 +67,7 @@ describe("MyVisits", () => {
     const link = within(row).getByRole("link", { name: /ward 24/i }) as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe("https://maps.google.com/?q=23.37412,85.33891");
     expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
     expect(link.textContent).toBe("Open in Google Maps");
     expect(within(row).queryByText(/verif/i)).toBeNull();
   });
@@ -75,7 +76,41 @@ describe("MyVisits", () => {
     listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
     renderList("hi");
     const row = await screen.findByTestId("visit-v1");
-    expect(within(row).getByRole("link").textContent).toBe("गूगल मैप्स में खोलें");
+    const link = within(row).getByRole("link");
+    expect(link.textContent).toBe("गूगल मैप्स में खोलें");
+    expect(link.getAttribute("aria-label")).toBe("गूगल मैप्स में खोलें — वार्ड 24, 2026-11-19 10:30");
+  });
+
+  it("says no location was recorded when the coordinates are absent or unusable", async () => {
+    listVisits.mockResolvedValue({
+      rows: [
+        visit({ id: "zero", gps: { latitude: 0, longitude: 0, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
+        visit({ id: "nan", gps: { latitude: Number.NaN, longitude: 85.3, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } }),
+        visit({ id: "none", gps: undefined as unknown as FieldVisitView["gps"] }),
+        visit({ id: "ok" }),
+      ],
+      total: 4,
+    });
+    renderList();
+    for (const id of ["zero", "nan", "none"]) {
+      const row = await screen.findByTestId(`visit-${id}`);
+      expect(within(row).getByText("No location recorded")).toBeTruthy();
+      expect(within(row).queryByRole("link")).toBeNull();
+      expect(within(row).queryByText(/±/)).toBeNull();
+    }
+    const ok = screen.getByTestId("visit-ok");
+    expect(within(ok).getByText(/23\.34410, 85\.30960/)).toBeTruthy();
+    expect(within(ok).getByRole("link")).toBeTruthy();
+  });
+
+  it("writes a tiny coordinate into the link without exponent notation", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ gps: { latitude: 0.0000001, longitude: 85, accuracyMetres: 5, capturedAt: "2026-11-19T05:00:00.000Z" } })],
+      total: 1,
+    });
+    renderList();
+    const link = within(await screen.findByTestId("visit-v1")).getByRole("link");
+    expect(link.getAttribute("href")).toBe("https://maps.google.com/?q=0.0000001,85");
   });
 
   it("strikes through a voided visit and gives the reason", async () => {

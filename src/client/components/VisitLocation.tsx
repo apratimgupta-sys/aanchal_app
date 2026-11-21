@@ -1,15 +1,46 @@
 import { useText } from "../i18n";
 import type { GpsReading } from "../../shared/types";
 
+// Fixed-point, trailing zeros trimmed: String(1e-7) would be "1e-7", which a
+// map query cannot read.
+function coordinate(value: number): string {
+  return value.toFixed(8).replace(/\.?0+$/, "");
+}
+
 export function mapUrl(gps: Pick<GpsReading, "latitude" | "longitude">): string {
-  return `https://maps.google.com/?q=${gps.latitude},${gps.longitude}`;
+  return `https://maps.google.com/?q=${coordinate(gps.latitude)},${coordinate(gps.longitude)}`;
+}
+
+// A reading is absent when there is nothing to point at: no gps, a coordinate
+// that is not a number, or exactly 0,0 (what a device reports when it has no
+// fix). This is a fact about the data, not a judgment about plausibility —
+// nothing here asks whether a position is believable.
+function hasPosition(gps: GpsReading | null | undefined): gps is GpsReading {
+  if (!gps) return false;
+  const { latitude, longitude } = gps;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  return !(latitude === 0 && longitude === 0);
 }
 
 // Where a visit was recorded: the stored coordinates, the accuracy the device
 // reported, and a link that opens the point in Google Maps. No verdict is passed
 // on the reading — the register shows what was captured and the reader judges.
-export default function VisitLocation({ gps, ward }: { gps: GpsReading; ward: number }) {
+export default function VisitLocation({
+  gps,
+  ward,
+  visitDate,
+  visitTime,
+}: {
+  gps: GpsReading | null | undefined;
+  ward: number;
+  visitDate: string;
+  visitTime: string;
+}) {
   const text = useText();
+  if (!hasPosition(gps))
+    return (
+      <span className="visit-coords">{text("No location recorded", "कोई स्थान दर्ज नहीं")}</span>
+    );
   return (
     <>
       <span className="visit-coords">
@@ -20,7 +51,10 @@ export default function VisitLocation({ gps, ward }: { gps: GpsReading; ward: nu
         href={mapUrl(gps)}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={text(`Open in Google Maps — Ward ${ward}`, `गूगल मैप्स में खोलें — वार्ड ${ward}`)}
+        aria-label={text(
+          `Open in Google Maps — Ward ${ward}, ${visitDate} ${visitTime}`,
+          `गूगल मैप्स में खोलें — वार्ड ${ward}, ${visitDate} ${visitTime}`,
+        )}
       >
         {text("Open in Google Maps", "गूगल मैप्स में खोलें")}
       </a>

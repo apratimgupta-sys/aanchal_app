@@ -64,7 +64,7 @@ export default function MyVisits({ officerId }: { officerId: string }) {
                 </span>
                 <span>{serviceName(row.serviceId)}</span>
                 <p>{firstLine(row.issueAction)}</p>
-                <VisitLocation gps={row.gps} ward={row.ward} />
+                <VisitLocation gps={row.gps} ward={row.ward} visitDate={row.visitDate} visitTime={row.visitTime} />
                 {row.voidedAt && (
                   <span className="visit-void">
                     {text("Voided", "निरस्त")}: {row.voidReason}
