@@ -12,7 +12,10 @@ export function formatIndiaDateTime(value: string, pattern = "dd/MM/yyyy HH:mm")
 }
 
 export function formatServiceDate(value: string) {
-  return format(parseISO(value), "dd/MM/yyyy");
+  const date = parseISO(value);
+  // format throws RangeError on an invalid date; "—" is the "no value" mark.
+  if (Number.isNaN(date.getTime())) return "—";
+  return format(date, "dd/MM/yyyy");
 }
 
 // Today's calendar date in India, which is what "today" means for a visit —

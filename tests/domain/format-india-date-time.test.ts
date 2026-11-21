@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatIndiaDateTime } from "../../src/client/lib/dates";
+import { formatIndiaDateTime, formatServiceDate } from "../../src/client/lib/dates";
 
 describe("formatIndiaDateTime", () => {
   it("formats in India time", () => {
@@ -7,5 +7,14 @@ describe("formatIndiaDateTime", () => {
   });
   it.each(["", "not-a-date"])("returns a dash, not a throw, for %j", (v) => {
     expect(formatIndiaDateTime(v)).toBe("—");
+  });
+});
+
+describe("formatServiceDate", () => {
+  it("formats a service date", () => {
+    expect(formatServiceDate("2026-11-20")).toBe("20/11/2026");
+  });
+  it.each(["", "not-a-date"])("returns a dash, not a throw, for %j", (v) => {
+    expect(formatServiceDate(v)).toBe("—");
   });
 });

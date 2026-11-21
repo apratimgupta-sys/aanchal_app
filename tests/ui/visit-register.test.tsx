@@ -127,7 +127,7 @@ describe("VisitRegister", () => {
 
   it("does not blank the register for a visit with no gps at all", async () => {
     listVisits.mockResolvedValue({
-      rows: [visit({ gps: null as unknown as FieldVisitView["gps"] }), visit({ id: "v2" })],
+      rows: [visit({ gps: null }), visit({ id: "v2" })],
       total: 2,
     });
     renderRegister("hi");

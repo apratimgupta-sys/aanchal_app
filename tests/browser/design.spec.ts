@@ -182,20 +182,20 @@ test("canceling a service switch preserves both the draft and selected service",
 }) => {
   await signIn(page, testOfficeAccount);
   await expect(
-    page.getByLabel("Ward", { exact: true }),
+    page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toBeVisible();
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   if (await edit.isVisible()) await edit.click();
   const rows = page.locator(".service-list button");
   await page
-    .getByLabel("Ward", { exact: true })
+    .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 7");
   page.once("dialog", (dialog) => dialog.dismiss());
   await rows.nth(1).click();
   await expect(rows.nth(0)).toHaveAttribute("aria-current", "true");
   await expect(rows.nth(1)).not.toHaveClass(/\bactive\b/);
   await expect(
-    page.getByLabel("Ward", { exact: true }),
+    page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 7");
   page.once("dialog", (dialog) => dialog.accept());
   await rows.nth(1).click();
@@ -205,7 +205,7 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
   page,
 }) => {
   await signIn(page, testOfficeAccount);
-  const ward = page.getByLabel("Ward", { exact: true });
+  const ward = page.getByRole("combobox", { name: "Ward", exact: true });
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   const submit = page.getByRole("button", {
     name: "Submit entry →",
@@ -407,7 +407,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   await expect(edit.or(submit)).toBeVisible();
   if (await edit.isVisible()) await edit.click();
   await page
-    .getByLabel("Ward", { exact: true })
+    .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 7");
   await page.getByLabel("Received", { exact: true }).fill("17");
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -416,7 +416,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
     .click();
   await expect(page).toHaveURL(/\/office\/today$/);
   await expect(
-    page.getByLabel("Ward", { exact: true }),
+    page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 7");
   await expect(
     page.getByLabel("Received", { exact: true }),
@@ -428,7 +428,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   });
   await expect(page).toHaveURL(/\/office\/today$/);
   await expect(
-    page.getByLabel("Ward", { exact: true }),
+    page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 7");
 });
 
@@ -480,7 +480,7 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
   ).toHaveValue("2026-10-06");
   await page.getByRole("button", { name: "Set zero activity" }).click();
   await page
-    .getByLabel("Ward", { exact: true })
+    .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 8");
   await page.clock.setFixedTime(new Date("2026-10-06T18:30:00.000Z"));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -495,7 +495,7 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
     "2026-10-06",
   );
   await expect(
-    page.getByLabel("Ward", { exact: true }),
+    page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 8");
   await expect(
     page.getByLabel("Reason for delayed reporting"),

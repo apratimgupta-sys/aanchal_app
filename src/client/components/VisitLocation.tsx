@@ -1,5 +1,5 @@
 import { useText } from "../i18n";
-import type { GpsReading } from "../../shared/types";
+import type { FieldVisitView, GpsReading } from "../../shared/types";
 
 // Fixed-point, trailing zeros trimmed: String(1e-7) would be "1e-7", which a
 // map query cannot read.
@@ -15,7 +15,7 @@ export function mapUrl(gps: Pick<GpsReading, "latitude" | "longitude">): string 
 // that is not a number, or exactly 0,0 (what a device reports when it has no
 // fix). This is a fact about the data, not a judgment about plausibility —
 // nothing here asks whether a position is believable.
-function hasPosition(gps: GpsReading | null | undefined): gps is GpsReading {
+function hasPosition(gps: FieldVisitView["gps"]): gps is GpsReading {
   if (!gps) return false;
   const { latitude, longitude } = gps;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
@@ -31,7 +31,7 @@ export default function VisitLocation({
   visitDate,
   visitTime,
 }: {
-  gps: GpsReading | null | undefined;
+  gps: FieldVisitView["gps"];
   ward: number;
   visitDate: string;
   visitTime: string;

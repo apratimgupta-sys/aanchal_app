@@ -74,7 +74,7 @@ export type StoredFieldVisit = FieldVisitInput & {
   voidedAt: string | null;
   voidReason: string | null;
 };
-export type FieldVisitView = StoredFieldVisit;
+export type FieldVisitView = Omit<StoredFieldVisit, "gps"> & { gps: GpsReading | null };
 export type SaveCommand = {
   requestId: string;
   expectedVersion: number | null;
