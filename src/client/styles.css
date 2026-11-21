@@ -48,69 +48,15 @@
   margin-inline: auto;
   padding: var(--ux4g-padding-2xl);
 }
-.section-heading p,
-.page-heading p {
+.section-heading p {
   margin-bottom: 0;
 }
 .panel {
   margin-bottom: var(--ux4g-gap-row-l);
   min-width: 0;
 }
-/* Application grid: different proportions and dense-report breakpoints from
-   UX4G's generic 12-column grid. Styling of controls remains with UX4G. */
-.entry-layout {
-  display: grid;
-  grid-template-columns: minmax(16rem, 0.3fr) minmax(0, 1fr);
-  gap: var(--ux4g-column-xl);
-  align-items: start;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ux4g-gap-row-l) var(--ux4g-column-xl);
-}
-.wide {
-  grid-column: 1 / -1;
-}
-.form-grid > div {
-  min-width: 0;
-}
-.report-toolbar .ux4g-input-container {
-  width: 13rem;
-}
-.report-toolbar p {
-  max-width: 42ch;
-  margin: 0;
-}
-.report-progress {
-  min-width: 13rem;
-}
-.report-progress strong span {
-  margin-inline-start: var(--ux4g-gap-column-xs);
-}
-.service-list {
-  overflow: hidden;
-}
-.service-list .ux4g-list-item-row > span:nth-child(2) {
-  flex: 1;
-}
 .service-number {
   font-variant-numeric: tabular-nums;
-}
-.service-status {
-  margin-inline-start: auto;
-}
-.balance-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: var(--ux4g-gap-row-l);
-}
-.balance-strip span,
-.balance-strip strong {
-  display: block;
-}
-.closing-strip > span {
-  margin-inline-end: auto;
 }
 .message {
   margin-block: var(--ux4g-gap-row-m);
@@ -157,7 +103,7 @@ pre {
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 .ui-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: 0 2px 8px rgb(15 35 60 / .05); }
 .ui-card { animation: content-rise .45s ease-out both; }
-.service-number, .report-progress, .balance-strip strong { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
+.service-number { font-family: "IBM Plex Mono", monospace; letter-spacing: -0.03em; }
 .ui-card-body { padding: 1.25rem; }
 .ui-field { display: grid; gap: .65rem; min-width: 0; }
 .ui-field > label { color: hsl(var(--foreground)); font-size: .88rem; font-weight: 650; }
@@ -188,39 +134,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* Visual overhaul: institutional field ledger */
-.entry-layout { display: grid; grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr); gap: clamp(1rem, 2vw, 1.75rem); align-items: start; }
-.service-list { position: sticky; top: 6.5rem; max-height: calc(100vh - 8rem); overflow: hidden; }
-.service-list .ui-card-body { padding: 0; }
-.list-header { padding: 1rem 1.15rem; color: hsl(211 64% 23%); border-bottom: 1px solid hsl(var(--border)); display: flex; justify-content: space-between; font-size: .75rem; letter-spacing: .12em; }
-.service-list ul { list-style: none; margin: 0; padding: .45rem; max-height: calc(100vh - 12rem); overflow: auto; }
-.service-list li { margin: 0; }
-.service-list .ux4g-list-item-row { width: 100%; min-height: 3rem; display: grid; grid-template-columns: 2rem minmax(0, 1fr) 1.2rem; gap: .5rem; align-items: center; border: 0; border-radius: .5rem; background: transparent; color: hsl(var(--foreground)); padding: .55rem .65rem; text-align: left; cursor: pointer; font: inherit; font-size: .8rem; }
-.service-list .ux4g-list-item-row:hover { background: hsl(211 64% 23% / .06); }
-.service-list .ux4g-list-item-row.ux4g-bg-primary-soft { background: hsl(39 84% 58% / .2); color: hsl(211 64% 23%); font-weight: 700; }
-.service-list .service-number { font-size: .75rem; }
-.service-list .service-status { color: hsl(145 52% 30%); font-size: 0; }
-.service-list .service-status::before { content: "✓"; font-size: 1rem; }
-.service-list .service-status[aria-label="Not submitted"] { color: hsl(var(--muted-foreground)); }
-.service-list .service-status[aria-label="Not submitted"]::before { content: "•"; }
-.entry-panel .section-heading { align-items: flex-start; }
-.entry-panel .balance-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1rem; margin: 1.5rem 0; border-radius: .65rem; background: hsl(211 64% 23% / .055); }
-.entry-panel .balance-strip > div { display: grid; gap: .35rem; }
-.entry-panel .balance-strip span { color: hsl(var(--muted-foreground)); font-size: .75rem; }
-.entry-panel .balance-strip strong { font-size: 1.1rem; color: hsl(211 64% 23%); }
-.entry-panel .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem 1.5rem; }
-.entry-panel .form-grid .wide { grid-column: 1 / -1; }
-.entry-panel .closing-strip { margin-top: 1.75rem; padding: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; border-radius: .65rem; background: hsl(211 64% 23% / .055); }
-.entry-panel .closing-strip > span { margin-right: auto; color: hsl(var(--muted-foreground)); font-weight: 700; }
 html[lang="hi"] h1, html[lang="hi"] h2, html[lang="hi"] h3, html[lang="hi"] p,
 html[lang="hi"] button, html[lang="hi"] label, html[lang="hi"] input, html[lang="hi"] select,
 html[lang="hi"] textarea, html[lang="hi"] span { line-height: 1.65; }
-html[lang="hi"] .page-heading h1 { line-height: 1.25; letter-spacing: 0; }
-html[lang="hi"] .service-list .ux4g-list-item-row,
 html[lang="hi"] .ui-field > label { line-height: 1.55; }
 html[lang="hi"] .section-title { line-height: 1.35; }
-.page-heading, .section-heading { border-bottom: 1px solid hsl(211 64% 23% / .14); padding-bottom: 1rem; }
-.page-heading h1, .section-heading h2 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
-.page-heading h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: .98; }
+.section-heading { border-bottom: 1px solid hsl(211 64% 23% / .14); padding-bottom: 1rem; }
+.section-heading h2 { color: hsl(211 64% 23%); letter-spacing: -.045em; }
 .eyebrow { color: hsl(var(--muted-foreground)); letter-spacing: .14em; }
 .ui-card { border-color: hsl(211 64% 23% / .14); border-radius: .8rem; box-shadow: 0 14px 40px hsl(211 64% 23% / .08); }
 .ui-card-body { padding: clamp(1.4rem, 3vw, 2.5rem); }
@@ -231,57 +151,21 @@ html[lang="hi"] .section-title { line-height: 1.35; }
 .ui-input:focus-visible, .ui-field input:focus-visible, .ui-field select:focus-visible, .ui-field textarea:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
 button:has(> svg:only-child) { min-width: 2.75rem; min-height: 2.75rem; }
 .panel { margin-bottom: 1.5rem; }
-.page-heading { margin-bottom: 2rem; }
 .section-heading { margin-bottom: 1.5rem; }
-.form-actions { margin-top: 1.75rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.5rem; }
-.form-actions .ux4g-btn-primary { margin-left: auto; }
 .ux4g-btn { min-height: 2.75rem; border-radius: .45rem; padding: .65rem 1rem; border: 1px solid hsl(211 64% 23% / .25); background: hsl(0 0% 100% / .8); color: hsl(211 64% 23%); font: inherit; font-weight: 650; cursor: pointer; }
 .ux4g-btn:hover { background: hsl(211 64% 23% / .08); }
 .ux4g-btn-primary { background: hsl(211 64% 23%) !important; border-color: hsl(211 64% 23%) !important; color: white !important; box-shadow: 0 6px 14px hsl(211 64% 23% / .18); }
 .ux4g-btn-primary:hover { background: hsl(211 64% 18%) !important; }
-.status-tag, .live-status { border-radius: 999px; }
+.live-status { border-radius: 999px; }
 .live-dot { background: hsl(39 84% 58%) !important; }
-.form-actions button, .report-toolbar button { min-height: 2.75rem; border-radius: .45rem; }
-.report-toolbar, .filters { background: hsl(211 64% 23% / .045); }
-@media (max-width: 900px) {
-  .entry-layout { grid-template-columns: 1fr; }
-  .service-list { position: static; max-height: 15rem; }
-  .service-list ul { max-height: 11rem; }
-  .entry-panel .form-grid, .entry-panel .balance-strip { grid-template-columns: 1fr; }
-  .entry-panel .form-grid .wide { grid-column: auto; }
-}
-@media (max-width: 1439px) {
-  .form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+.filters { background: hsl(211 64% 23% / .045); }
 @media (max-width: 1023px) {
   .workspace {
     padding: var(--ux4g-padding-m);
   }
-  .entry-layout {
-    grid-template-columns: 1fr;
-  }
-  .service-list {
-    max-height: 18rem;
-    overflow: auto;
-  }
-  .page-heading,
   .section-heading {
     flex-wrap: wrap;
     align-items: start;
-  }
-}
-@media (max-width: 480px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .balance-strip {
-    grid-template-columns: 1fr;
-  }
-  .report-toolbar .ux4g-input-container,
-  .report-progress {
-    width: 100%;
   }
 }
 
@@ -297,7 +181,7 @@ select {
 }
 .filters .ui-card-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.4rem 1.6rem; align-items: end; }
 .filters .ui-card-body > button { min-height: 2.75rem; }
-.page-heading p, .section-heading p, .table-notes { margin-top: .75rem; line-height: 1.6; }
+.section-heading p, .table-notes { margin-top: .75rem; line-height: 1.6; }
 .table-wrap { margin-top: 1.25rem; }
 [data-title=""] { color: hsl(var(--foreground)); }
 .setup-panel { max-width: 100%; }
@@ -316,7 +200,7 @@ select {
 .setup-confirmation { padding: 1rem 1.15rem; border: 1px solid hsl(var(--border)); border-radius: .65rem; background: hsl(var(--muted) / .55); }
 .setup-actions { display: flex; justify-content: flex-end; padding-top: .25rem; }
 @media (max-width: 700px) { .setup-panel .ui-card-body { padding: 1.25rem; } .setup-heading { align-items: start; } .setup-table th, .setup-table td { padding: .65rem .75rem; } }
-.page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .section-title { margin: 0; line-height: 1.15; }
 @media (max-width: 900px) {
   .filters .ui-card-body { grid-template-columns: 1fr; }

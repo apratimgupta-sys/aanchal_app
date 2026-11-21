@@ -28,7 +28,7 @@ vi.mock("../../src/client/api", () => ({ api, RequestError }));
 const DATE_LABEL = "Reporting / registration date";
 
 function labels() {
-  return Array.from(document.querySelectorAll("form .ui-field label"))
+  return Array.from(document.querySelectorAll("form label"))
     .map((l) => (l.textContent ?? "").replace(/\s*\*\s*$/, "").trim())
     .filter((l) => l !== DATE_LABEL);
 }
@@ -372,7 +372,7 @@ describe("a server error on a field the form does not render", () => {
     await waitFor(() =>
       expect(
         screen.getByText(/select a ward from 1 to 53/i).className,
-      ).toContain("field-error"),
+      ).toContain("text-destructive"),
     );
     // The one it does not render is spelled out in the form-level error, with
     // the field named, instead of vanishing.
