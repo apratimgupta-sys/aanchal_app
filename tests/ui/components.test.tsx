@@ -219,3 +219,11 @@ describe("the component layer", () => {
     expect(offenders.map((e) => e.outerHTML.slice(0, 80))).toEqual([]);
   });
 });
+
+describe("control font size", () => {
+  it("is 16px below lg on every control, so iOS Safari does not zoom on focus", () => {
+    render(<div><Input aria-label="a" /><Select aria-label="b" /><Field>Label<textarea /></Field></div>);
+    for (const el of [screen.getByLabelText("a"), screen.getByLabelText("b"), screen.getByLabelText("Label")])
+      expect(el.className).toMatch(/(^|\s)text-\[16px\](\s|$)/);
+  });
+});

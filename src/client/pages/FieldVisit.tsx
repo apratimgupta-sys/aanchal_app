@@ -18,11 +18,6 @@ import { Button, Field, FieldError, Notice, Panel, focusRing, leadingBody, leadi
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { useContext } from "react";
 
-// Phone first. A control under 16px makes iOS Safari zoom the page on focus, which
-// is the wrong thing to happen to an officer filling this in one-handed; the
-// design size returns at lg, where nothing zooms.
-const control = "text-[16px] lg:text-[13.5px]";
-
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
 
@@ -218,7 +213,7 @@ export default function FieldVisit({
         </section>
         <Field>
           {text("Anchal", "अंचल")}
-          <select className={control} value={officeId} onChange={(e) => setOfficeId(Number(e.target.value))} required>
+          <select value={officeId} onChange={(e) => setOfficeId(Number(e.target.value))} required>
             {ANCHALS.map((id) => (
               <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
             ))}
@@ -228,7 +223,6 @@ export default function FieldVisit({
         <Field>
           {text("Ward", "वार्ड")}
           <select
-            className={control}
             value={ward}
             onChange={(e) => setWard(e.target.value === "" ? "" : Number(e.target.value))}
             required
@@ -243,7 +237,6 @@ export default function FieldVisit({
         <Field>
           {text("Activity", "गतिविधि")}
           <select
-            className={control}
             value={serviceId}
             onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
             required
@@ -259,13 +252,13 @@ export default function FieldVisit({
         </Field>
         <Field>
           {text("Time of visit", "निरीक्षण का समय")}
-          <input className={control} type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
+          <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
           {errors.visitTime && <FieldError>{translate(errors.visitTime)}</FieldError>}
         </Field>
         <Field className="lg:col-span-2">
           {text("Issue / Action", "समस्या / कार्रवाई")}
           <textarea
-            className={cn(control, "scroll-mb-28")}
+            className="scroll-mb-28"
             rows={4}
             maxLength={4000}
             value={issueAction}

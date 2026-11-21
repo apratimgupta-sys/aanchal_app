@@ -22,9 +22,14 @@ export const leadingBody = "leading-body [html[lang=hi]_&]:leading-[1.65]";
 export const leadingHelp = "leading-help [html[lang=hi]_&]:leading-[1.65]";
 export const leadingHeading = "leading-heading [html[lang=hi]_&]:leading-[1.5]";
 
+// Why 16px below lg: iOS Safari zooms the whole page when a focused input has a
+// font-size under 16px, and the user must pinch back out. Field officers fill these
+// forms one-handed on phones, so every control is 16px there and returns to the
+// design's 13.5px at lg, where nothing zooms. A system-wide default, not a per-screen
+// exception; it departs from the mockups (15px) and the spec's 13.5px on purpose.
 const control = cva(
   [
-    `block min-h-[44px] min-w-0 rounded-[7px] border border-input bg-card px-3 py-[10px] text-[13.5px] ${leadingBody} text-foreground`,
+    `block min-h-[44px] min-w-0 rounded-[7px] border border-input bg-card px-3 py-[10px] text-[16px] lg:text-[13.5px] ${leadingBody} text-foreground`,
     "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
     "aria-[invalid=true]:border-destructive",
     focusRing,
