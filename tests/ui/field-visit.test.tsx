@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
 import { Language } from "../../src/client/i18n";
 import FieldVisit from "../../src/client/pages/FieldVisit";
 import type { OfficerProfile } from "../../src/shared/types";
@@ -258,5 +259,61 @@ describe("the observation field's ceiling", () => {
     renderForm();
     const field = screen.getByLabelText(/issue/i);
     expect(field.getAttribute("maxlength")).toBe("4000");
+  });
+});
+
+describe("FieldVisit — the rebuilt screen", () => {
+  it("offers 53 wards in a select and no free text", () => {
+    renderForm();
+    const ward = screen.getByRole("combobox", { name: /Ward/ }) as HTMLSelectElement;
+    expect(ward.options.length).toBe(54); // placeholder + wards 1..53
+    expect(screen.queryByRole("textbox", { name: /Ward/ })).toBeNull();
+  });
+
+  it("links a captured reading to its point on the map, in a new tab, at a tappable size", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    renderForm();
+    expect(screen.queryByRole("link", { name: /map/i })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    const link = await screen.findByRole("link", { name: /map/i });
+    expect(link.getAttribute("href")).toBe("https://maps.google.com/?q=23.3441,85.3096");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.className).toMatch(/min-h-\[44px\]/);
+  });
+
+  it("states, in both languages, that photographs are switched off", () => {
+    renderForm();
+    expect(screen.getByText(/not being collected/)).toBeTruthy();
+    cleanup();
+    renderForm("hi");
+    expect(screen.getByText(/संग्रहित नहीं/)).toBeTruthy();
+    expect(document.querySelector("input[type=file]")).toBeNull();
+  });
+
+  it("renders no landmark of its own: the shell supplies <main>", () => {
+    renderForm();
+    expect(document.querySelector("main, #main-content")).toBeNull();
+  });
+
+  it("marks a field invalid and ties its message to it", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    renderForm();
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    const ward = screen.getByRole("combobox", { name: /Ward/ });
+    expect(ward.getAttribute("aria-invalid")).toBe("true");
+    expect(ward.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("uses no class from styles.css and no longer imports the legacy component set", () => {
+    renderForm();
+    const legacy = /^(ux4g-|app-|ui-|visit-|workspace|field-error)/;
+    const used = new Set<string>();
+    document.querySelectorAll("[class]").forEach((el) => el.classList.forEach((c) => legacy.test(c) && used.add(c)));
+    expect([...used]).toEqual([]);
+    expect(readFileSync("src/client/pages/FieldVisit.tsx", "utf8")).not.toMatch(/legacy-ui/);
   });
 });

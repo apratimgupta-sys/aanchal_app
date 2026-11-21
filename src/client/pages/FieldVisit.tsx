@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
+import { Camera, MapPin } from "lucide-react";
 import services from "../../shared/services.json";
 import type { FieldVisitInput, GpsReading, OfficerProfile } from "../../shared/types";
 import { validateVisitInput, WARD_MAX, WARD_MIN } from "../../domain/visit";
@@ -11,9 +12,16 @@ import {
   type GeolocationFailureKind,
 } from "../lib/geolocation";
 import { Language, runtimeText, useText } from "../i18n";
-import { Field, Notice, Panel } from "../legacy-ui";
+import { cn } from "../lib/utils";
+import { mapUrl } from "../components/VisitLocation";
+import { Button, Field, FieldError, Notice, Panel, focusRing, leadingBody, leadingHeading, leadingHelp } from "../ui";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { useContext } from "react";
+
+// Phone first. A control under 16px makes iOS Safari zoom the page on focus, which
+// is the wrong thing to happen to an officer filling this in one-handed; the
+// design size returns at lg, where nothing zooms.
+const control = "text-[16px] lg:text-[13.5px]";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
@@ -32,6 +40,7 @@ export default function FieldVisit({
   clock?: () => Date;
 }) {
   const text = useText();
+  const locationId = useId();
   const lang = useContext(Language);
   const translate = (message: string) => runtimeText(message, lang);
   const [officeId, setOfficeId] = useState(officer.homeOfficeId);
@@ -137,115 +146,158 @@ export default function FieldVisit({
   const ready = gps !== null && !capturing;
 
   return (
-    <main id="main-content" tabIndex={-1} className="workspace">
-      <Panel>
-        <h1>{text("Record a field visit", "क्षेत्रीय निरीक्षण दर्ज करें")}</h1>
-        <p>
+    <Panel className="border-0 bg-transparent p-0 sm:p-0 lg:max-w-3xl lg:border lg:bg-card lg:p-6">
+      <div className="mb-4 grid gap-1">
+        <h1 className={`text-[23px] font-semibold ${leadingHeading}`}>{text("Record a field visit", "क्षेत्रीय निरीक्षण दर्ज करें")}</h1>
+        <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
           {officer.name} · {officer.designation} · {today}
         </p>
-        {saved && (
-          <Notice role="status">
-            {text("Visit recorded.", "निरीक्षण दर्ज हो गया।")}
-          </Notice>
-        )}
-        {serverError && <Notice>{serverError}</Notice>}
-        <form onSubmit={submit} noValidate>
-          <Field>
-            {text("Time of visit", "निरीक्षण का समय")}
-            <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
-            {errors.visitTime && <span className="field-error">{translate(errors.visitTime)}</span>}
-          </Field>
-          <Field>
-            {text("Anchal", "अंचल")}
-            <select value={officeId} onChange={(e) => setOfficeId(Number(e.target.value))} required>
-              {ANCHALS.map((id) => (
-                <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
-              ))}
-            </select>
-            {errors.officeId && <span className="field-error">{translate(errors.officeId)}</span>}
-          </Field>
-          <Field>
-            {text("Ward", "वार्ड")}
-            <select
-              value={ward}
-              onChange={(e) => setWard(e.target.value === "" ? "" : Number(e.target.value))}
-              required
-            >
-              <option value="">{text("Select a ward", "वार्ड चुनें")}</option>
-              {WARDS.map((number) => (
-                <option key={number} value={number}>{number}</option>
-              ))}
-            </select>
-            {errors.ward && <span className="field-error">{translate(errors.ward)}</span>}
-          </Field>
-          <Field>
-            {text("Activity", "गतिविधि")}
-            <select
-              value={serviceId}
-              onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
-              required
-            >
-              <option value="">{text("Select an activity", "गतिविधि चुनें")}</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
-                </option>
-              ))}
-            </select>
-            {errors.serviceId && <span className="field-error">{translate(errors.serviceId)}</span>}
-          </Field>
-          <div className="ui-field">
-            <span>{text("Location", "स्थान")}</span>
-            <button
-              type="button"
-              className="ux4g-btn ux4g-btn-l ux4g-btn-outline-neutral"
-              onClick={() => void capture()}
-              disabled={capturing}
-            >
-              {capturing
-                ? text("Capturing…", "कैप्चर हो रहा है…")
-                : gps
-                  ? text("Capture location again", "स्थान पुनः कैप्चर करें")
-                  : text("Capture location", "स्थान कैप्चर करें")}
-            </button>
+      </div>
+      {(saved || serverError) && (
+        <div className="mb-4 grid gap-3">
+          {saved && (
+            <Notice role="status">
+              {text("Visit recorded.", "निरीक्षण दर्ज हो गया।")}
+            </Notice>
+          )}
+          {serverError && <Notice>{serverError}</Notice>}
+        </div>
+      )}
+      <form onSubmit={submit} noValidate className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-x-5 lg:gap-y-4">
+        <section
+          aria-labelledby={locationId}
+          className={cn("grid min-w-0 gap-2 rounded-lg border p-3.5 lg:col-span-2", gps ? "border-primary/25 bg-accent" : "border-border bg-card")}
+        >
+          <div className="flex items-center gap-2">
+            <MapPin aria-hidden="true" className="size-[15px] shrink-0 text-primary" />
+            <h2 id={locationId} className={`text-[12.5px] font-semibold ${leadingBody} text-primary`}>
+              {gps ? text("Location captured", "स्थान कैप्चर हो गया") : text("Location", "स्थान")}
+            </h2>
             {gps && (
-              <p className="ui-help">
-                {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.accuracyMetres)} m
-              </p>
+              <span className={`ml-auto text-[11.5px] ${leadingBody} text-muted-foreground`}>±{Math.round(gps.accuracyMetres)} m</span>
             )}
-            {captureError && (
-              <p className="ui-help ui-error" role="alert">{captureMessages[captureError]}</p>
-            )}
-            {errors.gps && <span className="field-error">{translate(errors.gps)}</span>}
           </div>
-          <Field>
-            {text("Issue / Action", "समस्या / कार्रवाई")}
-            <textarea
-              rows={5}
-              maxLength={4000}
-              value={issueAction}
-              onChange={(e) => setIssueAction(e.target.value)}
-              required
-            />
-            {errors.issueAction && <span className="field-error">{translate(errors.issueAction)}</span>}
-          </Field>
+          {gps && (
+            <>
+              <span className={`font-mono text-[12.5px] tabular-nums ${leadingBody} text-foreground`}>
+                {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)}
+              </span>
+              <a
+                href={mapUrl(gps)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn("inline-flex min-h-[44px] w-fit items-center text-[12.5px] font-medium", leadingBody, "text-primary underline underline-offset-2 hover:text-foreground", focusRing)}
+              >
+                {text("Open in Google Maps", "गूगल मैप्स में खोलें")}
+              </a>
+            </>
+          )}
           {!gps && (
-            <p className="ui-help">
+            <p className={`text-xs ${leadingHelp} text-muted-foreground`}>
               {text(
                 "Capture the location at the site before you can submit this visit.",
                 "निरीक्षण जमा करने से पहले मौके पर स्थान कैप्चर करें।",
               )}
             </p>
           )}
-          <button
-            className="ux4g-btn ux4g-btn-l ux4g-btn-primary"
-            type="submit"
-            disabled={!ready || saving}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full lg:w-auto lg:justify-self-start"
+            onClick={() => void capture()}
+            disabled={capturing}
           >
+            {capturing
+              ? text("Capturing…", "कैप्चर हो रहा है…")
+              : gps
+                ? text("Capture location again", "स्थान पुनः कैप्चर करें")
+                : text("Capture location", "स्थान कैप्चर करें")}
+          </Button>
+          {captureError && <FieldError role="alert">{captureMessages[captureError]}</FieldError>}
+          {errors.gps && <FieldError>{translate(errors.gps)}</FieldError>}
+        </section>
+        <Field>
+          {text("Anchal", "अंचल")}
+          <select className={control} value={officeId} onChange={(e) => setOfficeId(Number(e.target.value))} required>
+            {ANCHALS.map((id) => (
+              <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
+            ))}
+          </select>
+          {errors.officeId && <FieldError>{translate(errors.officeId)}</FieldError>}
+        </Field>
+        <Field>
+          {text("Ward", "वार्ड")}
+          <select
+            className={control}
+            value={ward}
+            onChange={(e) => setWard(e.target.value === "" ? "" : Number(e.target.value))}
+            required
+          >
+            <option value="">{text("Select a ward", "वार्ड चुनें")}</option>
+            {WARDS.map((number) => (
+              <option key={number} value={number}>{number}</option>
+            ))}
+          </select>
+          {errors.ward && <FieldError>{translate(errors.ward)}</FieldError>}
+        </Field>
+        <Field>
+          {text("Activity", "गतिविधि")}
+          <select
+            className={control}
+            value={serviceId}
+            onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
+            required
+          >
+            <option value="">{text("Select an activity", "गतिविधि चुनें")}</option>
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
+              </option>
+            ))}
+          </select>
+          {errors.serviceId && <FieldError>{translate(errors.serviceId)}</FieldError>}
+        </Field>
+        <Field>
+          {text("Time of visit", "निरीक्षण का समय")}
+          <input className={control} type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
+          {errors.visitTime && <FieldError>{translate(errors.visitTime)}</FieldError>}
+        </Field>
+        <Field className="lg:col-span-2">
+          {text("Issue / Action", "समस्या / कार्रवाई")}
+          <textarea
+            className={cn(control, "scroll-mb-28")}
+            rows={4}
+            maxLength={4000}
+            value={issueAction}
+            onChange={(e) => setIssueAction(e.target.value)}
+            required
+          />
+          {errors.issueAction && <FieldError>{translate(errors.issueAction)}</FieldError>}
+          <span className="block text-muted-foreground">
+            {text(`${issueAction.length} of 4000 characters`, `4000 में से ${issueAction.length} अक्षर`)}
+          </span>
+        </Field>
+        <div className="flex min-w-0 items-center gap-3 rounded-lg border border-dashed border-input bg-muted p-3.5 lg:col-span-2">
+          <Camera aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+          <div className="grid min-w-0 gap-px">
+            <span className={`text-[13.5px] font-medium ${leadingBody} text-muted-foreground`}>{text("Photographs", "फ़ोटो")}</span>
+            <span className={`text-xs ${leadingHelp} text-muted-foreground`}>
+              {text(
+                "Photographs are not being collected — switched off for now, at RMC's request.",
+                "संग्रहित नहीं किए जा रहे — रांची नगर निगम के अनुरोध पर अभी बंद।",
+              )}
+            </span>
+          </div>
+        </div>
+        {/* On a phone the submit sits on the bottom edge of the screen while the form
+            is in view, so it is reachable without scrolling past the fields. The
+            negative margins bleed it to the screen edge, undoing the shell's padding. */}
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-8 border-t border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:-mx-8 sm:-mb-10 sm:px-8 lg:static lg:col-span-2 lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
+          <Button className="w-full lg:w-auto" type="submit" disabled={!ready || saving}>
             {saving ? text("Submitting…", "जमा हो रहा है…") : text("Submit visit", "निरीक्षण जमा करें")}
-          </button>
-        </form>
-      </Panel>
-    </main>
+          </Button>
+        </div>
+      </form>
+    </Panel>
   );
 }
