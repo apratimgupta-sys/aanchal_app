@@ -57,8 +57,7 @@ async function renderForm() {
 }
 
 async function pick(user: ReturnType<typeof userEvent.setup>, id: number) {
-  const list = screen.getByRole("list", { name: /municipal services/i });
-  await user.click(Array.from(list.querySelectorAll("button"))[id - 1]);
+  await user.click(screen.getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) }));
   await screen.findByText(new RegExp(`SERVICE ${String(id).padStart(2, "0")}\\b`));
 }
 
@@ -155,8 +154,7 @@ describe("switching service with an unsaved draft", () => {
     await user.selectOptions(ward(), "Ward 4");
     await user.type(number("Received"), "5");
 
-    const list = screen.getByRole("list", { name: /municipal services/i });
-    await user.click(Array.from(list.querySelectorAll("button"))[2]);
+    await user.click(screen.getByRole("button", { name: /^03(?!\d)/ }));
 
     // Still on service 1, still holding what was typed.
     expect(screen.getByText(/SERVICE 01\b/)).toBeTruthy();

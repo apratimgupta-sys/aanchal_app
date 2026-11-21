@@ -54,8 +54,7 @@ async function renderFor(id: number, entries: EntryView[] = []) {
   );
   await screen.findByText(/daily service entry/i);
   if (id !== 1) {
-    const list = screen.getByRole("list", { name: /municipal services/i });
-    await user.click(Array.from(list.querySelectorAll("button"))[id - 1]);
+    await user.click(screen.getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) }));
   }
   await screen.findByText(
     new RegExp(`SERVICE ${String(id).padStart(2, "0")}\\b`),

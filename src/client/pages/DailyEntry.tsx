@@ -451,51 +451,62 @@ export default function DailyEntry({
             {t("SERVICE REGISTER", "सेवा सूची")} <span>25</span>
           </div>
           <ul
-            className="m-0 grid max-h-[15rem] list-none gap-0.5 overflow-y-auto p-2 lg:max-h-none lg:flex-1"
+            className="m-0 grid max-h-[15rem] list-none gap-3 overflow-y-auto p-2 lg:max-h-none lg:flex-1"
             aria-label={t("Municipal services", "नगर निगम सेवाएँ")}
           >
-            {services.map((s) => (
-              <li key={s.id}>
-                <button
-                  key={s.id}
-                  className={cn(
-                    `grid min-h-[44px] w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] ${leadingBody} text-foreground hover:bg-muted`,
-                    "aria-[current=true]:bg-accent aria-[current=true]:font-semibold aria-[current=true]:text-accent-foreground",
-                    focusRing,
-                  )}
-                  aria-current={selected === s.id ? "true" : undefined}
-                  onClickCapture={(event) => {
-                    // React owns selection and the draft guard. Intercept before
-                    // UX4G's target listener can mutate its independent .active state.
-                    event.stopPropagation();
-                    switchSelection(() => {
-                      setSelected(s.id);
-                      setMessage("");
-                      setError("");
-                    });
-                  }}
-                >
-                  <span className={`font-mono text-xs ${leadingHelp} tabular-nums text-muted-foreground`}>
-                    {String(s.id).padStart(2, "0")}
-                  </span>
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{lang === "hi" ? s.name : s.en}</span>
-                  <span
-                    role="img"
-                    className={cn(
-                      `text-center text-base ${leadingBody}`,
-                      data.entries.some((e) => e.serviceId === s.id)
-                        ? "text-success"
-                        : "text-muted-foreground",
-                    )}
-                    aria-label={
-                      data.entries.some((e) => e.serviceId === s.id)
-                        ? "Submitted"
-                        : "Not submitted"
-                    }
-                  >
-                    {data.entries.some((e) => e.serviceId === s.id) ? "✓" : "•"}
-                  </span>
-                </button>
+            {(["counter", "revenue", "fieldwork"] as const).map((group) => (
+              <li key={group}>
+                <h2 className={`px-2.5 pb-1 text-[11px] font-medium ${leadingBody} text-muted-foreground`}>
+                  {t(shapeLabel[group][0], shapeLabel[group][1])}
+                </h2>
+                <ul className="m-0 grid list-none gap-0.5 p-0">
+                  {services
+                    .filter((s) => formShape(s.id) === group)
+                    .map((s) => (
+                  <li key={s.id}>
+                    <button
+                      key={s.id}
+                      className={cn(
+                        `grid min-h-[44px] w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] ${leadingBody} text-foreground hover:bg-muted`,
+                        "aria-[current=true]:bg-accent aria-[current=true]:font-semibold aria-[current=true]:text-accent-foreground",
+                        focusRing,
+                      )}
+                      aria-current={selected === s.id ? "true" : undefined}
+                      onClickCapture={(event) => {
+                        // React owns selection and the draft guard. Intercept before
+                        // UX4G's target listener can mutate its independent .active state.
+                        event.stopPropagation();
+                        switchSelection(() => {
+                          setSelected(s.id);
+                          setMessage("");
+                          setError("");
+                        });
+                      }}
+                    >
+                      <span className={`font-mono text-xs ${leadingHelp} tabular-nums text-muted-foreground`}>
+                        {String(s.id).padStart(2, "0")}
+                      </span>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{lang === "hi" ? s.name : s.en}</span>
+                      <span
+                        role="img"
+                        className={cn(
+                          `text-center text-base ${leadingBody}`,
+                          data.entries.some((e) => e.serviceId === s.id)
+                            ? "text-success"
+                            : "text-muted-foreground",
+                        )}
+                        aria-label={
+                          data.entries.some((e) => e.serviceId === s.id)
+                            ? "Submitted"
+                            : "Not submitted"
+                        }
+                      >
+                        {data.entries.some((e) => e.serviceId === s.id) ? "✓" : "•"}
+                      </span>
+                    </button>
+                  </li>
+                    ))}
+                </ul>
               </li>
             ))}
           </ul>
@@ -738,8 +749,12 @@ export default function DailyEntry({
                 {shape === "revenue" && (
                   <Field className="max-w-[18rem]">
                     {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
+                    {/* 118px is the design width at lg (13.5px type). Below lg the
+                        16px no-zoom type needs 190px for the widest amount the
+                        validation permits (17 digits, measured), so 192px there. */}
                     <Input
                       width="money"
+                      className="w-[192px] lg:w-[118px]"
                       readOnly={!!saved && !editingEntry}
                       type="text"
                       inputMode="decimal"
