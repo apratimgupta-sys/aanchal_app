@@ -3,6 +3,7 @@
 // by a stylesheet. index.css holds only the Tailwind directives, the font import
 // and the token file.
 import { Children, cloneElement, isValidElement, useEffect, useId, useState, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./lib/utils";
 
@@ -54,8 +55,27 @@ export function Input({ width, className, ...props }: Omit<ComponentProps<"input
   return <input {...props} className={cn(control({ width }), className)} />;
 }
 
+// A native select ignores line-height while it has its own appearance (Chromium
+// reports "normal"), which would leave Hindi leading to the browser. appearance-none
+// hands the box back to the leading constant, so the chevron is drawn here instead:
+// a token-coloured icon that takes no pointer events, is hidden from assistive tech
+// and is not focusable. The right padding keeps long option text clear of it.
+const selectClass = "appearance-none pr-10 text-ellipsis";
+function SelectFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative min-w-0">
+      {children}
+      <ChevronDown aria-hidden="true" focusable="false" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
 export function Select({ className, ...props }: ComponentProps<"select">) {
-  return <select {...props} className={cn(control(), className)} />;
+  return (
+    <SelectFrame>
+      <select {...props} className={cn(control(), selectClass, className)} />
+    </SelectFrame>
+  );
 }
 
 export function FieldError({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
@@ -88,7 +108,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
   const accessible = cloneElement(el, {
     id,
     // A bare <input>/<select> is styled here; Input/Select style themselves.
-    className: raw && el.props.type !== "checkbox" ? cn(control(), el.type === "textarea" && "min-h-24 resize-y", el.props.className) : el.props.className,
+    className: raw && el.props.type !== "checkbox" ? cn(control(), el.type === "textarea" && "min-h-24 resize-y", el.type === "select" && selectClass, el.props.className) : el.props.className,
     "aria-invalid": error || undefined,
     "aria-describedby": helpers.length ? [el.props["aria-describedby"], helpId].filter(Boolean).join(" ") : el.props["aria-describedby"],
   });
@@ -107,7 +127,7 @@ export function Field({ children, className, label, htmlFor }: { children: React
         {Boolean(el.props.required) && <span aria-hidden="true"> *</span>}
       </label>
       {before}
-      {accessible}
+      {el.type === "select" ? <SelectFrame>{accessible}</SelectFrame> : accessible}
       {helpers.length > 0 && (
         <div id={helpId} className={cn(`text-xs ${leadingHelp}`, error ? "text-destructive" : "text-muted-foreground")}>
           {helpers}
