@@ -2,9 +2,10 @@ import { useState, type ReactNode } from "react";
 import { Menu, X, Languages, LogOut, LayoutDashboard, ClipboardList, History, Users } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useText } from "../i18n";
+import type { UserSession } from "../../shared/types";
 import rmcLogo from "../assets/rmc-logo.jpg";
 
-type ShellRole = "office" | "commissioner" | "officer";
+type ShellRole = UserSession["role"];
 
 // Keyed by role, not a ternary chain: a fourth role is a compile error here
 // instead of a silent fall-through to the commissioner label.

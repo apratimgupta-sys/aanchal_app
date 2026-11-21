@@ -152,11 +152,6 @@ export default function Dashboard() {
           <h1 className="ux4g-heading-xl-strong">
             {t("Office monitoring dashboard", "कार्यालय निगरानी डैशबोर्ड")}
           </h1>
-          {/* Fewer fields are collected from this date on, so figures fall at
-              the cutover. Without saying so, that reads as a fall in work. And
-              the ledger is derived on read, so an October period is recomputed
-              on today's shape rules too — saying only "not comparable" would
-              imply the earlier figures are as they were filed. */}
           {updated && (
             <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
               {t(
@@ -165,6 +160,11 @@ export default function Dashboard() {
               )}
             </p>
           )}
+          {/* Fewer fields are collected from this date on, so figures fall at
+              the cutover. Without saying so, that reads as a fall in work. And
+              the ledger is derived on read, so an October period is recomputed
+              on today's shape rules too — saying only "not comparable" would
+              imply the earlier figures are as they were filed. */}
           <p className="ux4g-body-s-default ux4g-text-neutral-secondary ux4g-mt-xs">
             {t(
               `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,

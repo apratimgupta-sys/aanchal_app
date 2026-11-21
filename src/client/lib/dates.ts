@@ -4,7 +4,11 @@ import { formatInTimeZone } from "date-fns-tz";
 export const INDIA_TIME_ZONE = "Asia/Kolkata";
 
 export function formatIndiaDateTime(value: string, pattern = "dd/MM/yyyy HH:mm") {
-  return formatInTimeZone(new Date(value), INDIA_TIME_ZONE, pattern);
+  const date = new Date(value);
+  // formatInTimeZone throws on an invalid date, which would take the whole
+  // page down mid-render. "—" is the portal's existing "no value" mark.
+  if (Number.isNaN(date.getTime())) return "—";
+  return formatInTimeZone(date, INDIA_TIME_ZONE, pattern);
 }
 
 export function formatServiceDate(value: string) {

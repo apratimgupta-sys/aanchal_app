@@ -11,19 +11,6 @@ import type { EntryView, MonitoringRow } from "../../src/shared/types";
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/api", () => ({ api }));
 
-// The dashboard opens a live socket on mount. jsdom would try to dial it and
-// retry on a timer, which has nothing to do with what these tests assert.
-class SilentSocket {
-  static OPEN = 1;
-  readyState = 0;
-  onopen: (() => void) | null = null;
-  onmessage: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  send() {}
-  close() {}
-}
-
 function row(overrides: Partial<MonitoringRow> = {}): MonitoringRow {
   return {
     officeId: 1,
@@ -125,7 +112,6 @@ function headers(table: HTMLElement) {
 beforeEach(() => {
   cleanup();
   api.mockReset();
-  vi.stubGlobal("WebSocket", SilentSocket);
 });
 afterEach(() => vi.unstubAllGlobals());
 
