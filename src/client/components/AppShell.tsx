@@ -1,7 +1,18 @@
 import { useState, type ReactNode } from "react";
 import { Menu, X, Languages, LogOut, LayoutDashboard, ClipboardList, History, Users } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useText } from "../i18n";
 import rmcLogo from "../assets/rmc-logo.jpg";
+
+type ShellRole = "office" | "commissioner" | "officer";
+
+// Keyed by role, not a ternary chain: a fourth role is a compile error here
+// instead of a silent fall-through to the commissioner label.
+const ROLE_TITLE: Record<ShellRole, [en: string, hi: string]> = {
+  office: ["Anchal Office", "अंचल कार्यालय"],
+  commissioner: ["Commissioner Dashboard", "आयुक्त डैशबोर्ड"],
+  officer: ["Field Visits", "क्षेत्रीय निरीक्षण"],
+};
 
 export type ShellNavItem = {
   href: string;
@@ -22,7 +33,7 @@ export function AppShell({
   children,
   footer,
 }: {
-  role: "office" | "commissioner" | "officer";
+  role: ShellRole;
   account: string;
   items: ShellNavItem[];
   pathname: string;
@@ -34,6 +45,7 @@ export function AppShell({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const t = useText();
   const [open, setOpen] = useState(false);
   const navigate = (href: string) => {
     onNavigate(href);
@@ -102,7 +114,7 @@ export function AppShell({
         </header>
         <header className="app-mobile-header">
           <button className="app-menu-button" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={20} /></button>
-          <div><strong>{role === "office" ? "Anchal Office" : "Commissioner Dashboard"}</strong><span>{account}</span></div>
+          <div><strong>{t(...ROLE_TITLE[role])}</strong><span>{account}</span></div>
           <button className="app-language-button" onClick={onLanguageToggle}>{languageLabel}</button>
         </header>
         <main id="main-content" tabIndex={-1} className="app-main">{children}</main>
