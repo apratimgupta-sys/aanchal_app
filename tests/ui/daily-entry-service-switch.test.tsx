@@ -67,7 +67,7 @@ const number = (name: string) =>
 // Every field the entry panel renders, by the name an office reads off it.
 const panelFields = () =>
   Array.from(
-    document.querySelectorAll(".entry-panel form input, .entry-panel form textarea"),
+    document.querySelectorAll(".entry-panel form input, .entry-panel form select, .entry-panel form textarea"),
   ).map((el) => {
     const id = el.getAttribute("id");
     const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
@@ -77,9 +77,9 @@ const panelFields = () =>
   });
 const eyebrow = () =>
   document.querySelector(".entry-panel .eyebrow")?.textContent ?? "";
-const DATE_AND_WARD = ["Reporting / registration date", "Ward number / name"];
+const DATE_AND_WARD = ["Reporting / registration date", "Ward"];
 const ward = () =>
-  screen.getByRole("textbox", { name: "Ward number / name" }) as HTMLInputElement;
+  screen.getByRole("combobox", { name: "Ward" }) as HTMLSelectElement;
 
 async function filed() {
   await waitFor(() =>
@@ -101,7 +101,7 @@ describe("switching service with an unsaved draft", () => {
     const user = await renderForm();
 
     // Service 1, a counter service: two figures typed, nothing saved.
-    await user.type(ward(), "Ward 4");
+    await user.selectOptions(ward(), "Ward 4");
     await user.type(number("Received"), "5");
     await user.type(number("Disposed"), "3");
 
@@ -113,7 +113,7 @@ describe("switching service with an unsaved draft", () => {
     expect(number("Disposed").value).toBe("");
     expect(ward().value).toBe("");
 
-    await user.type(ward(), "Ward 9");
+    await user.selectOptions(ward(), "Ward 9");
     await user.type(number("Received"), "7");
     await user.type(number("Disposed"), "2");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
@@ -130,14 +130,14 @@ describe("switching service with an unsaved draft", () => {
 
     // Only the ward: the counter shape's two figures are left empty, so its
     // schema cannot be satisfied by anything the next shape collects.
-    await user.type(ward(), "Ward 4");
+    await user.selectOptions(ward(), "Ward 4");
 
     // Service 9 is field work: one figure, labelled "Routes", and no Received
     // box for a stale counter rule to complain about.
     await pick(user, 9);
     expect(screen.queryByRole("spinbutton", { name: "Received" })).toBeNull();
 
-    await user.type(ward(), "Ward 9");
+    await user.selectOptions(ward(), "Ward 9");
     await user.type(number("Routes"), "4");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
 
@@ -152,7 +152,7 @@ describe("switching service with an unsaved draft", () => {
   it("keeps the draft when the office says no", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = await renderForm();
-    await user.type(ward(), "Ward 4");
+    await user.selectOptions(ward(), "Ward 4");
     await user.type(number("Received"), "5");
 
     const list = screen.getByRole("list", { name: /municipal services/i });

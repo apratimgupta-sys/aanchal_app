@@ -45,7 +45,7 @@ describe("nothing to report", () => {
     const user = userEvent.setup();
     renderForm();
     await screen.findByText(/daily service entry/i);
-    await user.type(screen.getByLabelText(/ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.click(screen.getByRole("button", { name: /set zero activity/i }));
     const input = await submittedInput(user);
     expect(input.nothingToReport).toBe(true);
@@ -56,7 +56,7 @@ describe("nothing to report", () => {
     const user = userEvent.setup();
     renderForm();
     await screen.findByText(/daily service entry/i);
-    await user.type(screen.getByLabelText(/ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     // Service 1 takes the counter shape, so the boxes are Received and Disposed.
     for (const label of [/^received/i, /^disposed/i])
       await user.type(screen.getByLabelText(label), "0");
@@ -69,7 +69,7 @@ describe("nothing to report", () => {
     const user = userEvent.setup();
     renderForm();
     await screen.findByText(/daily service entry/i);
-    await user.type(screen.getByLabelText(/ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.click(screen.getByRole("button", { name: /set zero activity/i }));
     const received = screen.getByLabelText(/^received/i);
     await user.clear(received);

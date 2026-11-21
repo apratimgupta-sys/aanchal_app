@@ -169,7 +169,7 @@ describe("set zero activity, more shapes", () => {
       </Language.Provider>,
     );
     await screen.findByText(/daily service entry/i);
-    await user.type(screen.getByRole("textbox", { name: "Ward number / name" }), "Ward 4");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Ward" }), "Ward 4");
     await user.click(screen.getByRole("button", { name: /Set zero activity/ }));
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
     await waitFor(() =>

@@ -86,7 +86,7 @@ const preCutoverEntry = (serviceId: number): EntryView => ({
   serviceId,
   serviceDate: todayIST(),
   reportingDate: todayIST(),
-  ward: "24",
+  ward: "Ward 24",
   received: 7,
   completed: 5,
   slaWithinTime: 4,
@@ -114,7 +114,7 @@ describe("the three shapes", () => {
   it("shows a counter service two numbers", async () => {
     await renderFor(1);
     expect(labels()).toEqual([
-      "Ward number / name",
+      "Ward",
       "Received",
       "Disposed",
       "Remarks",
@@ -124,7 +124,7 @@ describe("the three shapes", () => {
   it("shows a revenue service payments and money", async () => {
     await renderFor(2);
     expect(labels()).toEqual([
-      "Ward number / name",
+      "Ward",
       "Payments",
       "Amount Collected (₹)",
       "Remarks",
@@ -133,13 +133,13 @@ describe("the three shapes", () => {
 
   it("shows a field-work service one work-done figure and no money", async () => {
     await renderFor(15);
-    expect(labels()).toEqual(["Ward number / name", "Sites", "Remarks"]);
+    expect(labels()).toEqual(["Ward", "Sites", "Remarks"]);
   });
 
   it("asks the grievance service as a counter service", async () => {
     await renderFor(12);
     expect(labels()).toEqual([
-      "Ward number / name",
+      "Ward",
       "Received",
       "Disposed",
       "Remarks",
@@ -192,7 +192,7 @@ describe("the three shapes", () => {
 describe("what goes over the wire", () => {
   it("sends zero, never null, for a field the shape hides", async () => {
     const user = await renderFor(15);
-    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^sites\b/i), "4");
     await submitEntry(user);
     const { input } = await sentOverTheWire("POST");
@@ -222,7 +222,7 @@ describe("what goes over the wire", () => {
 
   it("sends zero for the counter shape's hidden fields and money", async () => {
     const user = await renderFor(1);
-    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^received\b/i), "5");
     await user.type(screen.getByLabelText(/^disposed\b/i), "3");
     await submitEntry(user);
@@ -239,7 +239,7 @@ describe("what goes over the wire", () => {
 
   it("sends the revenue shape's payments and amount with no disposal", async () => {
     const user = await renderFor(2);
-    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^payments\b/i), "9");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "150.50");
@@ -361,17 +361,17 @@ describe("a server error on a field the form does not render", () => {
       throw new RequestError("Please correct the highlighted fields", {
         fieldErrors: {
           "input.slaWithinTime": "Cannot exceed completed cases",
-          "input.ward": "Enter ward number/name (maximum 200 characters)",
+          "input.ward": "Select a ward from 1 to 53",
         },
       });
     });
-    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^sites\b/i), "4");
     await submitEntry(user);
     // The key the form does render still highlights its own field.
     await waitFor(() =>
       expect(
-        screen.getByText(/enter ward number\/name/i).className,
+        screen.getByText(/select a ward from 1 to 53/i).className,
       ).toContain("field-error"),
     );
     // The one it does not render is spelled out in the form-level error, with
@@ -391,7 +391,7 @@ describe("a server error on a field the form does not render", () => {
         },
       });
     });
-    await user.type(screen.getByLabelText(/^ward number/i), "24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^sites\b/i), "4");
     await submitEntry(user);
     const shown = await screen.findByText(/cannot be combined with reported/i);

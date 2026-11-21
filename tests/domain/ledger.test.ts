@@ -24,7 +24,7 @@ const entry = {
   serviceDate: "2026-10-01",
   reportingDate: "2026-10-03",
   serviceId: 1,
-  ward: "1",
+  ward: "Ward 1",
   avgDisposalDays: 2,
   remarks: "",
   createdAt: "",
@@ -69,6 +69,8 @@ describe("ledger", () => {
     { serviceDate: "2026-02-30" },
     { serviceDate: "2026-10-04" },
     { ward: "" },
+    { ward: "11" },
+    { ward: "Ward 54" },
   ])("rejects invalid input %j", (patch) =>
     expect(validateEntry({ ...entry, ...patch }, "2026-10-03")).not.toBeNull(),
   );

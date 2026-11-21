@@ -18,6 +18,9 @@ import { mutationIntent, type MutationIntent } from "../mutation";
 import { formatIndiaDateTime } from "../lib/dates";
 import {
   entryCrossFieldErrors,
+  isCanonicalWard,
+  WARD_COUNT,
+  WARD_MESSAGE,
   type EntryCounts,
 } from "../../domain/entry-rules";
 import { collects, formShape } from "../../domain/service-kind";
@@ -89,11 +92,14 @@ const countsOf = (value: Record<string, unknown>): EntryCounts => {
     fieldCompleted: count("fieldCompleted"),
   };
 };
+// Same format as the server; the picker's options are generated from the range.
+export const wardSchema = z.string().refine(isCanonicalWard, WARD_MESSAGE);
+const WARDS = Array.from({ length: WARD_COUNT }, (_, i) => `Ward ${i + 1}`);
 const countField = z.number().int().min(0);
 // Loose, so the fields the shape hides pass through to the cross-field check
 // below instead of being stripped before it runs.
 const baseEntrySchema = z.looseObject({
-  ward: z.string().trim().min(1, "Ward number or name is required"),
+  ward: wardSchema,
   // Unrendered on purpose: correcting an entry filed before the cutover must keep its saved value. Do not remove.
   avgDisposalDays: z.number().min(0).nullable(),
   remarks: z.string().max(2000),
@@ -641,14 +647,20 @@ export default function DailyEntry({
                 </small>
               </Field>
               <Field className="wide">
-                {t("Ward number / name", "वार्ड संख्या / नाम")}
-                <input
-                  readOnly={!!saved && !editingEntry}
+                {t("Ward", "वार्ड")}
+                <select
+                  disabled={!!saved && !editingEntry}
                   required
-                  maxLength={200}
                   value={input.ward}
                   onChange={(e) => patch("ward", e.target.value)}
-                />
+                >
+                  <option value="">{t("Select a ward", "वार्ड चुनें")}</option>
+                  {WARDS.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
                 {fields.ward && (
                   <span className="field-error ux4g-text-error">
                     {runtimeText(fields.ward, lang)}

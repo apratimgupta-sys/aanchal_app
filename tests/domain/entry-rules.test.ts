@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entryCrossFieldErrors } from "../../src/domain/entry-rules";
+import { entryCrossFieldErrors, isCanonicalWard, WARD_COUNT } from "../../src/domain/entry-rules";
 import { applyActivity } from "../../src/domain/ledger";
 
 const zero = {
@@ -98,5 +98,25 @@ describe("revenue services and the pending balance", () => {
       { ...zero, serviceId: 12, received: 5, completed: 2 },
     );
     expect(after.service).toBe(3);
+  });
+});
+
+// Break caught: the stored ward drifting from `Ward N` (one space, no leading
+// zero, 1 to 53). The server enforces the same format; neither side keeps a list.
+describe("the canonical ward", () => {
+  it("covers 53 wards", () => expect(WARD_COUNT).toBe(53));
+
+  it.each(["Ward 1", "Ward 11", "Ward 53"])("accepts %s", (ward) =>
+    expect(isCanonicalWard(ward)).toBe(true),
+  );
+
+  it.each([
+    "Ward 0", "Ward 54", "ward 11", "Ward 011", "Ward 11, Konka",
+    "Ward  11", " Ward 11 ", "Ward 11 ", "11", "Ward", "", "Ward 1.5", "Ward ٣",
+  ])("rejects %j", (ward) => expect(isCanonicalWard(ward)).toBe(false));
+
+  it("rejects what is not a string", () => {
+    expect(isCanonicalWard(undefined)).toBe(false);
+    expect(isCanonicalWard(11)).toBe(false);
   });
 });

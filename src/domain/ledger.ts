@@ -1,4 +1,5 @@
 import { collects, isFieldWork, movesPendingBalance } from "./service-kind";
+import { isCanonicalWard, WARD_MESSAGE } from "./entry-rules";
 import type {
   Activity,
   Balances,
@@ -51,8 +52,7 @@ export function validateEntry(e: EntryInput, today: string): ApiError | null {
     errors.serviceDate = "Enter a valid date through today";
   if (!Number.isInteger(e.serviceId) || e.serviceId < 1 || e.serviceId > 25)
     errors.serviceId = "Select a service";
-  if (typeof e.ward !== "string" || !e.ward.trim() || e.ward.length > 200)
-    errors.ward = "Enter ward number/name (maximum 200 characters)";
+  if (!isCanonicalWard(e.ward)) errors.ward = WARD_MESSAGE;
   if (typeof e.remarks !== "string" || e.remarks.length > 2000)
     errors.remarks = "Remarks must be at most 2000 characters";
   // Applies only where the shape collects both operands, as on the server. No

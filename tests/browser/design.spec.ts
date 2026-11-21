@@ -182,21 +182,21 @@ test("canceling a service switch preserves both the draft and selected service",
 }) => {
   await signIn(page, testOfficeAccount);
   await expect(
-    page.getByLabel("Ward number / name"),
+    page.getByLabel("Ward", { exact: true }),
   ).toBeVisible();
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   if (await edit.isVisible()) await edit.click();
   const rows = page.locator(".service-list button");
   await page
-    .getByLabel("Ward number / name")
-    .fill("Unsaved ward draft");
+    .getByLabel("Ward", { exact: true })
+    .selectOption("Ward 7");
   page.once("dialog", (dialog) => dialog.dismiss());
   await rows.nth(1).click();
   await expect(rows.nth(0)).toHaveAttribute("aria-current", "true");
   await expect(rows.nth(1)).not.toHaveClass(/\bactive\b/);
   await expect(
-    page.getByLabel("Ward number / name"),
-  ).toHaveValue("Unsaved ward draft");
+    page.getByLabel("Ward", { exact: true }),
+  ).toHaveValue("Ward 7");
   page.once("dialog", (dialog) => dialog.accept());
   await rows.nth(1).click();
   await expect(rows.nth(1)).toHaveAttribute("aria-current", "true");
@@ -205,7 +205,7 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
   page,
 }) => {
   await signIn(page, testOfficeAccount);
-  const ward = page.getByLabel("Ward number / name");
+  const ward = page.getByLabel("Ward", { exact: true });
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   const submit = page.getByRole("button", {
     name: "Submit entry →",
@@ -219,12 +219,12 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
         "A saved today entry is required for the read-only check",
       );
     await page.getByRole("button", { name: "Set zero activity" }).click();
-    await ward.fill("Ward 1");
+    await ward.selectOption("Ward 1");
     await submit.click();
     await expect(page.getByRole("status")).toContainText("Entry saved");
   }
   await expect(edit).toBeVisible();
-  await expect(ward).toHaveAttribute("readonly", "");
+  await expect(ward).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Submit entry →", exact: true }),
   ).toHaveCount(0);
@@ -233,13 +233,13 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
   ).toHaveCount(0);
   const saved = await ward.inputValue();
   await edit.click();
-  await expect(ward).not.toHaveAttribute("readonly", "");
-  await ward.fill("Canceled edit");
+  await expect(ward).toBeEnabled();
+  await ward.selectOption(saved === "Ward 53" ? "Ward 52" : "Ward 53");
   await page
     .getByRole("button", { name: "Cancel editing", exact: true })
     .click();
   await expect(ward).toHaveValue(saved);
-  await expect(ward).toHaveAttribute("readonly", "");
+  await expect(ward).toBeDisabled();
 });
 
 test("office routes gate first login on setup and separate today from backdating", async ({
@@ -407,8 +407,8 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   await expect(edit.or(submit)).toBeVisible();
   if (await edit.isVisible()) await edit.click();
   await page
-    .getByLabel("Ward number / name")
-    .fill("Draft ward retained");
+    .getByLabel("Ward", { exact: true })
+    .selectOption("Ward 7");
   await page.getByLabel("Received", { exact: true }).fill("17");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
@@ -416,8 +416,8 @@ test("office navigation can be canceled without losing a dirty entry", async ({
     .click();
   await expect(page).toHaveURL(/\/office\/today$/);
   await expect(
-    page.getByLabel("Ward number / name"),
-  ).toHaveValue("Draft ward retained");
+    page.getByLabel("Ward", { exact: true }),
+  ).toHaveValue("Ward 7");
   await expect(
     page.getByLabel("Received", { exact: true }),
   ).toHaveValue("17");
@@ -428,8 +428,8 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   });
   await expect(page).toHaveURL(/\/office\/today$/);
   await expect(
-    page.getByLabel("Ward number / name"),
-  ).toHaveValue("Draft ward retained");
+    page.getByLabel("Ward", { exact: true }),
+  ).toHaveValue("Ward 7");
 });
 
 test("an open Today draft rolls forward at IST midnight and can continue as Backdate", async ({
@@ -480,8 +480,8 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
   ).toHaveValue("2026-10-06");
   await page.getByRole("button", { name: "Set zero activity" }).click();
   await page
-    .getByLabel("Ward number / name")
-    .fill("Midnight draft");
+    .getByLabel("Ward", { exact: true })
+    .selectOption("Ward 8");
   await page.clock.setFixedTime(new Date("2026-10-06T18:30:00.000Z"));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.getByRole("alert")).toContainText(
@@ -495,8 +495,8 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
     "2026-10-06",
   );
   await expect(
-    page.getByLabel("Ward number / name"),
-  ).toHaveValue("Midnight draft");
+    page.getByLabel("Ward", { exact: true }),
+  ).toHaveValue("Ward 8");
   await expect(
     page.getByLabel("Reason for delayed reporting"),
   ).toBeVisible();

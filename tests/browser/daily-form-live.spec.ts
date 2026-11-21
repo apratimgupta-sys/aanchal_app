@@ -213,7 +213,7 @@ const RETIRED_LABELS = [
 async function formFieldNames(page: Page) {
   return page.evaluate(() =>
     Array.from(
-      document.querySelectorAll(".entry-panel form input, .entry-panel form textarea"),
+      document.querySelectorAll(".entry-panel form input, .entry-panel form select, .entry-panel form textarea"),
     ).map((el) => {
       const id = el.getAttribute("id");
       const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
@@ -234,10 +234,14 @@ async function expectFormFields(page: Page, expected: string[]) {
     expect(expected, `${label} must not be collected`).not.toContain(label);
 }
 
-const DATE_AND_WARD = ["Reporting / registration date", "Ward number / name"];
+const DATE_AND_WARD = ["Reporting / registration date", "Ward"];
 
 function numberField(page: Page, name: string) {
   return page.getByRole("spinbutton", { name, exact: true });
+}
+
+function selectField(page: Page, name: string) {
+  return page.getByRole("combobox", { name, exact: true });
 }
 
 function textField(page: Page, name: string) {
@@ -355,7 +359,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     ).toHaveText("7");
     await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
 
-    await textField(office, "Ward number / name").fill("Ward 11");
+    await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Received").fill("9");
     await numberField(office, "Disposed").fill("4");
     await expect(office.locator(".closing-strip strong")).toHaveText("12");
@@ -384,7 +388,7 @@ test.describe("all three daily form shapes against a real backend", () => {
       "Remarks",
     ]);
 
-    await textField(office, "Ward number / name").fill("Ward 11");
+    await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Payments").fill("12");
     await textField(office, "Amount Collected (₹)").fill("1250.50");
     await submitEntry(office);
@@ -408,7 +412,7 @@ test.describe("all three daily form shapes against a real backend", () => {
       "Amount Collected (₹)",
       "Remarks",
     ]);
-    await textField(office, "Ward number / name").fill("Ward 13");
+    await selectField(office, "Ward").selectOption("Ward 13");
     await numberField(office, "Payments").fill("7");
     await textField(office, "Amount Collected (₹)").fill("300.25");
     await submitEntry(office);
@@ -434,7 +438,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(office.locator(".balance-strip")).toHaveCount(0);
     await expectFormFields(office, [...DATE_AND_WARD, "Trips", "Remarks"]);
 
-    await textField(office, "Ward number / name").fill("Ward 11");
+    await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Trips").fill("6");
     // Six trips against zero requests: the completed-vs-received rule must not
     // fire here. This is the pairing that was exempted in the validator but not
@@ -443,7 +447,7 @@ test.describe("all three daily form shapes against a real backend", () => {
 
     await selectService(office, 9);
     await expectFormFields(office, [...DATE_AND_WARD, "Routes", "Remarks"]);
-    await textField(office, "Ward number / name").fill("Ward 12");
+    await selectField(office, "Ward").selectOption("Ward 12");
     await numberField(office, "Routes").fill("5");
     await submitEntry(office);
 
@@ -461,7 +465,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await selectService(office, 20);
     await expect(office.locator(".balance-strip strong")).toHaveText("4");
 
-    await textField(office, "Ward number / name").fill("Ward 11");
+    await selectField(office, "Ward").selectOption("Ward 11");
     await office.getByRole("button", { name: "Set zero activity" }).click();
     await submitEntry(office);
 
@@ -513,7 +517,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(office.locator(".balance-strip strong")).toHaveText("5");
     await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
 
-    await textField(office, "Ward number / name").fill("Ward 11");
+    await selectField(office, "Ward").selectOption("Ward 11");
     await numberField(office, "Received").fill("6");
     await numberField(office, "Disposed").fill("2");
     await expect(office.locator(".closing-strip strong")).toHaveText("9");
