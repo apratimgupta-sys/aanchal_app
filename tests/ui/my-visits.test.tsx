@@ -142,7 +142,7 @@ describe("MyVisits", () => {
     });
     renderList();
     const row = await screen.findByTestId("visit-v1");
-    expect(row.className).toContain("is-voided");
+    expect(row.hasAttribute("data-voided")).toBe(true);
     expect(screen.getByText(/filed against the wrong ward/i)).toBeTruthy();
   });
 

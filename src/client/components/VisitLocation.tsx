@@ -1,4 +1,6 @@
 import { useText } from "../i18n";
+import { cn } from "../lib/utils";
+import { focusRing, leadingBody } from "../ui";
 import type { FieldVisitView, GpsReading } from "../../shared/types";
 
 // Fixed-point, trailing zeros trimmed: String(1e-7) would be "1e-7", which a
@@ -39,15 +41,15 @@ export default function VisitLocation({
   const text = useText();
   if (!hasPosition(gps))
     return (
-      <span className="visit-coords">{text("No location recorded", "कोई स्थान दर्ज नहीं")}</span>
+      <span className={`text-[12.5px] ${leadingBody} text-muted-foreground`}>{text("No location recorded", "कोई स्थान दर्ज नहीं")}</span>
     );
   return (
     <>
-      <span className="visit-coords">
+      <span className={`font-mono text-[12.5px] tabular-nums ${leadingBody} text-muted-foreground`}>
         {gps.latitude.toFixed(5)}, {gps.longitude.toFixed(5)} · ±{Math.round(gps.accuracyMetres)} m
       </span>
       <a
-        className="visit-map-link"
+        className={cn("inline-flex min-h-[44px] w-fit items-center text-[12.5px] font-medium", leadingBody, "text-primary underline underline-offset-2 hover:text-foreground", focusRing)}
         href={mapUrl(gps)}
         target="_blank"
         rel="noopener noreferrer"
