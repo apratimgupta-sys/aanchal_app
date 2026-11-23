@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Language } from "../../src/client/i18n";
 import Dashboard from "../../src/client/pages/Dashboard";
 import { auditComparison, auditFields } from "../../src/client/audit";
-import type { EntryView, MonitoringRow } from "../../src/shared/types";
+import type { MonitoringRow } from "../../src/shared/types";
 
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/api", () => ({ api }));
@@ -32,40 +32,8 @@ function row(overrides: Partial<MonitoringRow> = {}): MonitoringRow {
   };
 }
 
-function entry(overrides: Partial<EntryView> = {}): EntryView {
-  return {
-    id: "e1",
-    officeId: 1,
-    version: 1,
-    serviceId: 1,
-    serviceDate: "2026-11-19",
-    reportingDate: "2026-11-19",
-    ward: "12",
-    received: 9,
-    completed: 7,
-    slaWithinTime: 6,
-    amountPaise: 0,
-    complaintsReceived: 3,
-    complaintsResolved: 2,
-    fieldReceived: 1,
-    fieldCompleted: 1,
-    avgDisposalDays: 4,
-    remarks: "",
-    nothingToReport: false,
-    createdAt: "2026-11-19T05:00:00.000Z",
-    updatedAt: "2026-11-19T05:00:00.000Z",
-    opening: { service: 10, complaints: 3, field: 5 },
-    closing: { service: 12, complaints: 4, field: 5 },
-    ...overrides,
-  };
-}
-
-function mockApi(rows: MonitoringRow[], entries: EntryView[] = []) {
-  api.mockImplementation(async (path: string) =>
-    path.startsWith("/dashboard/entries")
-      ? entries
-      : { rows, updatedAt: "2026-11-20T05:00:00.000Z" },
-  );
+function mockApi(rows: MonitoringRow[]) {
+  api.mockImplementation(async () => ({ rows, updatedAt: "2026-11-20T05:00:00.000Z" }));
 }
 
 async function renderDashboard(lang: "en" | "hi" = "en") {
@@ -94,13 +62,6 @@ function labelledTable(label: RegExp) {
   const table = screen.getByLabelText(label).querySelector("table");
   if (!table) throw new Error("no table under " + label);
   return table as HTMLElement;
-}
-
-async function openRegister() {
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: /view service entries/i }));
-  await screen.findByText(/service entry register/i);
-  return labelledTable(/service entry register table/i);
 }
 
 function headers(table: HTMLElement) {
@@ -141,41 +102,6 @@ describe("commissioner dashboard after the form shapes", () => {
     mockApi([row({ workDone: 18 })]);
     await renderDashboard("hi");
     expect(screen.getByText("इस अवधि में किया गया कार्य")).toBeTruthy();
-  });
-
-  it("leaves opening pending blank for a revenue service in the register", async () => {
-    mockApi(
-      [row()],
-      [
-        entry({ id: "counter", serviceId: 1, opening: { service: 10, complaints: 0, field: 0 } }),
-        entry({ id: "revenue", serviceId: 2, opening: { service: 4, complaints: 0, field: 0 } }),
-        entry({ id: "fieldwork", serviceId: 8, opening: { service: 6, complaints: 0, field: 0 } }),
-      ],
-    );
-    await renderDashboard();
-    const table = await openRegister();
-    const opening = headers(table).indexOf("Opening Pending");
-    expect(opening).toBeGreaterThan(-1);
-    const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
-    const cellsOf = (i: number) => Array.from(bodyRows[i].querySelectorAll("td"));
-    expect(cellsOf(0)[opening].textContent).toBe("10"); // service 1, counter
-    expect(cellsOf(1)[opening].textContent).toBe(""); // service 2, revenue
-    expect(cellsOf(2)[opening].textContent).toBe(""); // service 8, field work
-  });
-
-  it("drops the six register columns for fields the form no longer collects", async () => {
-    mockApi([row()], [entry()]);
-    await renderDashboard();
-    const table = await openRegister();
-    for (const gone of [
-      "SLA Within Time",
-      "Avg Days",
-      "Complaints Received",
-      "Complaints Resolved",
-      "Field Received",
-      "Field Completed",
-    ])
-      expect(headers(table)).not.toContain(gone);
   });
 
   it("no longer labels one column as requests or transactions", async () => {
@@ -355,25 +281,5 @@ describe("commissioner dashboard after the form shapes", () => {
         )[column].textContent,
       ).toBe("40"),
     );
-  });
-
-  it("states the date the form changed", async () => {
-    mockApi([row()]);
-    await renderDashboard();
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          "Form fields were reduced on 20 November 2026 — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.",
-        ),
-      ).toBeTruthy(),
-    );
-    cleanup();
-    mockApi([row()]);
-    await renderDashboard("hi");
-    expect(
-      screen.getByText(
-        "फॉर्म के फ़ील्ड 20 नवंबर 2026 को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।",
-      ),
-    ).toBeTruthy();
   });
 });

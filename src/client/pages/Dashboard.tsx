@@ -1,13 +1,12 @@
-import { Badge, Button, Field, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp, useScrollRegion } from "../ui";
+import { Badge, Button, Field, Notice, Panel, Table, Td, Th, cardTable, cardTableWrap, cardTitle, leadingBody, leadingHeading, leadingHelp, useScrollRegion } from "../ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import type { MonitoringRow, EntryView } from "../../shared/types";
+import type { MonitoringRow } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
 import { formShape, type FormShape } from "../../domain/service-kind";
 import { api } from "../api";
-import { FORM_REDUCED_ON, Language, useText, runtimeText } from "../i18n";
+import { Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
 const currency = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -19,22 +18,6 @@ const currency = (paise: number) =>
 const usableStamp = (v?: string | null) =>
   v && !Number.isNaN(new Date(v).getTime()) ? v : null;
 const percent = (v: number | null) => (v === null ? "—" : v.toFixed(1) + "%");
-// One column per figure, three shapes in the rows below: received is cases or
-// transactions, and completed is disposals or work done, so both labels name both.
-const registerHeads: [string, string, boolean][] = [
-  ["Service date", "सेवा तिथि", false],
-  ["Reporting date", "रिपोर्टिंग तिथि", false],
-  ["Registered at", "पंजीकरण समय", false],
-  ["Anchal", "अंचल", false],
-  ["Ward", "वार्ड", false],
-  ["Service No", "सेवा संख्या", true],
-  ["Service", "सेवा", false],
-  ["Opening Pending", "प्रारंभिक लंबित", true],
-  ["Received / Transactions", "प्राप्त / लेन-देन", true],
-  ["Completed / Work done", "पूर्ण / किया गया कार्य", true],
-  ["Amount (₹)", "राशि (₹)", true],
-  ["Remarks", "टिप्पणियाँ", false],
-];
 export default function Dashboard() {
   const lang = useContext(Language),
     t = useText(),
@@ -46,8 +29,7 @@ export default function Dashboard() {
     [service, setService] = useState(""),
     [rows, setRows] = useState<MonitoringRow[]>([]),
     [updated, setUpdated] = useState(""),
-    [error, setError] = useState(""),
-    [details, setDetails] = useState<EntryView[] | null>(null);
+    [error, setError] = useState("");
   const queryClient = useQueryClient();
   const query = new URLSearchParams({
     from,
@@ -56,16 +38,11 @@ export default function Dashboard() {
     ...(service ? { serviceId: service } : {}),
   }).toString();
   const loadRef = useRef<() => void>(() => {});
-  const detailsOpen = useRef(false);
-  const activeQuery = useRef(query);
-  activeQuery.current = query;
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", query],
     queryFn: () => api<{ rows: MonitoringRow[]; updatedAt: string; retrievedAt?: string }>("/dashboard?" + query),
   });
   useEffect(() => {
-    detailsOpen.current = false;
-    setDetails(null);
     if (dashboardQuery.data) {
       setRows(dashboardQuery.data.rows);
       setUpdated(usableStamp(dashboardQuery.data.updatedAt) ?? usableStamp(dashboardQuery.data.retrievedAt) ?? "");
@@ -126,8 +103,7 @@ export default function Dashboard() {
   // work done to field work. Pinned to a single service, the figures the other
   // two shapes own are not collected at all, so they are left blank rather than
   // shown as 0 or — : a blank says "not collected for this service", a zero
-  // says "no work was done", and only one of those is true. Same treatment the
-  // register already gives Opening Pending.
+  // says "no work was done", and only one of those is true.
   const pinnedShape = service === "" ? null : formShape(Number(service));
   const onlyFor =
     (shape: FormShape) =>
@@ -198,9 +174,8 @@ export default function Dashboard() {
     // total, so no Anchal can be compared with another.
     [t("Work done", "किया गया कार्य"), true],
     [t("Amount Collected (₹)", "संग्रहित राशि (₹)"), true],
-    [t("Remarks / Review", "टिप्पणियाँ / समीक्षा"), false],
   ];
-  const [hAnchal, hReceived, hCompleted, hPending, hDisposal, hWork, hAmount, hRemarks] = perAnchalHeads.map(([h]) => h);
+  const [hAnchal, hReceived, hCompleted, hPending, hDisposal, hWork, hAmount] = perAnchalHeads.map(([h]) => h);
 
   return (
     <div className="grid min-w-0 gap-6">
@@ -368,18 +343,6 @@ export default function Dashboard() {
         </ul>
       </Panel>
 
-      {/* Fewer fields are collected from this date on, so figures fall at
-          the cutover. Without saying so, that reads as a fall in work. And
-          the ledger is derived on read, so an October period is recomputed
-          on today's shape rules too — saying only "not comparable" would
-          imply the earlier figures are as they were filed. */}
-      <p className={`max-w-3xl rounded-[7px] border border-border bg-muted px-3 py-2 text-[13px] ${leadingHelp} text-muted-foreground`}>
-        {t(
-          `Form fields were reduced on ${FORM_REDUCED_ON.en} — figures before and after this date are not comparable, and every period, earlier ones included, is now calculated on the reduced basis.`,
-          `फॉर्म के फ़ील्ड ${FORM_REDUCED_ON.hi} को कम किए गए — इस तिथि से पहले और बाद के आंकड़े तुलनीय नहीं हैं, और हर अवधि की गणना, पिछली अवधियों की भी, अब घटे हुए आधार पर होती है।`,
-        )}
-      </p>
-
       <div data-metrics="" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
         {metrics.map(([label, value, note]) => (
           <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
@@ -436,39 +399,6 @@ export default function Dashboard() {
                 <Td label={hDisposal} className={figure}>{counterCell(percent(r.disposalPct))}</Td>
                 <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
                 <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(r.amountPaise)}</Td>
-                <Td label={hRemarks} className={cardStacked}>
-                  {r.reviewReasons.length > 1 ? (
-                    <details>
-                      <summary
-                        className={`flex min-h-[44px] cursor-pointer items-center rounded-[7px] text-[13.5px] font-medium ${leadingBody} text-warning focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
-                      >
-                        {runtimeText(r.reviewReasons[0], lang)} {t(`+${r.reviewReasons.length - 1} more`, `+${r.reviewReasons.length - 1} और`)}
-                      </summary>
-                      {r.reviewReasons.map((reason) => (
-                        <p key={reason} className={`pb-2 text-[13px] ${leadingHelp} text-foreground`}>
-                          {runtimeText(reason, lang)}
-                        </p>
-                      ))}
-                    </details>
-                  ) : r.reviewReasons.length === 1 ? (
-                    <span className={`text-[13.5px] font-medium ${leadingBody} text-warning`}>
-                      {runtimeText(r.reviewReasons[0], lang)}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">{t("No threshold flags", "कोई सीमा चेतावनी नहीं")}</span>
-                  )}
-                  {r.configured && r.expected > 0 && r.submitted === 0 ? (
-                    <small className={`block text-[12px] ${leadingHelp} text-warning`}>
-                      {isToday ? t("Nothing filed today", "आज कुछ दर्ज नहीं") : t("Nothing filed", "कुछ दर्ज नहीं")}
-                    </small>
-                  ) : (
-                    r.submitted < r.expected && (
-                      <small className={`block text-[12px] ${leadingHelp} text-warning`}>
-                        {t("Reporting incomplete", "रिपोर्टिंग अपूर्ण")}
-                      </small>
-                    )
-                  )}
-                </Td>
               </tr>
             ))}
           </tbody>
@@ -481,106 +411,10 @@ export default function Dashboard() {
               <Td label={hDisposal} className={figure}>{counterCell(percent(disposal))}</Td>
               <Td label={hWork} className={figure}>{fieldWorkCell(totals.workDone)}</Td>
               <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(totals.amountPaise)}</Td>
-              {/* A bare dash carries nothing; on the phone card it is left out. */}
-              <Td label={hRemarks} className="max-lg:hidden">—</Td>
             </tr>
           </tfoot>
         </Table>
-        <Button
-          variant="outline"
-          className="justify-self-start max-sm:justify-self-stretch"
-          onClick={async () => {
-            try {
-              const requestedQuery = query;
-              const detailRows = await api<EntryView[]>(
-                "/dashboard/entries?" + query,
-              );
-              if (activeQuery.current === requestedQuery) {
-                detailsOpen.current = true;
-                setDetails(detailRows);
-              }
-            } catch (e) {
-              setError((e as Error).message);
-              toast.error(t("Could not load service entries", "सेवा प्रविष्टियाँ लोड नहीं हो सकीं"));
-            }
-          }}
-        >
-          {t(
-            "View service entries and remarks →",
-            "सेवा प्रविष्टियाँ और टिप्पणियाँ देखें →",
-          )}
-        </Button>
       </Panel>
-
-      {details && (
-        <Panel data-register="" className="grid min-w-0 gap-5">
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-            <h2 className={heading}>{t("Service entry register", "सेवा प्रविष्टि रजिस्टर")}</h2>
-            <Button
-              variant="outline"
-              onClick={() => {
-                detailsOpen.current = false;
-                setDetails(null);
-              }}
-            >
-              {t("Close", "बंद करें")}
-            </Button>
-          </div>
-          <Table
-            role="table"
-            className={cardTable}
-            containerClassName={cardTableWrap}
-            containerProps={scrollRegion(t("Service entry register table", "सेवा प्रविष्टि रजिस्टर तालिका"))}
-          >
-            <thead role="rowgroup">
-              <tr role="row">
-                {registerHeads.map(([en, hi, numeric]) => (
-                  <Th key={en} className={numeric ? "lg:text-right" : undefined}>
-                    {t(en, hi)}
-                  </Th>
-                ))}
-              </tr>
-            </thead>
-            <tbody role="rowgroup">
-              {details.map((e) => {
-                const label = (i: number) => t(registerHeads[i][0], registerHeads[i][1]);
-                return (
-                  <tr role="row" key={e.id}>
-                    <Td label={label(0)}>{e.serviceDate}</Td>
-                    <Td label={label(1)}>{e.reportingDate}</Td>
-                    <Td label={label(2)} className="lg:whitespace-nowrap">{formatIndiaDateTime(e.createdAt)}</Td>
-                    <Td label={label(3)}>{e.officeId}</Td>
-                    <Td label={label(4)}>{e.ward}</Td>
-                    <Td label={label(5)} className={figure}>{e.serviceId}</Td>
-                    <Td label={label(6)} className="max-lg:order-first max-lg:block max-lg:font-medium max-lg:before:hidden">
-                      {lang === "hi"
-                        ? services[e.serviceId - 1].name
-                        : services[e.serviceId - 1].en}
-                    </Td>
-                    {/* Blank, not 0: the service balance of a revenue or
-                        field-work service is frozen and means nothing. */}
-                    <Td label={label(7)} className={figure}>
-                      {formShape(e.serviceId) === "counter" ? e.opening.service : ""}
-                    </Td>
-                    <Td label={label(8)} className={figure}>{e.received}</Td>
-                    <Td label={label(9)} className={figure}>{e.completed}</Td>
-                    <Td label={label(10)} className={`${figure} lg:whitespace-nowrap`}>{currency(e.amountPaise)}</Td>
-                    <Td label={label(11)} className={cardStacked}>{e.remarks || "—"}</Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-          {!details.length && (
-            <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
-              {t(
-                "No entries submitted for this period.",
-                "इस अवधि के लिए कोई प्रविष्टि जमा नहीं है।",
-              )}
-            </p>
-          )}
-        </Panel>
-      )}
     </div>
   );
 }

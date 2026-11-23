@@ -5,14 +5,6 @@ export function useText() {
   const lang = useContext(Language);
   return (en: string, hi: string) => (lang === "hi" ? hi : en);
 }
-// The day the daily entry form stopped collecting six of its nine fields. Both
-// language strings of the dashboard's dated note read the date from here, so
-// there is one place to change if the cutover moves.
-export const FORM_REDUCED_ON = {
-  iso: "2026-11-20",
-  en: "20 November 2026",
-  hi: "20 नवंबर 2026",
-};
 const runtimeHindi: Record<string, string> = {
   "Initial balances not configured": "प्रारंभिक शेष दर्ज नहीं हैं",
   "Enter a valid value": "वैध मान दर्ज करें",

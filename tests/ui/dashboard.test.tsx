@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { readFileSync } from "node:fs";
 import { Language } from "../../src/client/i18n";
 import Dashboard from "../../src/client/pages/Dashboard";
-import type { EntryView, MonitoringRow } from "../../src/shared/types";
+import type { MonitoringRow } from "../../src/shared/types";
 
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/api", () => ({ api }));
@@ -16,18 +16,8 @@ const row = (o: Partial<MonitoringRow> = {}): MonitoringRow => ({
   amountPaise: 250000, complaintsPending: 0, fieldPending: 0, workDone: 18, submitted: 25, expected: 25,
   configured: true, reviewReasons: [], ...o,
 });
-const entry = {
-  id: "e1", officeId: 1, version: 1, serviceId: 1, serviceDate: "2026-11-19", reportingDate: "2026-11-19", ward: "12",
-  received: 9, completed: 7, slaWithinTime: 0, amountPaise: 0, complaintsReceived: 0, complaintsResolved: 0,
-  fieldReceived: 0, fieldCompleted: 0, avgDisposalDays: 0, remarks: "", nothingToReport: false,
-  createdAt: "2026-11-19T05:00:00.000Z", updatedAt: "2026-11-19T05:00:00.000Z",
-  opening: { service: 10, complaints: 0, field: 0 }, closing: { service: 12, complaints: 0, field: 0 },
-} as EntryView;
-
 async function renderDashboard(rows: MonitoringRow[], lang: "en" | "hi" = "en", extra: Record<string, unknown> = {}) {
-  api.mockImplementation(async (path: string) =>
-    path.startsWith("/dashboard/entries") ? [entry] : { rows, updatedAt: "2026-11-20T05:00:00.000Z", ...extra },
-  );
+  api.mockImplementation(async () => ({ rows, updatedAt: "2026-11-20T05:00:00.000Z", ...extra }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -49,11 +39,9 @@ describe("dashboard layout order and structure", () => {
     expect(screen.getAllByRole("heading", { level: 2 })[0].textContent).toMatch(/आज दर्ज/);
   });
 
-  it("puts filing status, then the figures, then the Anchal table, then the register", async () => {
+  it("puts filing status, then the figures, then the Anchal table", async () => {
     await renderDashboard([row()]);
-    await userEvent.setup().click(screen.getByRole("button", { name: /view service entries/i }));
-    await screen.findByText(/service entry register/i);
-    const order = ["Filed today", "Total pending", "Anchal-wise performance", "Service entry register"].map(
+    const order = ["Filed today", "Total pending", "Anchal-wise performance"].map(
       (text) => screen.getByText(text),
     );
     for (let i = 1; i < order.length; i++)
@@ -93,12 +81,10 @@ describe("dashboard layout order and structure", () => {
     expect(screen.queryByText(/Figures as of/)).toBeNull();
   });
 
-  it("each wide table scrolls inside its own container", async () => {
+  it("the wide table scrolls inside its own container", async () => {
     await renderDashboard([row()]);
-    await userEvent.setup().click(screen.getByRole("button", { name: /view service entries/i }));
-    await screen.findByText(/service entry register/i);
     const tables = screen.getAllByRole("table");
-    expect(tables).toHaveLength(2);
+    expect(tables).toHaveLength(1);
     for (const table of tables) expect(table.closest("[data-scroll-x]")).not.toBeNull();
   });
 
@@ -117,18 +103,16 @@ describe("dashboard layout order and structure", () => {
     expect(filters.compareDocumentPosition(filed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("names the reason in the last column, not a count", async () => {
-    await renderDashboard([
-      row({ officeId: 1, reviewReasons: ["Pending > 10"] }),
-      row({ officeId: 2, reviewReasons: ["Pending > 10", "Disposal < 90%"] }),
-      row({ officeId: 3, submitted: 0, expected: 25 }),
-    ]);
+  it("has no Remarks / Review column and no register drill-down", async () => {
+    await renderDashboard([row({ reviewReasons: ["Pending > 10"] })]);
     const table = screen.getAllByRole("table")[0];
-    const cells = Array.from(table.querySelectorAll("tbody tr")).map((tr) => tr.lastElementChild!.textContent);
-    expect(cells[0]).toContain("Pending > 10");
-    expect(cells[1]).toContain("Pending > 10 +1 more");
-    expect(cells[2]).toContain("Nothing filed today");
-    expect(document.body.textContent).not.toMatch(/REVIEW \(/);
+    const heads = Array.from(table.querySelectorAll("thead th")).map((h) => h.textContent);
+    expect(heads).not.toContain("Remarks / Review");
+    expect(table.textContent).not.toContain("Pending > 10");
+    expect(screen.queryByRole("button", { name: /view service entries/i })).toBeNull();
+    expect(screen.queryByText(/service entry register/i)).toBeNull();
+    expect(screen.queryByText(/form fields were reduced/i)).toBeNull();
+    expect(api.mock.calls.some((c) => String(c[0]).startsWith("/dashboard/entries"))).toBe(false);
   });
 
   it("says what each tile spans", async () => {

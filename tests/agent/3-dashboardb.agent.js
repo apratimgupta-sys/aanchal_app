@@ -44,10 +44,6 @@ await check('recovers after the error when the range is fixed', async () => { aw
 await check('single day in the far future shows an error and zero totals', async () => { await view.selectOption({ label: 'Single day' }); await page.waitForTimeout(600); await dates().first().fill('2999-01-01'); await refresh.click(); await page.waitForTimeout(2000); return /Invalid|error/i.test(await main()) && (await pending()) === '0'; });
 await check('single day empty date (cleared) does not crash', async () => { await dates().first().fill(''); await refresh.click().catch(() => {}); await page.waitForTimeout(1500); return (await page.locator('main').count()) === 1; });
 await check('Monthly view loads', async () => { await dates().first().fill('2026-10-21').catch(() => {}); await view.selectOption({ label: 'Monthly' }); await page.waitForTimeout(2000); return /Total pending/.test(await main()); });
-await check('"View service entries and remarks" opens without an error', async () => {
-  await view.selectOption({ label: 'Single day' }); await page.waitForTimeout(800); await dates().first().fill('2026-10-21'); await refresh.click(); await page.waitForTimeout(1500);
-  await page.getByRole('button', { name: /View service entries/ }).click(); await page.waitForTimeout(2000); return !/Could not load/.test(await body()) ? (await body()).slice(0, 0) + 'opened' : false;
-});
 await check('no failed non-4xx network calls from the dashboard', async () => { const failed = reqs.length > 0; return failed; });
 await page.getByRole('button', { name: 'Sign out' }).click().catch(() => {});
 
