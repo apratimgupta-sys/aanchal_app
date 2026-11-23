@@ -178,7 +178,7 @@ export default function App() {
           }}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
           signOutLabel={text("Sign out", "लॉगआउट")}
-          footer={<footer className={`flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs ${leadingHelp} text-muted-foreground sm:px-8`}><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring · First iteration", "अंचल कार्यालय निगरानी · प्रथम संस्करण")}</span></footer>}
+          footer={<footer className={`flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs ${leadingHelp} text-muted-foreground sm:px-8`}><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring", "अंचल कार्यालय निगरानी")}</span></footer>}
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
               pathname === "/commissioner/visits" ? <VisitRegister /> : pathname === "/commissioner/officers" ? <Officers /> : <Dashboard />
