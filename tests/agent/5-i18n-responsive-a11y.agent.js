@@ -32,7 +32,7 @@ await check('Hindi toggle translates the page heading and switches the button', 
 await check('Hindi: labels and nav are translated (no English left in the nav)', async () => { const nav = await page.getByRole('navigation', { name: /./ }).first().innerText(); return !/Today|Backdate/.test(nav) ? nav.replace(/\n/g, ' / ') : 'nav still English: ' + nav.replace(/\n/g, ' '); });
 await check('Hindi survives navigation to Backdate', async () => { await page.getByRole('navigation').first().getByRole('button').nth(1).click(); await page.waitForTimeout(1200); return !/Backdate Entry/.test(await body()); });
 await check('English toggle restores the English heading', async () => { await page.getByRole('button', { name: 'English', exact: true }).first().click(); await page.waitForTimeout(700); return /Daily service entry|Set opening|Backdate/.test(await page.locator('main h1').first().innerText()) || (await page.locator('main h1').first().innerText()); });
-await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.locator('[aria-label="Municipal services"] button').first().waitFor({ timeout: 15000 }).catch(() => {}); await page.waitForTimeout(1500);
+await page.goto(B + '/anchal/office/today'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.locator('[aria-label="Municipal services"] button:not([aria-expanded])').first().waitFor({ timeout: 15000 }).catch(() => {}); await page.waitForTimeout(1500);
 await check('a11y: exactly one h1', async () => (await page.locator('h1').count()) === 1);
 await check('a11y: skip link exists and its target exists', async () => (await page.locator('a[href="#main-content"]').count()) === 1 && (await page.locator('#main-content').count()) === 1);
 await check('a11y: every visible form control has an accessible name', async () => {
@@ -45,7 +45,7 @@ await check('a11y: every button has a non-empty accessible name', async () => {
 });
 await check('a11y: images have alt text', async () => (await page.evaluate(() => [...document.images].filter(i => !i.hasAttribute('alt')).length)) === 0);
 await check('a11y: first Tab stop is the skip link', async () => { await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press('Tab'); return /skip to main/i.test(await page.evaluate(() => document.activeElement.innerText)); });
-await check('a11y: the service list is keyboard reachable (buttons)', async () => (await page.locator('[aria-label="Municipal services"] button').count()) === 25);
+await check('a11y: the service list is keyboard reachable (buttons)', async () => (await page.locator('[aria-label="Municipal services"] button:not([aria-expanded])').count()) === 25);
 const overflow = async (n) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
 for (const [w, h] of [[375, 812], [768, 1024]]) {
   await page.setViewportSize({ width: w, height: h });

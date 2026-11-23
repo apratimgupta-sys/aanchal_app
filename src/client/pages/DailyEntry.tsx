@@ -14,7 +14,8 @@ import {
   leadingHelp,
 } from "../ui";
 import { cn } from "../lib/utils";
-import { useContext, useEffect, useState, useRef } from "react";
+import { useContext, useEffect, useId, useState, useRef } from "react";
+import { ChevronDown } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import type {
@@ -38,7 +39,7 @@ import {
   type EntryCounts,
 } from "../../domain/entry-rules";
 import { WARD_MAX, WARD_MIN } from "../../domain/visit";
-import { collects, formShape } from "../../domain/service-kind";
+import { formShape } from "../../domain/service-kind";
 const COUNT_KEYS = [
   "received",
   "completed",
@@ -184,6 +185,16 @@ const shapeLabel = {
   revenue: ["Collections", "संग्रह"],
   fieldwork: ["Field work", "क्षेत्रीय कार्य"],
 } as const;
+// The list is grouped by shape, so a service's place in it is not its id. The
+// clerk reads the place (01 to 25, in list order); the id stays what is stored
+// and sent. Display only: nothing keyed on a service id reads this.
+const GROUPS = ["counter", "revenue", "fieldwork"] as const;
+const displayNumber = new Map<number, string>(
+  GROUPS.flatMap((g) => services.filter((s) => formShape(s.id) === g)).map((s, i) => [
+    s.id,
+    String(i + 1).padStart(2, "0"),
+  ]),
+);
 function yesterdayIST() {
   const d = new Date(`${todayIST()}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
@@ -303,6 +314,9 @@ export default function DailyEntry({
       active = false;
     };
   }, [date, mode]);
+  // Collapsing a group only hides its rows: selection and the draft live above.
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+  const groupsId = useId();
   const saved = data?.entries.find((e) => e.serviceId === selected);
   // Everything the entry panel shows, validates and submits is keyed to the
   // draft's own service rather than to the selection. The two are kept in step
@@ -453,11 +467,31 @@ export default function DailyEntry({
             className="m-0 grid max-h-[15rem] list-none gap-3 overflow-y-auto p-2 lg:max-h-none lg:flex-1"
             aria-label={t("Municipal services", "नगर निगम सेवाएँ")}
           >
-            {(["counter", "revenue", "fieldwork"] as const).map((group) => (
+            {GROUPS.map((group) => {
+              const isOpen = !closedGroups[group];
+              const panelId = `${groupsId}-${group}`;
+              return (
               <li key={group}>
-                <h2 className={`px-2.5 pb-1 text-[11px] font-medium ${leadingBody} text-muted-foreground`}>
-                  {t(shapeLabel[group][0], shapeLabel[group][1])}
+                <h2 className="m-0">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    onClick={() => setClosedGroups((c) => ({ ...c, [group]: isOpen }))}
+                    className={cn(
+                      `flex min-h-[44px] w-full items-center justify-between gap-2 rounded-[7px] px-2.5 text-left text-[11px] font-medium ${leadingBody} text-muted-foreground hover:bg-muted`,
+                      focusRing,
+                    )}
+                  >
+                    {t(shapeLabel[group][0], shapeLabel[group][1])}
+                    <ChevronDown
+                      aria-hidden="true"
+                      focusable="false"
+                      className={cn("size-4 shrink-0 transition-transform motion-reduce:transition-none", !isOpen && "-rotate-90")}
+                    />
+                  </button>
                 </h2>
+                <div id={panelId} hidden={!isOpen}>
                 <ul className="m-0 grid list-none gap-0.5 p-0">
                   {services
                     .filter((s) => formShape(s.id) === group)
@@ -481,7 +515,7 @@ export default function DailyEntry({
                       }}
                     >
                       <span className={`font-mono text-xs ${leadingHelp} tabular-nums text-muted-foreground`}>
-                        {String(s.id).padStart(2, "0")}
+                        {displayNumber.get(s.id)}
                       </span>
                       <span className="min-w-0 [overflow-wrap:anywhere]">{lang === "hi" ? s.name : s.en}</span>
                       <span
@@ -504,8 +538,10 @@ export default function DailyEntry({
                   </li>
                     ))}
                 </ul>
+                </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </Panel>
         {/* `entry-panel` carries no style: tests find the panel's own fields by it. */}
@@ -513,7 +549,7 @@ export default function DailyEntry({
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-border pb-4">
             <div className="min-w-0">
               <div className={eyebrow}>
-                {t("SERVICE", "सेवा")} {String(formServiceId).padStart(2, "0")} ·{" "}
+                {t("SERVICE", "सेवा")} {displayNumber.get(formServiceId)} ·{" "}
                 {service.category}
               </div>
               <h2 className={`text-[17px] font-semibold ${leadingHeading} text-foreground`}>
@@ -845,29 +881,7 @@ export default function DailyEntry({
               </Notice>
             )}
             {(!saved || editingEntry) && (
-              <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                    // Zero only what this shape asks for. Every other field is
-                    // retired but may hold a figure already filed, and a
-                    // correction must not erase it. Keyed to the draft's own
-                    // service, like the rest of the panel, not the selection.
-                    const shown = shownKeys(input.serviceId);
-                    const money0 = collects(input.serviceId, "amountPaise");
-                    setInput((p) => {
-                      const next: EntryInput = { ...p, nothingToReport: true };
-                      for (const k of COUNT_KEYS) if (shown.has(k)) next[k] = 0;
-                      if (money0) next.amountPaise = 0;
-                      return next;
-                    });
-                    if (money0) setMoney("0.00");
-                    setDirty(true);
-                  }}
-                >
-                  {t("Set zero activity", "शून्य गतिविधि भरें")}
-                </Button>
+              <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
                 <Button disabled={busy || dayChanged}>
                   {busy
                     ? t("Saving…", "सहेजा जा रहा है…")

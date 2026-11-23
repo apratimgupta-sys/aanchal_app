@@ -33,7 +33,9 @@ const f = (l, v) => page.getByLabel(l).fill(v);
 const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
-const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
+// The list shows each service's place in it, not its id (grouped by shape).
+const POSITION = { 1: '01', 3: '02', 4: '03', 7: '04', 11: '05', 12: '06', 18: '07', 19: '08', 20: '09', 21: '10', 22: '11', 23: '12', 24: '13', 25: '14', 2: '15', 5: '16', 6: '17', 8: '18', 9: '19', 10: '20', 13: '21', 14: '22', 15: '23', 16: '24', 17: '25' };
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + POSITION[id] + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
@@ -59,14 +61,6 @@ await check('a revenue service sends its amount in paise', async () => {
   if (writes.length !== 1) return `requests: ${writes.length}`;
   const b = JSON.parse(writes[0].b).input;
   return b.received === 4 && b.amountPaise === 10000 && b.completed === 0 ? 'paise 10000, nothing disposed' : JSON.stringify(b).slice(0, 240);
-});
-await check('Set zero activity sends the nothing-to-report flag, not just zeros', async () => {
-  await pick(1); writes.length = 0; await page.getByLabel('Ward number / name').fill('Ward 1');
-  await page.getByRole('button', { name: 'Set zero activity' }).click(); await page.waitForTimeout(400);
-  await sub.click(); await page.waitForTimeout(1200);
-  if (!writes.length) { const t = await body(); return /confirm|zero/i.test(t) ? 'needs confirmation step (no request yet)' : 'no request sent'; }
-  const b = JSON.parse(writes[0].b).input;
-  return b.nothingToReport === true && b.received === 0 && b.completed === 0 ? 'nothingToReport true with zero counts' : JSON.stringify(b).slice(0, 240);
 });
 await check('Backdate Entry tab opens', async () => { await page.getByRole('button', { name: 'Backdate Entry' }).click(); await page.waitForTimeout(1500); const c = await page.evaluate(() => (window.__confirms || []).join(' / ')); return (path() === '/anchal/office/backdate' ? 'opened' : `path ${path()}`) + (c ? ' ; unsaved-changes prompt: "' + c + '"' : ' ; NO unsaved-changes prompt'); });
 await check('unknown service deep link does not crash', async () => { await page.goto(B + '/anchal/office/today?service=999'); await page.locator('main h1').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(1500); return /Daily service entry/.test(await body()); });

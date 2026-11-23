@@ -28,6 +28,7 @@
 // applies the migrations and re-provisions the seven accounts; it writes no
 // opening balances, because that screen is what this spec walks.
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import { servicePosition } from "../ui/service-position";
 
 const live = process.env.RMC_LIVE_BACKEND === "1";
 const officeUser = process.env.RMC_OFFICER_USERNAME ?? "anchal1";
@@ -188,13 +189,14 @@ async function signIn(page: Page, username: string, password: string) {
 }
 
 // The service register is grouped by shape (group wrappers are <li> too), so a
-// service is found by its accessible name, which starts with its two-digit number.
+// service is found by its accessible name, which starts with its two-digit place
+// in the list. That place is not the service id (see tests/ui/service-position.ts).
 async function selectService(page: Page, id: number) {
   await page
-    .getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) })
+    .getByRole("button", { name: new RegExp(`^${servicePosition(id)}(?!\\d)`) })
     .click();
   await expect(page.locator(".entry-panel .eyebrow")).toHaveText(
-    new RegExp(`^SERVICE ${String(id).padStart(2, "0")} ·`),
+    new RegExp(`^SERVICE ${servicePosition(id)} ·`),
   );
 }
 
@@ -465,11 +467,12 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(office.locator("[data-opening] strong")).toHaveText("4");
 
     await selectField(office, "Ward").selectOption("Ward 11");
-    await office.getByRole("button", { name: "Set zero activity" }).click();
+    await numberField(office, "Received").fill("0");
+    await numberField(office, "Disposed").fill("0");
     await submitEntry(office);
 
     const entry = await storedEntry(office, 20, today);
-    expect(entry.nothingToReport, "the office said so rather than typing zeros").toBe(true);
+    expect(entry.nothingToReport, "typed zeros are not the flag").toBe(false);
     expect(entry.received).toBe(0);
     expect(entry.completed).toBe(0);
     expect(entry.closing.service, "an idle day leaves the queue where it was").toBe(4);
@@ -742,37 +745,7 @@ test.describe("all three daily form shapes against a real backend", () => {
       fullPage: false,
     });
 
-    // The register: one column per figure, and the opening balance only where
-    // there is a queue.
-    await commissioner.getByRole("button", { name: /View service entries/ }).click();
-    await expect(
-      commissioner.getByRole("heading", { name: "Service entry register" }),
-    ).toBeVisible();
-    const register = commissioner.locator("[data-register] table");
-    const headers = await register.locator("thead th").allInnerTexts();
-    for (const gone of [
-      "SLA Within Time",
-      "Avg Days",
-      "Complaints Received",
-      "Complaints Resolved",
-      "Field Received",
-      "Field Completed",
-    ])
-      expect(headers.map((h) => h.trim()), `${gone} column`).not.toContain(gone);
-    const openingCell = async (serviceId: number) =>
-      (
-        await register
-          .locator("tbody tr")
-          .filter({ has: commissioner.locator(`td:nth-child(6):text-is("${serviceId}")`) })
-          .locator("td")
-          .nth(7)
-          .innerText()
-      ).trim();
-    expect(await openingCell(1), "counter opening pending is shown").toBe("7");
-    expect(await openingCell(2), "a revenue balance means nothing").toBe("");
-    expect(await openingCell(8), "a field-work balance means nothing").toBe("");
-
-    // Eight columns went out of these two tables, and their min-widths held the
+    // Columns went out of this table, and its min-width held the
     // width of the form they replaced. Asserted as a property rather than as
     // the numbers themselves: a floor must never exceed what the content could
     // ever need, and must not sit far above what the columns actually need.
@@ -791,7 +764,6 @@ test.describe("all three daily form shapes against a real backend", () => {
       };
       return {
         anchal: measure("[aria-label='Anchal-wise performance table'] table"),
-        register: measure("[data-register] table"),
       };
     });
     for (const [name, t] of Object.entries(widths)) {

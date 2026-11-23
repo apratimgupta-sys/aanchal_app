@@ -183,7 +183,8 @@ test("canceling a service switch preserves both the draft and selected service",
   ).toBeVisible();
   const edit = page.getByRole("button", { name: "Edit entry", exact: true });
   if (await edit.isVisible()) await edit.click();
-  const rows = page.locator('[aria-label="Municipal services"] button');
+  // The group headers are buttons too (they carry aria-expanded); the rows are not.
+  const rows = page.locator('[aria-label="Municipal services"] button:not([aria-expanded])');
   await page
     .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 7");
@@ -214,7 +215,8 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
         true,
         "A saved today entry is required for the read-only check",
       );
-    await page.getByRole("button", { name: "Set zero activity" }).click();
+    await page.getByRole("spinbutton", { name: "Received", exact: true }).fill("0");
+    await page.getByRole("spinbutton", { name: "Disposed", exact: true }).fill("0");
     await ward.selectOption("Ward 1");
     await submit.click();
     await expect(page.getByRole("status")).toContainText("Entry saved");
@@ -474,7 +476,8 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
   await expect(
     page.getByLabel("Reporting / registration date", { exact: true }),
   ).toHaveValue("2026-10-06");
-  await page.getByRole("button", { name: "Set zero activity" }).click();
+  await page.getByRole("spinbutton", { name: "Received", exact: true }).fill("0");
+  await page.getByRole("spinbutton", { name: "Disposed", exact: true }).fill("0");
   await page
     .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 8");

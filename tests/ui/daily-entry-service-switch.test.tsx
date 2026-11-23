@@ -11,6 +11,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
+import { servicePosition } from "./service-position";
 import DailyEntry from "../../src/client/pages/DailyEntry";
 
 const api = vi.hoisted(() => vi.fn());
@@ -57,8 +58,8 @@ async function renderForm() {
 }
 
 async function pick(user: ReturnType<typeof userEvent.setup>, id: number) {
-  await user.click(screen.getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) }));
-  await screen.findByText(new RegExp(`SERVICE ${String(id).padStart(2, "0")}\\b`));
+  await user.click(screen.getByRole("button", { name: new RegExp(`^${servicePosition(id)}(?!\\d)`) }));
+  await screen.findByText(new RegExp(`SERVICE ${servicePosition(id)}\\b`));
 }
 
 const number = (name: string) =>
@@ -154,7 +155,7 @@ describe("switching service with an unsaved draft", () => {
     await user.selectOptions(ward(), "Ward 4");
     await user.type(number("Received"), "5");
 
-    await user.click(screen.getByRole("button", { name: /^03(?!\d)/ }));
+    await user.click(screen.getByRole("button", { name: /^02(?!\d)/ }));
 
     // Still on service 1, still holding what was typed.
     expect(screen.getByText(/SERVICE 01\b/)).toBeTruthy();

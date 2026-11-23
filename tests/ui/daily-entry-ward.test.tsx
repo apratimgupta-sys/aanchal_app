@@ -20,6 +20,14 @@ vi.mock("../../src/client/api", () => ({ api, RequestError }));
 
 const empty = { setup: null, entries: [], openings: [] };
 
+// Service 1 is counter work: Received and Disposed are its two figures, and the
+// form will not submit until both are filled. Typing the zeros is what the
+// removed "Set zero activity" button used to do for the office.
+async function fillZeros(user: ReturnType<typeof userEvent.setup>, received = /^received/i, disposed = /^disposed/i) {
+  await user.type(screen.getByLabelText(received), "0");
+  await user.type(screen.getByLabelText(disposed), "0");
+}
+
 function renderForm(lang: "en" | "hi" = "en") {
   return render(
     <Language.Provider value={lang}>
@@ -91,7 +99,7 @@ describe("the ward picker", () => {
     renderForm();
     await screen.findByText(/daily service entry/i);
     await user.selectOptions(screen.getByRole("combobox", { name: "Ward" }), "Ward 11");
-    await user.click(screen.getByRole("button", { name: /set zero activity/i }));
+    await fillZeros(user);
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
     await waitFor(() => expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(true));
     expect(api.mock.calls.find((c) => c[1] === "POST")![2].input.ward).toBe("Ward 11");
@@ -102,7 +110,7 @@ describe("the ward picker", () => {
     const user = userEvent.setup();
     renderForm();
     await screen.findByText(/daily service entry/i);
-    await user.click(screen.getByRole("button", { name: /set zero activity/i }));
+    await fillZeros(user);
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
     expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(false);
   });
@@ -119,7 +127,7 @@ describe("the ward picker", () => {
       });
     });
     await user.selectOptions(select, "Ward 11");
-    await user.click(screen.getByRole("button", { name: /शून्य/ }));
+    await fillZeros(user, /^प्राप्त/, /^निस्तारित/);
     await user.click(screen.getByRole("button", { name: /जमा/ }));
     expect(await screen.findByText("1 से 53 के बीच वार्ड चुनें")).toBeTruthy();
   });

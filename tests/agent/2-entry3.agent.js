@@ -34,7 +34,9 @@ const sub = page.getByRole('button', { name: /Submit entry/ });
 if (!(await sub.count())) return 'SKIPPED: today\'s entry is already saved for anchal1, so the form is read-only';
 const reload = page.getByRole('button', { name: 'Reload latest entry' });
 const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
-const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
+// The list shows each service's place in it, not its id (grouped by shape).
+const POSITION = { 1: '01', 3: '02', 4: '03', 7: '04', 11: '05', 12: '06', 18: '07', 19: '08', 20: '09', 21: '10', 22: '11', 23: '12', 24: '13', 25: '14', 2: '15', 5: '16', 6: '17', 8: '18', 9: '19', 10: '20', 13: '21', 14: '22', 15: '23', 16: '24', 17: '25' };
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + POSITION[id] + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 // Counter shape for the number checks; money lives on the revenue shape alone.
 const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
+import { servicePosition } from "./service-position";
 import DailyEntry from "../../src/client/pages/DailyEntry";
 import { todayIST } from "../../src/domain/ledger";
 import type { EntryView } from "../../src/shared/types";
@@ -54,10 +55,10 @@ async function renderFor(id: number, entries: EntryView[] = []) {
   );
   await screen.findByText(/daily service entry/i);
   if (id !== 1) {
-    await user.click(screen.getByRole("button", { name: new RegExp(`^${String(id).padStart(2, "0")}(?!\\d)`) }));
+    await user.click(screen.getByRole("button", { name: new RegExp(`^${servicePosition(id)}(?!\\d)`) }));
   }
   await screen.findByText(
-    new RegExp(`SERVICE ${String(id).padStart(2, "0")}\\b`),
+    new RegExp(`SERVICE ${servicePosition(id)}\\b`),
   );
   return user;
 }

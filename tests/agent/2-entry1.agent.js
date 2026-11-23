@@ -36,7 +36,9 @@ const reload = page.getByRole('button', { name: 'Reload latest entry' });
 const alerts = async () => (await page.getByRole('alert').allInnerTexts()).join(' / ');
 const fieldErrs = async () => page.evaluate(() => [...document.querySelectorAll('[data-field-error]')].map(e => e.textContent.trim()).join(' / '));
 // The form takes three shapes now, so a service has to be chosen before it can be filled.
-const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + String(id).padStart(2, '0') + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
+// The list shows each service's place in it, not its id (grouped by shape).
+const POSITION = { 1: '01', 3: '02', 4: '03', 7: '04', 11: '05', 12: '06', 18: '07', 19: '08', 20: '09', 21: '10', 22: '11', 23: '12', 24: '13', 25: '14', 2: '15', 5: '16', 6: '17', 8: '18', 9: '19', 10: '20', 13: '21', 14: '22', 15: '23', 16: '24', 17: '25' };
+const pick = async (id) => { await page.getByRole('button', { name: new RegExp('^' + POSITION[id] + '(?!\\d)') }).click(); await page.waitForTimeout(400); };
 // Counter shape: ward, received, disposed. Nothing else is collected.
 const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received': '5', 'Disposed': '3', ...o };
@@ -45,7 +47,7 @@ const fill = async (o = {}) => {
 // The fields the form stopped collecting on 20 Nov 2026. None of them may render on any shape.
 const RETIRED = ['SLA Within Time', 'Complaints Received', 'Complaints Resolved', 'Field Tasks Received', 'Field Tasks Completed', 'Avg Disposal Days'];
 const retiredOn = async () => { const out = []; for (const l of RETIRED) if (await page.getByLabel(l).count()) out.push(l); return out; };
-await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] button').count()) === 25);
+await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] button:not([aria-expanded])').count()) === 25);
 await check('service 01 takes the counter shape: received and disposed only', async () => {
   await pick(1);
   const shown = await page.evaluate(() => [...document.querySelectorAll('.entry-panel form input, .entry-panel form textarea')].map(el => { const id = el.getAttribute('id'); const lab = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null; return (el.getAttribute('aria-label') ?? lab?.textContent ?? '').replace(/\s*\*\s*$/, '').trim(); }));

@@ -36,7 +36,7 @@ const fill = async (o = {}) => {
   const v = { 'Ward number / name': 'Ward 1', 'Received / Transactions': '5', 'Disposed / Completed': '3', 'SLA Within Time': '2', 'Complaints Received': '1', 'Complaints Resolved': '1', 'Field Tasks Received': '2', 'Field Tasks Completed': '1', 'Amount Collected (₹)': '100', 'Avg Disposal Days': '1.5', ...o };
   for (const [k, x] of Object.entries(v)) await f(k, x);
 };
-await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] button').count()) === 25);
+await check('header shows 25 services and progress 0 / 25', async () => /0 \/ 25/.test(await body()) && (await page.locator('[aria-label="Municipal services"] button:not([aria-expanded])').count()) === 25);
 await check('empty submit is blocked by required fields (no request)', async () => { await sub.click(); await page.waitForTimeout(500); return writes.length === 0 && (await page.locator('input:invalid').count()) > 0; });
 await check('closing balances update live (received 5, completed 3)', async () => { await fill(); const t = await page.getByText(/^Work:/).first().innerText(); return /Work: \d/.test(t) ? t : false; });
 await check('completed above received -> field error, no request, no reload button', async () => {
