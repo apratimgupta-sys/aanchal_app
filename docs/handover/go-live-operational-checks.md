@@ -88,9 +88,101 @@ Delete the scratch database afterwards.
 
 ---
 
+## Who administers users
+
+User administration moved to a dedicated account. **The commissioner can no longer add, deactivate
+or reset anyone.** That screen is gone from the commissioner's portal; the route itself refuses a
+commissioner token.
+
+A new seeded login, `rolemanager`, does that work and nothing else. It has no Anchal, sees no
+entries, no dashboard figures and no correction history — every monitoring route refuses it. Its
+only screen is the user list.
+
+**It needs a password in the provisioning file before the next deploy, or the deploy fails.** See
+the credentials note under "Known gaps" below; that failure stops the whole deploy, not just this
+account.
+
+### What the role manager can do
+
+- Create a **field officer** (files visits from the field) or an **extra Anchal office login**
+  (files daily entries for one of the six Anchals). Both bind to exactly one existing Anchal.
+- Deactivate and reactivate those accounts.
+- Reset their passwords, which issues a temporary one the user must change at next sign-in.
+
+### What it deliberately cannot do
+
+- **It cannot see or touch the commissioner, or itself.** Those two accounts are not in its list and
+  its routes return "not found" for them. So it cannot lock out the commissioner, cannot reset the
+  commissioner's password, and cannot lock itself out. The cost of that safety is in the next
+  section: a lost password on either account cannot be recovered from inside the product.
+- **It cannot create another commissioner or another role manager.** Both are seeded fixtures only.
+- **It cannot create a new Anchal.** The six are fixed; a new login attaches to one of them.
+
+### Two behaviours worth telling the operator about
+
+**Deactivating an Anchal's only active login stops that Anchal filing.** The confirmation says so by
+name when that is the case. It is fully reversible — reactivate and the account works again, with
+the same password — but until then that office cannot file its daily entries, and the commissioner's
+dashboard will show it as not filed.
+
+**A password reset takes effect immediately, including for someone already signed in.** A clerk
+working in the portal when their password is reset is sent to the change-password screen on their
+next action rather than continuing on the old password. Expect the support call: "it asked me to
+change my password in the middle of entering data." Nothing entered and saved before that point is
+lost; an unsaved form is.
+
+### What the commissioner kept
+
+The commissioner can still **read** the list of field officers, because the visit register filters
+visits by officer and that dropdown needs the names. It is read-only and shows field officers only —
+no Anchal office logins, no commissioner, no role manager. Reading it reveals nothing the visit
+rows do not already print.
+
+### A lost commissioner or role-manager password has no recovery path
+
+**Redeploying with a new password in the provisioning file does not change an existing account's
+password.** The provisioner creates accounts that are missing and leaves accounts that exist alone —
+it only verifies their role and office. So changing a credential in the environment and redeploying
+is silently a no-op for any account already in the database.
+
+For the six Anchal logins and any field officer, this does not bite: the role manager resets them.
+For the **commissioner** and the **role manager** nothing resets them, by design — neither account
+appears in the other's list. If either password is lost, recovery is a direct database operation on
+`monitoring_users` (delete the row and redeploy, or write a fresh hash), performed by whoever
+administers the RSCCL server.
+
+This was already true of the commissioner before this work. It matters more now, because the
+commissioner can no longer reset anyone either, so there is no account that can rescue another.
+
+**Tell RMC to store both passwords somewhere they will survive a laptop change.** That is the whole
+mitigation.
+
+### Hindi still to review
+
+The user-administration screen is new, so its Hindi has not been read by a native speaker: the
+screen title, the account label, the add-user form's fields including the two role options, and the
+deactivate, reset and temporary-password sentences. Three server messages have no
+Hindi at all and currently show in English — `Select a valid role`, `That username is already
+taken` and `Officer not found`.
+
+---
+
 ## Known gaps that are not checks
 
 Recorded here so they are not discovered during go-live week.
+
+**The provisioning credentials file now needs eight lines, not seven — a deploy with seven fails.**
+The role-manager account is seeded like every other fixed account, and the provisioner requires
+one password for *each* approved account, exactly. An existing credentials file carrying the six
+Anchals and the commissioner will now throw `Provide one 12-128 character password for each of
+the eight approved monitoring accounts.` and **the entire deploy stops** — not just the role
+manager.
+
+That hard failure is deliberate and is better than the alternative: a deploy that quietly comes up
+with no administrator account is worse than one that refuses to start. But it means the credentials
+file must be updated **before** the next deploy, not after it fails.
+
+Add a line for `rolemanager`, 12–128 characters, alongside the others.
 
 **Adding a 54th ward is not a one-line change.** Ranchi has had 53 wards since the last delimitation, so this is not urgent — but when it changes, four places need editing and only the first is a constant:
 
