@@ -91,16 +91,17 @@ Delete the scratch database afterwards.
 ## Who administers users
 
 User administration moved to a dedicated account. **The commissioner can no longer add, deactivate
-or reset anyone.** That screen is gone from the commissioner's portal; the route itself refuses a
-commissioner token.
+or reset anyone.** That screen is gone from the commissioner's portal, and the three write routes
+(create, deactivate and reactivate, reset password) refuse a commissioner token. The commissioner
+keeps one read-only route, the field-officer list, described under "What the commissioner kept".
 
 A new seeded login, `rolemanager`, does that work and nothing else. It has no Anchal, sees no
 entries, no dashboard figures and no correction history — every monitoring route refuses it. Its
 only screen is the user list.
 
-**It needs a password in the provisioning file before the next deploy, or the deploy fails.** See
-the credentials note under "Known gaps" below; that failure stops the whole deploy, not just this
-account.
+**It needs a password in the provisioning file before the next deploy, or the account is never
+created.** See the credentials note under "Known gaps" below. Whether that also stops the deploy
+depends on how the deploy pipeline is set up, which this repository does not control.
 
 ### What the role manager can do
 
@@ -122,21 +123,25 @@ account.
 
 **Deactivating an Anchal's only active login stops that Anchal filing.** The confirmation says so by
 name when that is the case. It is fully reversible — reactivate and the account works again, with
-the same password — but until then that office cannot file its daily entries, and the commissioner's
-dashboard will show it as not filed.
+the same password — but until then that office cannot file its daily entries. The commissioner's dashboard will show it as
+"Not filed" once a day passes with nothing submitted, and it does not say that the cause is a
+deactivated login.
 
-**A password reset takes effect immediately, including for someone already signed in.** A clerk
-working in the portal when their password is reset is sent to the change-password screen on their
-next action rather than continuing on the old password. Expect the support call: "it asked me to
-change my password in the middle of entering data." Nothing entered and saved before that point is
-lost; an unsaved form is.
+**A password reset takes effect immediately, including for someone already signed in.** The server
+refuses a clerk's next request, and the portal then takes them to the change-password screen. That
+screen asks for their *current* password, which by then is the temporary one the role manager has
+just generated, so the clerk cannot get past it until they have been handed that password. The
+screen says so. Expect the support call: "it asked me to change my password in the middle of
+entering data." Nothing entered and saved before that point is lost; an unsaved form is. In
+practice a reset means: give the user the new password first, then expect them to type it in.
 
 ### What the commissioner kept
 
 The commissioner can still **read** the list of field officers, because the visit register filters
 visits by officer and that dropdown needs the names. It is read-only and shows field officers only —
-no Anchal office logins, no commissioner, no role manager. Reading it reveals nothing the visit
-rows do not already print.
+no Anchal office logins, no commissioner, no role manager. Each entry carries the officer's name,
+designation, home Anchal, login username and whether the account is active; the name and designation
+are already printed on every visit row, the username and active state are not.
 
 ### A lost commissioner or role-manager password has no recovery path
 
@@ -148,22 +153,48 @@ is silently a no-op for any account already in the database.
 For the six Anchal logins and any field officer, this does not bite: the role manager resets them.
 For the **commissioner** and the **role manager** nothing resets them, by design — neither account
 appears in the other's list. If either password is lost, recovery is a direct database operation on
-`monitoring_users` (delete the row and redeploy, or write a fresh hash), performed by whoever
-administers the RSCCL server.
+`monitoring_users`, performed by whoever administers the RSCCL server: **write a fresh password hash
+onto the existing row** (`"PasswordHash"`), and set `"MustChangePassword"` to true so the person
+chooses their own at next sign-in.
+
+**Do not plan on deleting the row.** The database may refuse it. `monitoring_field_visits."VoidedByUserId"`
+has a foreign key to `monitoring_users` with restrict-on-delete, and voiding a visit is a
+commissioner-only action, so once the commissioner has voided a single visit, deleting the commissioner
+row fails with a foreign-key violation. Deleting and redeploying to re-seed is therefore not a recovery
+for the commissioner, and finding that out mid-outage means improvising on a production database. (The
+role manager's row is referenced by nothing, so deleting it works, but writing a hash is the one method
+that works for both.) The hash must be produced the way the application produces it, with the
+application's own password hasher; a hash made any other way will not verify.
 
 This was already true of the commissioner before this work. It matters more now, because the
 commissioner can no longer reset anyone either, so there is no account that can rescue another.
 
 **Tell RMC to store both passwords somewhere they will survive a laptop change.** That is the whole
-mitigation.
+mitigation for a *lost* password.
+
+### The commissioner's and role manager's own passwords can now be changed
+
+Until now neither the commissioner nor the role manager could change their own password from inside
+the product at all; the password was whatever had been typed into the provisioning file, for the life
+of the system. Both accounts can now change their own password from the portal.
+
+This matters for more than a lost password. The real case is **rotation when a person with access
+leaves**: whoever ran the deploy, or held the credentials file, knew these passwords, and the
+role manager's password can create, deactivate and reset every other login. Before this change the
+only way to rotate it was the direct database write above. Now the account holder changes it in the
+portal, and nobody else needs to be involved. Changing the credential in the provisioning file and
+redeploying still does nothing for an account that already exists, so the portal is the way to rotate,
+not the file.
 
 ### Hindi still to review
 
 The user-administration screen is new, so its Hindi has not been read by a native speaker: the
 screen title, the account label, the add-user form's fields including the two role options, and the
-deactivate, reset and temporary-password sentences. Three server messages have no
-Hindi at all and currently show in English — `Select a valid role`, `That username is already
-taken` and `Officer not found`.
+deactivate, reset and temporary-password sentences, and the note on the change-password screen that
+the current password may be the temporary one an administrator has just reset. Four server messages
+now have Hindi that has not been read by a native speaker either — `Change your temporary password
+before using the portal`, `Select a valid role`, `That username is already taken` and `Officer not
+found`.
 
 ---
 
@@ -171,16 +202,21 @@ taken` and `Officer not found`.
 
 Recorded here so they are not discovered during go-live week.
 
-**The provisioning credentials file now needs eight lines, not seven — a deploy with seven fails.**
+**The provisioning credentials file now needs eight lines, not seven — with seven, provisioning seeds nothing.**
 The role-manager account is seeded like every other fixed account, and the provisioner requires
 one password for *each* approved account, exactly. An existing credentials file carrying the six
 Anchals and the commissioner will now throw `Provide one 12-128 character password for each of
-the eight approved monitoring accounts.` and **the entire deploy stops** — not just the role
-manager.
+the eight approved monitoring accounts.`, and the `provision` command exits non-zero having seeded
+nothing — not even the accounts that were valid.
 
-That hard failure is deliberate and is better than the alternative: a deploy that quietly comes up
-with no administrator account is worse than one that refuses to start. But it means the credentials
-file must be updated **before** the next deploy, not after it fails.
+`provision` is a separate command (`provision --credentials-file …`), not part of starting the API.
+The API starts normally whether or not provisioning ever ran. So **the deploy pipeline must be
+configured to treat a non-zero exit from `provision` as a failed deploy.** If it does not, for
+example a script that runs migrate, provision and restart without stopping on error, the failure is
+logged, the portal comes up, and there is no `rolemanager` account and no visible error. Confirm that
+with whoever owns the RSCCL pipeline; it is not defined in either repository.
+
+Either way, the credentials file must be updated **before** the next deploy, not after it fails.
 
 Add a line for `rolemanager`, 12–128 characters, alongside the others.
 

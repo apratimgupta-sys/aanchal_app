@@ -10,6 +10,13 @@ export class RequestError extends Error {
     super(detail.message);
   }
 }
+// The server refuses every data route with this code once a password has been reset
+// (or was never changed). Nothing in a page can fix that, only the session can say so,
+// so the shell registers here and re-reads the session wherever the 403 turns up.
+let onPasswordChangeRequired: (() => void) | null = null;
+export function setPasswordChangeRequiredHandler(handler: (() => void) | null) {
+  onPasswordChangeRequired = handler;
+}
 export async function api<T>(
   path: string,
   method = "GET",
@@ -32,6 +39,8 @@ export async function api<T>(
   // that is not JSON. Parsing unconditionally turned a successful password
   // change into "Could not change the password. Try again."
   const data = r.status === 204 ? null : await r.json().catch(() => null);
+  if (r.status === 403 && (data as ApiError | null)?.code === "password_change_required")
+    onPasswordChangeRequired?.();
   if (!r.ok)
     throw new RequestError(
       (data as ApiError | null) ?? { code: "UNKNOWN", message: `Request failed (${r.status})` },

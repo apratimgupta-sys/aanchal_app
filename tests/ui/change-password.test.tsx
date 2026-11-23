@@ -80,4 +80,20 @@ describe("ChangePassword", () => {
     renderPage(vi.fn(), "hi");
     expect(screen.getByRole("heading", { name: /पासवर्ड बदलें/ })).toBeTruthy();
   });
+
+  it("says the current password is the temporary one if an administrator has just reset it", () => {
+    renderPage();
+    const hint = screen.getByText(/administrator has just reset your password/i);
+    expect(hint.textContent).toMatch(/current password is the temporary one/i);
+    // Field wires everything after the control into aria-describedby.
+    const help = hint.closest("[id$='-help']")!;
+    expect(screen.getByLabelText(/current password/i).getAttribute("aria-describedby")).toContain(help.id);
+  });
+
+  it("says it in Hindi too", () => {
+    renderPage(vi.fn(), "hi");
+    const hint = document.getElementById(screen.getByLabelText(/वर्तमान पासवर्ड/).getAttribute("aria-describedby")!)!;
+    expect(hint.textContent).toMatch(/अस्थायी पासवर्ड/);
+    expect(hint.textContent).toMatch(/रीसेट/);
+  });
 });

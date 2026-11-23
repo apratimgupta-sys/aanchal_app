@@ -380,7 +380,7 @@ export default function DailyEntry({
     return (
       <Panel className="grid justify-items-start gap-3">
         <p className={`text-[13.5px] ${leadingBody}`}>
-          {error ||
+          {(error && runtimeText(error, lang)) ||
             t("Loading office report…", "कार्यालय रिपोर्ट लोड हो रही है…")}
         </p>
         {error && (

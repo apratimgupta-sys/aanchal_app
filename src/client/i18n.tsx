@@ -97,6 +97,12 @@ const runtimeHindi: Record<string, string> = {
   "Enter a username": "उपयोगकर्ता नाम दर्ज करें",
   "Enter the officer's name": "अधिकारी का नाम दर्ज करें",
   "Enter a designation": "पदनाम दर्ज करें",
+  // Server messages. Native-reader review pending.
+  "Change your temporary password before using the portal":
+    "पोर्टल का उपयोग करने से पहले अपना अस्थायी पासवर्ड बदलें",
+  "Select a valid role": "वैध भूमिका चुनें",
+  "That username is already taken": "यह उपयोगकर्ता नाम पहले से लिया जा चुका है",
+  "Officer not found": "अधिकारी नहीं मिला",
 };
 export function runtimeText(text: string, lang: Lang) {
   if (lang === "en") return text;

@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import type { OfficerProfile, Setup, UserSession } from "../shared/types";
-import { api, RequestError } from "./api";
+import { api, RequestError, setPasswordChangeRequiredHandler } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import { leadingBody, leadingHelp } from "./ui";
@@ -67,7 +67,14 @@ export default function App() {
     }
     setPathname(path);
   }
+  // The session says whether a password change is owed, but only when it is read. A reset
+  // that lands while someone is signed in is learned from a 403, so one re-read answers it,
+  // once: not while a read is already running, and not when the screen already asks for it.
+  const reading = useRef(false);
+  const mustChange = useRef(false);
+  mustChange.current = session?.mustChangePassword === true;
   async function refresh() {
+    reading.current = true;
     try {
       const next = await api<UserSession>("/session");
       setSession(next);
@@ -87,11 +94,16 @@ export default function App() {
       setSession(null);
       setSetup(undefined);
     } finally {
+      reading.current = false;
       setLoading(false);
     }
   }
   useEffect(() => {
     void refresh();
+    setPasswordChangeRequiredHandler(() => {
+      if (!reading.current && !mustChange.current) void refresh();
+    });
+    return () => setPasswordChangeRequiredHandler(null);
   }, []);
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -149,9 +161,9 @@ export default function App() {
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
         />
-      ) : (session.role === "officer" || session.role === "office") && session.mustChangePassword ? (
+      ) : session.mustChangePassword ? (
         <Suspense fallback={barePageFallback}>
-          <ChangePassword office={session.role === "office"} onChanged={() => void refresh()} />
+          <ChangePassword office={session.role !== "officer"} onChanged={() => void refresh()} />
         </Suspense>
       ) : session.role === "office" && setup === undefined ? (
         <main id="main-content" tabIndex={-1} className={mainFrame}>

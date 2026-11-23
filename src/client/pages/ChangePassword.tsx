@@ -2,7 +2,7 @@ import { useContext, useState, type FormEvent } from "react";
 import { api, RequestError } from "../api";
 import { Language, runtimeText, useText } from "../i18n";
 import { validatePasswordChange } from "../../domain/password";
-import { Button, Field, FieldError, Input, Notice, Panel, leadingBody, leadingHeading } from "../ui";
+import { Button, Field, FieldError, Input, Notice, Panel, leadingBody, leadingHeading, leadingHelp } from "../ui";
 
 export default function ChangePassword({ onChanged, office = false }: { onChanged: () => void; office?: boolean }) {
   const text = useText();
@@ -67,6 +67,12 @@ export default function ChangePassword({ onChanged, office = false }: { onChange
               onChange={(event) => setCurrentPassword(event.target.value)}
               required
             />
+            <span className={`block text-xs ${leadingHelp} text-muted-foreground`}>
+              {text(
+                "If an administrator has just reset your password, your current password is the temporary one they gave you.",
+                "यदि किसी प्रशासक ने अभी आपका पासवर्ड रीसेट किया है, तो आपका वर्तमान पासवर्ड वही अस्थायी पासवर्ड है जो उन्होंने आपको दिया था।",
+              )}
+            </span>
             {errors.currentPassword && <FieldError>{translate(errors.currentPassword)}</FieldError>}
           </Field>
           <Field>

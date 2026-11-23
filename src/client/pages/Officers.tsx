@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OfficerProfile } from "../../shared/types";
 import {
@@ -10,12 +10,14 @@ import {
   type OfficerRole,
 } from "../officers";
 import { Language, runtimeText, useText } from "../i18n";
-import { Badge, Button, Field, FieldError, Input, Notice, Panel, Select, confirmBar, leadingBody, leadingHeading } from "../ui";
+import { Badge, Button, Field, FieldError, Input, Notice, Panel, Select, confirmBar, focusRing, leadingBody, leadingHeading } from "../ui";
+import { normalizeFieldErrors } from "../field-errors";
 import { RequestError } from "../api";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 // The only two roles the server creates; a commissioner or role manager is seeded, so it is never offered.
 const ROLES: OfficerRole[] = ["FieldOfficer", "AnchalOffice"];
+const FORM_FIELDS = ["username", "name", "designation", "role", "homeOfficeId"];
 
 export default function Officers() {
   const text = useText();
@@ -45,7 +47,18 @@ export default function Officers() {
 
   const create = useMutation({
     mutationFn: (officer: NewOfficer) => createOfficer(officer),
-    onError: failed(text("Could not add the user. Try again.", "उपयोगकर्ता जोड़ा नहीं जा सका। पुनः प्रयास करें।")),
+    onError: (error) => {
+      // The server names the fields it objected to; put each message on its field.
+      // Anything it names that the form has no field for goes in the banner instead,
+      // so the generic "correct the highlighted fields" never stands with nothing lit.
+      const returned = error instanceof RequestError ? normalizeFieldErrors(error.detail.fieldErrors) : {};
+      const onFields = Object.entries(returned).filter(([key]) => FORM_FIELDS.includes(key));
+      const elsewhere = Object.entries(returned).filter(([key]) => !FORM_FIELDS.includes(key));
+      setErrors(Object.fromEntries(onFields.map(([key, message]) => [key, runtimeText(message, lang)])));
+      if (onFields.length > 0 && elsewhere.length === 0) setActionError(null);
+      else if (elsewhere.length > 0) setActionError(elsewhere.map(([, message]) => runtimeText(message, lang)).join(" · "));
+      else failed(text("Could not add the user. Try again.", "उपयोगकर्ता जोड़ा नहीं जा सका। पुनः प्रयास करें।"))(error);
+    },
     onSuccess: (result) => {
       setActionError(null);
       setTemporaryPassword(result.temporaryPassword);
@@ -105,6 +118,14 @@ export default function Officers() {
     row.role === "AnchalOffice" &&
     !(data ?? []).some((other) => other.id !== row.id && other.active && other.role === "AnchalOffice" && other.homeOfficeId === row.homeOfficeId);
   const cell = `text-[13.5px] ${leadingBody}`;
+  // The two confirmations exist so the consequence is read before it is confirmed, so
+  // each takes focus when it opens and names that sentence as its description.
+  const consequenceId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const confirming = deactivating?.id ?? resetting?.id ?? null;
+  useEffect(() => {
+    if (confirming) dialogRef.current?.focus();
+  }, [confirming, deactivating !== null]);
   return (
     <div className="grid min-w-0 gap-6">
       <header className="grid gap-1.5">
@@ -140,6 +161,7 @@ export default function Officers() {
               <option key={value} value={value}>{roleLabel(value)}</option>
             ))}
           </Select>
+          {errors.role && <FieldError>{errors.role}</FieldError>}
         </Field>
         <Field>
           {text("Username", "उपयोगकर्ता नाम")}
@@ -163,6 +185,7 @@ export default function Officers() {
               <option key={id} value={id}>{`${text("Anchal", "अंचल")} ${id}`}</option>
             ))}
           </Select>
+          {errors.homeOfficeId && <FieldError>{errors.homeOfficeId}</FieldError>}
         </Field>
         <Button
           type="button"
@@ -224,8 +247,8 @@ export default function Officers() {
       )}
 
       {resetting && (
-        <div className={confirmBar} role="dialog" aria-label={text("Reset password", "पासवर्ड रीसेट करें")}>
-          <p className={`${cell} text-foreground`}>
+        <div ref={dialogRef} tabIndex={-1} className={`${confirmBar} ${focusRing}`} role="dialog" aria-label={text("Reset password", "पासवर्ड रीसेट करें")} aria-describedby={consequenceId}>
+          <p id={consequenceId} className={`${cell} text-foreground`}>
             {resetting.role === "AnchalOffice"
               ? text(
                   `${resetting.name} is the office login for Anchal ${resetting.homeOfficeId}. Whoever uses it will not be able to sign in with the current password. Hand them the new one.`,
@@ -248,10 +271,10 @@ export default function Officers() {
       )}
 
       {deactivating && (
-        <div className={confirmBar} role="dialog" aria-label={deactivating.role === "AnchalOffice" ? text("Deactivate office login", "कार्यालय लॉगिन निष्क्रिय करें") : text("Deactivate officer", "अधिकारी निष्क्रिय करें")}>
+        <div ref={dialogRef} tabIndex={-1} className={`${confirmBar} ${focusRing}`} role="dialog" aria-describedby={consequenceId} aria-label={deactivating.role === "AnchalOffice" ? text("Deactivate office login", "कार्यालय लॉगिन निष्क्रिय करें") : text("Deactivate officer", "अधिकारी निष्क्रिय करें")}>
           {deactivating.role === "AnchalOffice" ? (
             <div className="grid gap-1.5">
-              <p className={`${cell} font-semibold text-foreground`}>
+              <p id={consequenceId} className={`${cell} font-semibold text-foreground`}>
                 {lastOfficeLogin(deactivating)
                   ? text(
                       `This is the only active login for Anchal ${deactivating.homeOfficeId}. Anchal ${deactivating.homeOfficeId} will not be able to file daily entries until it is reactivated.`,
@@ -265,7 +288,7 @@ export default function Officers() {
               <p className={`${cell} text-foreground`}>{`${deactivating.name} · ${deactivating.username}`}</p>
             </div>
           ) : (
-            <p className={`${cell} text-foreground`}>
+            <p id={consequenceId} className={`${cell} text-foreground`}>
               {text(
                 `${deactivating.name} will not be able to sign in or record visits.`,
                 `${deactivating.name} न तो लॉगिन कर सकेंगे न निरीक्षण दर्ज कर सकेंगे।`,

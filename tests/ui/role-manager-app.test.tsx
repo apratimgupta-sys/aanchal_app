@@ -70,4 +70,28 @@ describe("routing by role", () => {
     expect(await screen.findByRole("heading", { name: "Change your password" })).toBeTruthy();
     expect(screen.getByText(/before you continue/i)).toBeTruthy();
   });
+
+  it.each(["commissioner", "rolemanager", "officer"])(
+    "shows the password change to a %s whose session carries the flag",
+    async (role) => {
+      window.history.replaceState({}, "", "/");
+      api.mockImplementation(async (url: string) => {
+        if (url === "/session") return { ...session(role), mustChangePassword: true, ...(role === "officer" ? { officer: { id: "o", username: "o", name: "O", designation: "JE", homeOfficeId: 1, active: true } } : {}) };
+        throw new Error(`unexpected ${url}`);
+      });
+      render(<App />);
+      expect(await screen.findByRole("heading", { name: "Change your password" })).toBeTruthy();
+    },
+  );
+
+  it("does not ask a commissioner for a visit-recording change", async () => {
+    window.history.replaceState({}, "", "/");
+    api.mockImplementation(async (url: string) => {
+      if (url === "/session") return { ...session("rolemanager"), mustChangePassword: true };
+      throw new Error(`unexpected ${url}`);
+    });
+    render(<App />);
+    await screen.findByRole("heading", { name: "Change your password" });
+    expect(screen.queryByText(/record any visit/i)).toBeNull();
+  });
 });

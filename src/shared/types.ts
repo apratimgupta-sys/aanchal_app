@@ -49,8 +49,9 @@ export type OfficerProfile = {
   designation: string;
   homeOfficeId: number;
   active: boolean;
-  // The stored role string, sent by the user-administration roster so it can tell
-  // a field officer from an Anchal office login. Absent on a field officer's own session.
+  // The stored role string ("FieldOfficer" or "AnchalOffice"), which the user-administration
+  // roster uses to tell a field officer from an Anchal office login. Present on a field
+  // officer's own session too, where it is always "FieldOfficer".
   role?: string;
 };
 export type GpsReading = {

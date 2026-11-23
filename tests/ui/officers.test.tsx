@@ -273,4 +273,61 @@ describe("Officers — role manager", () => {
     expect(await screen.findByLabelText("भूमिका")).toBeTruthy();
     expect(await screen.findByText("अंचल कार्यालय लॉगिन", { selector: "span" })).toBeTruthy();
   });
+
+  it("puts the server's per-field errors on the fields they name", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    listOfficers.mockResolvedValue([]);
+    createOfficer.mockRejectedValue(
+      new RequestError({ code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors: { username: "Enter a username" } }, 422),
+    );
+    renderPage();
+    await user.type(await screen.findByLabelText(/username/i), "x".repeat(130));
+    await user.type(screen.getByLabelText(/^name/i), "A. Kumar");
+    await user.type(screen.getByLabelText(/designation/i), "Junior Engineer");
+    await user.click(screen.getByRole("button", { name: /add user/i }));
+    await waitFor(() => expect(createOfficer).toHaveBeenCalled());
+    const field = await screen.findByLabelText(/username/i);
+    await waitFor(() => expect(field.getAttribute("aria-invalid")).toBe("true"));
+    expect(screen.getByText("Enter a username")).toBeTruthy();
+  });
+
+  it("surfaces the server's role and Anchal errors on those fields, in Hindi when asked", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    listOfficers.mockResolvedValue([]);
+    createOfficer.mockRejectedValue(
+      new RequestError({ code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors: { role: "Select a valid role", homeOfficeId: "Select an Anchal" } }, 422),
+    );
+    renderPage("hi");
+    await user.type(await screen.findByLabelText(/उपयोगकर्ता नाम/), "je.kadru");
+    await user.type(screen.getByLabelText(/^नाम/), "A. Kumar");
+    await user.type(screen.getByLabelText(/पदनाम/), "JE");
+    await user.click(screen.getByRole("button", { name: "उपयोगकर्ता जोड़ें", exact: true } as never));
+    expect(await screen.findByLabelText(/^भूमिका/).then((el) => el.getAttribute("aria-invalid"))).toBe("true");
+    expect(screen.getByText("अंचल चुनें")).toBeTruthy();
+  });
+
+  it("moves focus into the deactivate confirmation and announces its consequence", async () => {
+    const user = userEvent.setup();
+    listOfficers.mockResolvedValue([officer, office3]);
+    renderPage();
+    const rows = await screen.findAllByRole("listitem");
+    await user.click(within(rows[1]).getByRole("button", { name: /deactivate/i }));
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    const described = document.getElementById(dialog.getAttribute("aria-describedby")!);
+    expect(described?.textContent).toMatch(/only active login for Anchal 3/i);
+  });
+
+  it("moves focus into the reset confirmation and announces its consequence", async () => {
+    const user = userEvent.setup();
+    listOfficers.mockResolvedValue([officer]);
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: /reset password/i }));
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    const described = document.getElementById(dialog.getAttribute("aria-describedby")!);
+    expect(described?.textContent).toMatch(/will not be able to sign in with their current password/i);
+  });
 });
