@@ -190,11 +190,17 @@ not the file.
 
 The user-administration screen is new, so its Hindi has not been read by a native speaker: the
 screen title, the account label, the add-user form's fields including the two role options, and the
-deactivate, reset and temporary-password sentences, and the note on the change-password screen that
-the current password may be the temporary one an administrator has just reset. Four server messages
+deactivate, reset and temporary-password sentences, the note on the change-password screen that
+the current password may be the temporary one an administrator has just reset, and the login screen's
+confirmation that a password was changed. Four server messages
 now have Hindi that has not been read by a native speaker either — `Change your temporary password
 before using the portal`, `Select a valid role`, `That username is already taken` and `Officer not
 found`.
+
+One concrete note for the reviewer, found during review rather than translation: the two branches of
+the deactivate confirmation disagree on verb agreement — masculine singular for the office login
+against honorific plural for the field officer, in the same dialog. Whichever is right, they should
+match.
 
 ---
 
