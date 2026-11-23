@@ -1,10 +1,14 @@
 import { api } from "./api";
 import type { OfficerProfile } from "../shared/types";
 
+// The two roles the server will create. A commissioner or role manager is seeded, never added here.
+export type OfficerRole = "FieldOfficer" | "AnchalOffice";
+
 export type NewOfficer = {
   username: string;
   name: string;
   designation: string;
+  role: OfficerRole;
   homeOfficeId: number;
 };
 

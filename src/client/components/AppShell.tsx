@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { Button, focusRing, leadingBody, leadingHelp } from "../ui";
 import { useText } from "../i18n";
 import type { UserSession } from "../../shared/types";
+import { ROLE_MANAGER_USERS_ROUTE } from "../role-routes";
 import rmcLogo from "../assets/rmc-logo.jpg";
 
 type ShellRole = UserSession["role"];
@@ -15,6 +16,8 @@ const ROLE_TITLE: Record<ShellRole, [en: string, hi: string]> = {
   office: ["Anchal Office", "अंचल कार्यालय"],
   commissioner: ["Commissioner Dashboard", "आयुक्त डैशबोर्ड"],
   officer: ["Field Visits", "क्षेत्रीय निरीक्षण"],
+  // Hindi pair flagged for client review.
+  rolemanager: ["User Administration", "उपयोगकर्ता प्रबंधन"],
 };
 
 // The page frame: max width, side gutter (16px, 32px from sm) and vertical padding.
@@ -191,9 +194,11 @@ export const officerNav = (labels: { visit: string; mine: string }): ShellNavIte
 export const commissionerNav = (labels: {
   dashboard: string;
   visits: string;
-  officers: string;
 }): ShellNavItem[] => [
   { href: "/commissioner/dashboard", label: labels.dashboard, icon: LayoutDashboard },
   { href: "/commissioner/visits", label: labels.visits, icon: History },
-  { href: "/commissioner/officers", label: labels.officers, icon: Users },
+];
+
+export const roleManagerNav = (labels: { users: string }): ShellNavItem[] => [
+  { href: ROLE_MANAGER_USERS_ROUTE, label: labels.users, icon: Users },
 ];

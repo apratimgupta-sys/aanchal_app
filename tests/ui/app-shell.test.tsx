@@ -6,15 +6,16 @@ import userEvent from "@testing-library/user-event";
 import { Language, type Lang } from "../../src/client/i18n";
 import { AppShell, commissionerNav } from "../../src/client/components/AppShell";
 
-type Role = "office" | "commissioner" | "officer";
+type Role = "office" | "commissioner" | "officer" | "rolemanager";
 
 const EXPECTED: Record<Role, Record<Lang, string>> = {
   office: { en: "Anchal Office", hi: "अंचल कार्यालय" },
   commissioner: { en: "Commissioner Dashboard", hi: "आयुक्त डैशबोर्ड" },
   officer: { en: "Field Visits", hi: "क्षेत्रीय निरीक्षण" },
+  rolemanager: { en: "User Administration", hi: "उपयोगकर्ता प्रबंधन" },
 };
 
-const items = commissionerNav({ dashboard: "Dashboard", visits: "Visits", officers: "Officers" });
+const items = commissionerNav({ dashboard: "Dashboard", visits: "Visits" });
 
 function renderShell({
   role = "commissioner",
@@ -122,7 +123,7 @@ describe("AppShell drawer", () => {
     const current = screen.getAllByRole("button", { name: "Visits" });
     expect(current.length).toBeGreaterThan(0);
     for (const b of current) expect(b.getAttribute("aria-current")).toBe("page");
-    expect(screen.getAllByRole("button", { name: "Officers" })[0].getAttribute("aria-current")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Dashboard" })[0].getAttribute("aria-current")).toBeNull();
   });
 });
 

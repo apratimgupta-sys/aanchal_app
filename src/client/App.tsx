@@ -1,10 +1,11 @@
 import { lazy, Suspense, useState, useEffect } from "react";
 import type { OfficerProfile, Setup, UserSession } from "../shared/types";
-import { api } from "./api";
+import { api, RequestError } from "./api";
 import { Language, type Lang } from "./i18n";
 import Login from "./pages/Login";
 import { leadingBody, leadingHelp } from "./ui";
-import { AppShell, commissionerNav, mainFrame, officeNav, officerNav } from "./components/AppShell";
+import { AppShell, commissionerNav, mainFrame, officeNav, officerNav, roleManagerNav } from "./components/AppShell";
+import { COMMISSIONER_VISITS_ROUTE, adminLanding } from "./role-routes";
 import { OFFICER_VISITS_ROUTE, OFFICER_VISIT_ROUTE, officerLanding } from "./officer-routes";
 import { indiaToday } from "./lib/dates";
 import { clearSessionCaches } from "./session-caches";
@@ -70,9 +71,18 @@ export default function App() {
     try {
       const next = await api<UserSession>("/session");
       setSession(next);
-      if (next.role === "office")
-        setSetup(await api<Setup | null>("/office/setup"));
-      else setSetup(null);
+      if (next.role === "office") {
+        try {
+          setSetup(await api<Setup | null>("/office/setup"));
+        } catch (error) {
+          // The session of an office login does not say it still carries a temporary
+          // password, but the server refuses everything else until it is changed.
+          if (error instanceof RequestError && error.detail.code === "password_change_required") {
+            setSession({ ...next, mustChangePassword: true });
+            setSetup(null);
+          } else throw error;
+        }
+      } else setSetup(null);
     } catch {
       setSession(null);
       setSetup(undefined);
@@ -119,14 +129,9 @@ export default function App() {
         )
       )
         navigate("/office/today", true);
-    } else if (
-      ![
-        "/commissioner/dashboard",
-        "/commissioner/visits",
-        "/commissioner/officers",
-      ].includes(pathname)
-    ) {
-      navigate("/commissioner/dashboard", true);
+    } else {
+      const target = adminLanding(session, pathname);
+      if (target) navigate(target, true);
     }
   }, [loading, session, setup, pathname]);
   return (
@@ -144,9 +149,9 @@ export default function App() {
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
         />
-      ) : session.role === "officer" && session.mustChangePassword ? (
+      ) : (session.role === "officer" || session.role === "office") && session.mustChangePassword ? (
         <Suspense fallback={barePageFallback}>
-          <ChangePassword onChanged={() => void refresh()} />
+          <ChangePassword office={session.role === "office"} onChanged={() => void refresh()} />
         </Suspense>
       ) : session.role === "office" && setup === undefined ? (
         <main id="main-content" tabIndex={-1} className={mainFrame}>
@@ -163,9 +168,9 @@ export default function App() {
       ) : (
         <AppShell
           role={session.role}
-          account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : session.role === "officer" ? `${session.officer?.name ?? ""} · ${text("Anchal", "अंचल")} ${session.officer?.homeOfficeId ?? ""}` : `${text("Anchal", "अंचल")} ${session.officeId}`}
+          account={session.role === "commissioner" ? text("Commissioner", "आयुक्त") : session.role === "rolemanager" ? text("Role manager", "भूमिका प्रबंधक") : session.role === "officer" ? `${session.officer?.name ?? ""} · ${text("Anchal", "अंचल")} ${session.officer?.homeOfficeId ?? ""}` : `${text("Anchal", "अंचल")} ${session.officeId}`}
           pathname={pathname}
-          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड"), visits: text("Field visits", "क्षेत्रीय निरीक्षण"), officers: text("Field officers", "क्षेत्रीय अधिकारी") }) : session.role === "officer" ? officerNav({ visit: text("Record a visit", "निरीक्षण दर्ज करें"), mine: text("My visits", "मेरे निरीक्षण") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
+          items={session.role === "commissioner" ? commissionerNav({ dashboard: text("Commissioner dashboard", "आयुक्त डैशबोर्ड"), visits: text("Field visits", "क्षेत्रीय निरीक्षण") }) : session.role === "rolemanager" ? roleManagerNav({ users: text("User administration", "उपयोगकर्ता प्रबंधन") }) : session.role === "officer" ? officerNav({ visit: text("Record a visit", "निरीक्षण दर्ज करें"), mine: text("My visits", "मेरे निरीक्षण") }) : officeNav({ today: text("Today’s Entry", "आज की प्रविष्टि"), backdate: text("Backdate Entry", "पिछली तिथि की प्रविष्टि") })}
           onNavigate={(path) => navigate(path)}
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           onSignOut={async () => {
@@ -181,7 +186,9 @@ export default function App() {
           footer={<footer className={`flex flex-wrap gap-x-8 gap-y-2 border-t border-border px-4 py-5 text-xs ${leadingHelp} text-muted-foreground sm:px-8`}><span>© {new Date().getFullYear()} {text("Ranchi Municipal Corporation", "रांची नगर निगम")}</span><span>{text("Anchal Office Monitoring", "अंचल कार्यालय निगरानी")}</span></footer>}
         >
             <Suspense fallback={pageFallback}>{session.role === "commissioner" ? (
-              pathname === "/commissioner/visits" ? <VisitRegister /> : pathname === "/commissioner/officers" ? <Officers /> : <Dashboard />
+              pathname === COMMISSIONER_VISITS_ROUTE ? <VisitRegister /> : <Dashboard />
+            ) : session.role === "rolemanager" ? (
+              <Officers />
             ) : session.role === "officer" ? (
               <OfficerPages pathname={pathname} officer={session.officer!} />
             ) : (

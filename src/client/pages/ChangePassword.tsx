@@ -4,7 +4,7 @@ import { Language, runtimeText, useText } from "../i18n";
 import { validatePasswordChange } from "../../domain/password";
 import { Button, Field, FieldError, Input, Notice, Panel, leadingBody, leadingHeading } from "../ui";
 
-export default function ChangePassword({ onChanged }: { onChanged: () => void }) {
+export default function ChangePassword({ onChanged, office = false }: { onChanged: () => void; office?: boolean }) {
   const text = useText();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -45,10 +45,15 @@ export default function ChangePassword({ onChanged }: { onChanged: () => void })
         <div className="grid gap-2">
           <h1 className={`text-[23px] font-semibold ${leadingHeading} text-foreground`}>{text("Change your password", "पासवर्ड बदलें")}</h1>
           <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
-            {text(
-              "Set a password of your own before you record any visit.",
-              "कोई भी निरीक्षण दर्ज करने से पहले अपना पासवर्ड निर्धारित करें।",
-            )}
+            {office
+              ? text(
+                  "Set a password of your own before you continue.",
+                  "आगे बढ़ने से पहले अपना पासवर्ड निर्धारित करें।",
+                )
+              : text(
+                  "Set a password of your own before you record any visit.",
+                  "कोई भी निरीक्षण दर्ज करने से पहले अपना पासवर्ड निर्धारित करें।",
+                )}
           </p>
         </div>
         {serverError && <Notice>{serverError}</Notice>}

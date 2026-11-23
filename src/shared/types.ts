@@ -36,7 +36,7 @@ export type Setup = {
 export type UserSession = {
   userId: string;
   username: string;
-  role: "office" | "commissioner" | "officer";
+  role: "office" | "commissioner" | "officer" | "rolemanager";
   officeId: number | null;
   expiresAt: number;
   officer?: OfficerProfile;
@@ -49,6 +49,9 @@ export type OfficerProfile = {
   designation: string;
   homeOfficeId: number;
   active: boolean;
+  // The stored role string, sent by the user-administration roster so it can tell
+  // a field officer from an Anchal office login. Absent on a field officer's own session.
+  role?: string;
 };
 export type GpsReading = {
   latitude: number;
