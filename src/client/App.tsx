@@ -70,6 +70,10 @@ export default function App() {
   // The session says whether a password change is owed, but only when it is read. A reset
   // that lands while someone is signed in is learned from a 403, so one re-read answers it,
   // once: not while a read is already running, and not when the screen already asks for it.
+  // The server signs a user out when their password change succeeds, so the login screen
+  // is what they land on. This outlives the change-password screen and is dropped as soon
+  // as anyone is signed in again, so it cannot greet an unrelated later visit.
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const reading = useRef(false);
   const mustChange = useRef(false);
   mustChange.current = session?.mustChangePassword === true;
@@ -78,6 +82,7 @@ export default function App() {
     try {
       const next = await api<UserSession>("/session");
       setSession(next);
+      setPasswordChanged(false);
       if (next.role === "office") {
         try {
           setSetup(await api<Setup | null>("/office/setup"));
@@ -160,10 +165,11 @@ export default function App() {
           onLogin={() => void refresh()}
           onLanguageToggle={() => setLang(lang === "en" ? "hi" : "en")}
           languageLabel={lang === "en" ? "हिन्दी" : "English"}
+          passwordChanged={passwordChanged}
         />
       ) : session.mustChangePassword ? (
         <Suspense fallback={barePageFallback}>
-          <ChangePassword office={session.role !== "officer"} onChanged={() => void refresh()} />
+          <ChangePassword office={session.role !== "officer"} onChanged={() => { setPasswordChanged(true); void refresh(); }} />
         </Suspense>
       ) : session.role === "office" && setup === undefined ? (
         <main id="main-content" tabIndex={-1} className={mainFrame}>

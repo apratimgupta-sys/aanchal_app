@@ -15,7 +15,9 @@ export default function Login({
   onLogin,
   onLanguageToggle,
   languageLabel,
+  passwordChanged = false,
 }: {
+  passwordChanged?: boolean;
   onLogin: () => void;
   onLanguageToggle: () => void;
   languageLabel: string;
@@ -56,6 +58,14 @@ export default function Login({
             )}
           </p>
         </div>
+        {passwordChanged && (
+          <Notice role="status">
+            {t(
+              "Your password was changed. Sign in with your new password.",
+              "आपका पासवर्ड बदल दिया गया है। अपने नए पासवर्ड से लॉगिन करें।",
+            )}
+          </Notice>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
           <Field>
             {t("Username", "उपयोगकर्ता नाम")}
