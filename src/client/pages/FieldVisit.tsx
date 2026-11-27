@@ -34,11 +34,11 @@ const VISIT_LABELS: Record<number, { date: readonly [string, string]; descriptio
   8: { date: ["Pickup date", "उठाव की तिथि"], description: ["Work description", "कार्य का विवरण"] },
   9: { date: ["Fogging date", "फॉगिंग तिथि"], description: ["Work description", "कार्य का विवरण"] },
   10: { date: ["Activity date", "गतिविधि तिथि"], description: ["Outcome description", "परिणाम का विवरण"] },
-  13: { date: ["Work date", "कार्य तिथि"], description: ["Fault description", "खराबी का विवरण"] },
+  13: { date: ["Date", "तिथि"], description: ["Fault & work description", "खराबी और कार्य का विवरण"] },
   14: { date: ["Inspection date", "निरीक्षण तिथि"], description: ["Inspection description", "निरीक्षण का विवरण"] },
   15: { date: ["Work date", "कार्य तिथि"], description: ["Work description", "कार्य का विवरण"] },
   16: { date: ["Work date", "कार्य तिथि"], description: ["Pruning description", "छंटाई का विवरण"] },
-  17: { date: ["Work date", "कार्य तिथि"], description: ["Work description", "कार्य का विवरण"] },
+  17: { date: ["Date", "तिथि"], description: ["Work description", "कार्य का विवरण"] },
 };
 const NUMBER_MAX = 1_000_000_000;
 // Errors the form has a place for. A server message under any other key is listed

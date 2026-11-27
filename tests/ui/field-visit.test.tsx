@@ -364,11 +364,11 @@ describe("FieldVisit — each service's own details", () => {
     [8, "Pickup date", "Work description"],
     [9, "Fogging date", "Work description"],
     [10, "Activity date", "Outcome description"],
-    [13, "Work date", "Fault description"],
+    [13, "Date", "Fault & work description"],
     [14, "Inspection date", "Inspection description"],
     [15, "Work date", "Work description"],
     [16, "Work date", "Pruning description"],
-    [17, "Work date", "Work description"],
+    [17, "Date", "Work description"],
   ])("labels service %i's date %s and its description %s", async (id, date, description) => {
     const user = userEvent.setup();
     renderForm();
@@ -397,6 +397,16 @@ describe("FieldVisit — each service's own details", () => {
     expect(screen.getByText("गतिविधि तिथि")).toBeTruthy();
     expect(screen.getByLabelText(/^परिणाम का विवरण/)).toBeTruthy();
     expect(screen.getByLabelText("पकड़े गए कुत्ते")).toBeTruthy();
+  });
+
+  it("labels service 13 and 17's date and service 13's description in Hindi", async () => {
+    const user = userEvent.setup();
+    renderForm("hi");
+    await user.selectOptions(screen.getByLabelText(/^गतिविधि/), "13");
+    expect(screen.getByText("तिथि", { selector: "span, label, div, p, dt" })).toBeTruthy();
+    expect(screen.getByLabelText(/^खराबी और कार्य का विवरण/)).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText(/^गतिविधि/), "17");
+    expect(screen.getByText("तिथि", { selector: "span, label, div, p, dt" })).toBeTruthy();
   });
 
   it("files details carrying only that service's keys, blanks left out, numbers as numbers", async () => {
