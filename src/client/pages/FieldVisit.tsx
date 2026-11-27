@@ -14,7 +14,7 @@ import {
   type GeolocationFailureKind,
 } from "../lib/geolocation";
 import { Language, runtimeText, useText } from "../i18n";
-import { indiaToday } from "../lib/dates";
+import { indiaTimeOfDay, indiaToday, visitTimeAt } from "../lib/dates";
 import { cn } from "../lib/utils";
 import { mapUrl } from "../components/VisitLocation";
 import { Button, Field, FieldError, Notice, Panel, focusRing, leadingBody, leadingHeading, leadingHelp } from "../ui";
@@ -47,10 +47,6 @@ const VISIT_LABELS: Record<number, { date: readonly [string, string]; descriptio
 // fields" and a person must never be left with nothing highlighted.
 const PLACED = new Set(["officeId", "ward", "serviceId", "visitTime", "issueAction", "gps", "visitDate"]);
 
-function timeOf(now: Date): string {
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-}
-
 export default function FieldVisit({
   officer,
   today,
@@ -76,7 +72,10 @@ export default function FieldVisit({
   // What was typed into the service's own fields, by key. It belongs to the service
   // on screen: changing the service empties it (see changeService).
   const [details, setDetails] = useState<Record<string, string>>({});
-  const [visitTime, setVisitTime] = useState(() => timeOf(clock()));
+  // The time of visit follows the moment the location was captured until the officer
+  // types one of their own; submit() settles it against the day it files on.
+  const [visitTime, setVisitTime] = useState(() => indiaTimeOfDay(clock()));
+  const [timeTyped, setTimeTyped] = useState(false);
   const [gps, setGps] = useState<GpsReading | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<GeolocationFailureKind | null>(null);
@@ -115,7 +114,9 @@ export default function FieldVisit({
     setCapturing(true);
     setCaptureError(null);
     try {
-      setGps(await capturePosition());
+      const reading = await capturePosition();
+      setGps(reading);
+      if (!timeTyped) setVisitTime(visitTimeAt(reading.capturedAt, clock()));
     } catch (error) {
       // A failed re-capture leaves the earlier reading in place: a stale but
       // real fix is worth more than nothing.
@@ -160,7 +161,7 @@ export default function FieldVisit({
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
-  function currentInput(visitDate: string): FieldVisitInput {
+  function currentInput(visitDate: string, visitTime: string): FieldVisitInput {
     const filled = detailsInput();
     return {
       visitDate,
@@ -182,7 +183,12 @@ export default function FieldVisit({
     if (submittingRef.current) return;
     const submitDay = indiaToday(clock());
     setDay(submitDay);
-    const input = currentInput(submitDay);
+    // The date and the time are taken from the same moment. A time the officer typed is
+    // theirs; any other is re-derived now, so a form opened before midnight does not
+    // file the new day under the old day's time.
+    const filedTime = timeTyped ? visitTime : visitTimeAt(gps?.capturedAt ?? "", clock());
+    setVisitTime(filedTime);
+    const input = currentInput(submitDay, filedTime);
     const found = validateVisitInput(input, submitDay);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -218,7 +224,8 @@ export default function FieldVisit({
       setDetails({});
       setIssueAction("");
       setGps(null);
-      setVisitTime(timeOf(clock()));
+      setVisitTime(indiaTimeOfDay(clock()));
+      setTimeTyped(false);
       intentRef.current = null;
     } catch (error) {
       if (error instanceof RequestError) {
@@ -441,7 +448,7 @@ export default function FieldVisit({
         </div>
         <Field>
           {text("Time of visit", "निरीक्षण का समय")}
-          <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
+          <input type="time" value={visitTime} onChange={(e) => { setVisitTime(e.target.value); setTimeTyped(true); }} required />
           {errors.visitTime && <FieldError>{translate(errors.visitTime)}</FieldError>}
         </Field>
         {serviceFields.map(detailControl)}

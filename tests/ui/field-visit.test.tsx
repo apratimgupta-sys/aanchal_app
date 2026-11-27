@@ -212,7 +212,7 @@ describe("FieldVisit — review findings", () => {
 
   it("re-reads the clock for the next visit instead of reusing the first one's time", async () => {
     const user = userEvent.setup();
-    const times = [new Date("2026-11-19T10:30:00"), new Date("2026-11-19T11:40:00")];
+    const times = [new Date("2026-11-19T10:30:00+05:30"), new Date("2026-11-19T11:40:00+05:30")];
     let call = 0;
     capturePosition.mockResolvedValue(goodReading);
     createVisit.mockResolvedValue({ id: "v1" });
@@ -815,6 +815,75 @@ describe("FieldVisit — the visit date is taken when the visit is submitted", (
     await user.click(submit);
     await screen.findByText(/could not record the visit/i);
     expect(screen.getByText("2026-11-20", { selector: "[data-visit-date]" })).toBeTruthy();
+  });
+});
+
+// The time is part of the same claim as the date: a visit filed on the new day must not
+// carry a time of the old one, which would sit a day in the future of its own record.
+describe("FieldVisit — the visit time belongs to the visit date", () => {
+  async function fillUp(user: ReturnType<typeof userEvent.setup>) {
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 9);
+    await user.type(screen.getByLabelText(/description/i), "Fogging done along the main lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    return await screen.findByRole("button", { name: /submit/i });
+  }
+  const sent = () => createVisit.mock.calls[0][0] as { visitDate: string; visitTime: string };
+
+  it("opened at 23:52 and submitted at 00:03, files the new day at a time that is not in its future", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T23:52:00+05:30");
+    capturePosition.mockResolvedValue({ ...goodReading, capturedAt: "2026-11-19T23:52:30+05:30" });
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    now = new Date("2026-11-20T00:03:00+05:30");
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(sent().visitDate).toBe("2026-11-20");
+    expect(sent().visitTime).toBe("00:03");
+  });
+
+  it("files the moment the location was captured when that was today, not the moment the form opened", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T10:00:00+05:30");
+    capturePosition.mockResolvedValue({ ...goodReading, capturedAt: "2026-11-19T10:05:00+05:30" });
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm("en", () => now);
+    now = new Date("2026-11-19T10:10:00+05:30");
+    const submit = await fillUp(user);
+    expect((screen.getByLabelText(/time of visit/i) as HTMLInputElement).value).toBe("10:05");
+    now = new Date("2026-11-19T10:20:00+05:30");
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(sent().visitTime).toBe("10:05");
+  });
+
+  it("keeps a time the officer typed", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T10:00:00+05:30");
+    capturePosition.mockResolvedValue({ ...goodReading, capturedAt: "2026-11-19T10:05:00+05:30" });
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    fireEvent.change(screen.getByLabelText(/time of visit/i), { target: { value: "09:15" } });
+    now = new Date("2026-11-19T10:20:00+05:30");
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(sent().visitTime).toBe("09:15");
+  });
+
+  it("shows the time it filed under once a submit has settled it", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T23:52:00+05:30");
+    capturePosition.mockResolvedValue({ ...goodReading, capturedAt: "2026-11-19T23:52:30+05:30" });
+    createVisit.mockRejectedValue(new Error("network"));
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    now = new Date("2026-11-20T00:03:00+05:30");
+    await user.click(submit);
+    await screen.findByText(/could not record the visit/i);
+    expect((screen.getByLabelText(/time of visit/i) as HTMLInputElement).value).toBe("00:03");
   });
 });
 
