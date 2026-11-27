@@ -13,6 +13,7 @@ import {
   type GeolocationFailureKind,
 } from "../lib/geolocation";
 import { Language, runtimeText, useText } from "../i18n";
+import { indiaToday } from "../lib/dates";
 import { cn } from "../lib/utils";
 import { mapUrl } from "../components/VisitLocation";
 import { Button, Field, FieldError, Notice, Panel, focusRing, leadingBody, leadingHeading, leadingHelp } from "../ui";
@@ -63,6 +64,10 @@ export default function FieldVisit({
   const locationId = useId();
   const lang = useContext(Language);
   const translate = (message: string) => runtimeText(message, lang);
+  // The day the form files under. `today` is only where it starts: it is read once,
+  // when the page opens, and a form opened at 23:52 and submitted at 00:03 would
+  // otherwise be refused for its date on every retry. submit() reads the clock again.
+  const [day, setDay] = useState(today);
   const [officeId, setOfficeId] = useState(officer.homeOfficeId);
   const [ward, setWard] = useState<number | "">("");
   const [serviceId, setServiceId] = useState<number | "">("");
@@ -154,10 +159,10 @@ export default function FieldVisit({
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
-  function currentInput(): FieldVisitInput {
+  function currentInput(visitDate: string): FieldVisitInput {
     const filled = detailsInput();
     return {
-      visitDate: today,
+      visitDate,
       visitTime,
       officeId,
       ward: ward === "" ? 0 : ward,
@@ -174,8 +179,10 @@ export default function FieldVisit({
     setSaved(null);
     setUnsaved([]);
     if (submittingRef.current) return;
-    const input = currentInput();
-    const found = validateVisitInput(input, today);
+    const submitDay = indiaToday(clock());
+    setDay(submitDay);
+    const input = currentInput(submitDay);
+    const found = validateVisitInput(input, submitDay);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -288,7 +295,7 @@ export default function FieldVisit({
       <div className="mb-4 grid gap-1">
         <h1 className={`text-[23px] font-semibold ${leadingHeading}`}>{text("Record a field visit", "क्षेत्रीय निरीक्षण दर्ज करें")}</h1>
         <p className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
-          {officer.name} · {officer.designation} · {today}
+          {officer.name} · {officer.designation} · {day}
         </p>
       </div>
       {(saved || serverError || unsaved.length > 0 || unplaced.length > 0) && (
@@ -415,7 +422,7 @@ export default function FieldVisit({
             data-visit-date=""
             className={`flex min-h-[44px] items-center rounded-[7px] border border-border bg-muted px-3 font-mono text-[16px] tabular-nums lg:text-[13.5px] ${leadingBody} text-foreground`}
           >
-            {today}
+            {day}
           </span>
           {errors.visitDate && <FieldError>{translate(errors.visitDate)}</FieldError>}
         </div>

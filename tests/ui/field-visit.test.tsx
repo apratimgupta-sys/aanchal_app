@@ -34,7 +34,11 @@ const goodReading = {
   capturedAt: "2026-11-19T05:00:00.000Z",
 };
 
-function renderForm(lang: "en" | "hi" = "en", clock?: () => Date) {
+// The form takes the visit's date from the clock when it is submitted, so a test that
+// does not care which day it is gets a fixed one: the day it passes as `today`.
+const MORNING = () => new Date("2026-11-19T10:00:00+05:30");
+
+function renderForm(lang: "en" | "hi" = "en", clock: () => Date = MORNING) {
   render(
     <Language.Provider value={lang}>
       <FieldVisit officer={officer} today="2026-11-19" clock={clock} />
@@ -707,5 +711,69 @@ describe("FieldVisit — a visit stored without the details that were sent", () 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("विवरण सहेजे नहीं गए");
     expect(alert.textContent).toContain("पकड़े गए कुत्ते: 4");
+  });
+});
+
+// I4: the date is today and read-only, so when the form is opened before midnight
+// and submitted after it, the only way to a visit the server accepts is for the form
+// to take the date at the moment of submitting. Read once at mount it would be
+// refused identically on every retry.
+describe("FieldVisit — the visit date is taken when the visit is submitted", () => {
+  async function fillUp(user: ReturnType<typeof userEvent.setup>) {
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 9);
+    await user.type(screen.getByLabelText(/description/i), "Fogging done along the main lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    return await screen.findByRole("button", { name: /submit/i });
+  }
+
+  it("sends the date it is when the officer submits, not the date the form opened on", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T23:52:00+05:30");
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    now = new Date("2026-11-20T00:03:00+05:30");
+    await user.click(submit);
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(createVisit.mock.calls[0][0].visitDate).toBe("2026-11-20");
+  });
+
+  it("recovers from a refused date: the retry carries the new day and is accepted", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    let now = new Date("2026-11-19T23:59:00+05:30");
+    capturePosition.mockResolvedValue(goodReading);
+    // The server's day has already turned over when the first request arrives.
+    createVisit.mockImplementation(async (input: { visitDate: string }) => {
+      if (input.visitDate !== "2026-11-20")
+        throw new RequestError(
+          { code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors: { "input.visitDate": "A visit can only be recorded on the day it was made" } },
+          422,
+        );
+      return { id: "v1" };
+    });
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    await user.click(submit);
+    expect(await screen.findByText(/only be recorded on the day/i)).toBeTruthy();
+    now = new Date("2026-11-20T00:01:00+05:30");
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    expect(await screen.findByText("Visit recorded.")).toBeTruthy();
+    expect(createVisit.mock.calls[1][0].visitDate).toBe("2026-11-20");
+  });
+
+  it("shows the date the form will file under once a submit has read the clock", async () => {
+    const user = userEvent.setup();
+    let now = new Date("2026-11-19T23:52:00+05:30");
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockRejectedValue(new Error("network"));
+    renderForm("en", () => now);
+    const submit = await fillUp(user);
+    now = new Date("2026-11-20T00:03:00+05:30");
+    await user.click(submit);
+    await screen.findByText(/could not record the visit/i);
+    expect(screen.getByText("2026-11-20", { selector: "[data-visit-date]" })).toBeTruthy();
   });
 });
