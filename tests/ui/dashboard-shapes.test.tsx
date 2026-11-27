@@ -259,7 +259,10 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(tile("Disposal").value).toBe("");
     expect(tile("Work done this period").value).toBe("");
 
-    await pin("1"); // counter
+    // A plain counter service. This was service 1 until it began to collect an
+    // amount: it is now a counterRevenue service, for which "Total collection"
+    // is not blank, so it can no longer stand for "a counter service here".
+    await pin("11"); // counter
     await waitFor(() => expect(tile("Total pending").value).toBe("12"));
     expect(tile("Disposal").value).toBe("75.0%");
     expect(tile("Disposal").note).toBe("30 / 40");
@@ -271,7 +274,8 @@ describe("commissioner dashboard after the form shapes", () => {
     mockApi([row()]);
     await renderDashboard();
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
+    // Service 11, not 1: see the pin above. Service 1 is pinned in Task 4's test.
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "11");
     const table = labelledTable(/anchal-wise performance table/i);
     const column = headers(table).indexOf("Received");
     await waitFor(() =>
@@ -282,4 +286,10 @@ describe("commissioner dashboard after the form shapes", () => {
       ).toBe("40"),
     );
   });
+
+  // Pinned to a service that collects a queue and money (1, 3, 4, 7), pending,
+  // disposal and collection must all show. Not written here: the gate is
+  // Dashboard.tsx's `onlyFor`, which is Task 4's to replace, and that task owns
+  // the failing test for it.
+  it.todo("shows pending, disposal and collection when pinned to service 1 (Task 4)");
 });

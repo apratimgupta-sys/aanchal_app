@@ -47,12 +47,14 @@ describe("nothing to report", () => {
     renderForm();
     await screen.findByText(/daily service entry/i);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    // Service 1 takes the counter shape, so the boxes are Received and Disposed.
-    for (const label of [/^received/i, /^disposed/i])
+    // Service 1 collects two counts and an amount, so the boxes are Received,
+    // Disposed and Amount Collected: a typed zero in each is a figure.
+    for (const label of [/^received/i, /^disposed/i, /^amount collected/i])
       await user.type(screen.getByLabelText(label), "0");
     const input = await submittedInput(user);
     expect(input.nothingToReport).toBe(false);
     expect(input.received).toBe(0);
+    expect(input.amountPaise).toBe(0);
   });
 
   // The button that set the flag is gone, but an entry filed with it still

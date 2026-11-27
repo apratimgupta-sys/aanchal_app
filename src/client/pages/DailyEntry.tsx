@@ -39,7 +39,12 @@ import {
   type EntryCounts,
 } from "../../domain/entry-rules";
 import { WARD_MAX, WARD_MIN } from "../../domain/visit";
-import { formShape } from "../../domain/service-kind";
+import {
+  collectedFields,
+  collects,
+  formShape,
+  movesPendingBalance,
+} from "../../domain/service-kind";
 const COUNT_KEYS = [
   "received",
   "completed",
@@ -65,27 +70,33 @@ const WORK_DONE_LABEL: Record<number, readonly [string, string]> = {
   17: ["Routes", "मार्ग"],
 };
 type NumericField = { key: CountKey; en: string; hi: string };
-// The questions a service is actually asked. Everything else in the record is
-// hidden, and a hidden count is sent as 0 rather than asked for.
+// The questions a service is actually asked: the counts it collects, in the
+// order it collects them. Taken from collectedFields rather than from the
+// shape's name, so a shape that collects a queue AND money (counterRevenue)
+// asks for its counts without this function knowing the shape exists. Money is
+// not a count: it has its own input, gated on collects(.., "amountPaise").
+// Everything else in the record is hidden, and a hidden count is sent as 0
+// rather than asked for.
 function numericFields(serviceId: number): NumericField[] {
-  switch (formShape(serviceId)) {
-    case "revenue":
-      // Payments is the existing `received` field relabelled; a payment
-      // completes nothing, so there is no disposal figure.
-      return [{ key: "received", en: "Payments", hi: "भुगतान" }];
-    case "fieldwork": {
-      const [en, hi] = WORK_DONE_LABEL[serviceId] ?? [
-        "Work done",
-        "किया गया कार्य",
-      ];
-      return [{ key: "completed", en, hi }];
-    }
-    default:
-      return [
-        { key: "received", en: "Received", hi: "प्राप्त" },
-        { key: "completed", en: "Disposed", hi: "निस्तारित" },
-      ];
-  }
+  const keys = collectedFields(serviceId).filter((k): k is CountKey =>
+    (COUNT_KEYS as readonly string[]).includes(k),
+  );
+  const hasQueue = collects(serviceId, "received", "completed");
+  return keys.map((key) => {
+    if (key === "received")
+      // Received on its own is a payment count: a payment completes nothing, so
+      // there is no disposal figure beside it.
+      return hasQueue
+        ? { key, en: "Received", hi: "प्राप्त" }
+        : { key, en: "Payments", hi: "भुगतान" };
+    // Completed beside received is a disposal; completed alone is work done.
+    if (hasQueue) return { key, en: "Disposed", hi: "निस्तारित" };
+    const [en, hi] = WORK_DONE_LABEL[serviceId] ?? [
+      "Work done",
+      "किया गया कार्य",
+    ];
+    return { key, en, hi };
+  });
 }
 // The count keys this service's form renders — the only keys that have a Field
 // to show a message in. Used for the schema, for seeding, and for catching a
@@ -120,23 +131,18 @@ const baseEntrySchema = z.looseObject({
   avgDisposalDays: z.number().min(0).nullable(),
   remarks: z.string().max(2000),
 });
-// Built per shape. Requiring a field the shape hides would fail on it with
-// nowhere to show the message — the error span renders inside a Field that no
-// longer exists — so the office would see "Please correct the highlighted
-// fields" with nothing highlighted and no way to save.
-const SHAPE_SCHEMAS = {
-  counter: baseEntrySchema.extend({
-    received: countField,
-    completed: countField,
-  }),
-  revenue: baseEntrySchema.extend({ received: countField }),
-  fieldwork: baseEntrySchema.extend({ completed: countField }),
-};
-// The cross-field rules depend on what kind of work the service is, so the
-// schema is built per service rather than shared.
+// Built per service, from the counts it collects. Requiring a field the
+// service hides would fail on it with nowhere to show the message — the error
+// span renders inside a Field that no longer exists — so the office would see
+// "Please correct the highlighted fields" with nothing highlighted and no way
+// to save. Nothing here is keyed on the shape's name, so a new shape needs no
+// entry in a table that could be forgotten.
+// The cross-field rules depend on what the service collects too, so the schema
+// is not shared.
 const schemaForService = (serviceId: number) => {
   const shown = shownKeys(serviceId);
-  return SHAPE_SCHEMAS[formShape(serviceId)].superRefine((value, ctx) => {
+  const required = Object.fromEntries([...shown].map((k) => [k, countField]));
+  return baseEntrySchema.extend(required).superRefine((value, ctx) => {
     for (const [path, message] of Object.entries(
       entryCrossFieldErrors(serviceId, countsOf(value)),
     ))
@@ -180,17 +186,41 @@ const pageHeading = `text-[23px] font-semibold ${leadingHeading} text-foreground
 // A readout sits on the same 44px control line as the inputs beside it, so it
 // aligns with them by height rather than by tuned padding.
 const readout = `flex min-h-[44px] min-w-[72px] items-center justify-end font-mono text-[16px] tabular-nums lg:text-[13.5px] ${leadingBody} text-foreground`;
-const shapeLabel = {
+const groupLabel = {
   counter: ["Counter work", "काउंटर कार्य"],
   revenue: ["Collections", "संग्रह"],
   fieldwork: ["Field work", "क्षेत्रीय कार्य"],
 } as const;
-// The list is grouped by shape, so a service's place in it is not its id. The
-// clerk reads the place (01 to 25, in list order); the id stays what is stored
-// and sent. Display only: nothing keyed on a service id reads this.
 const GROUPS = ["counter", "revenue", "fieldwork"] as const;
+type Group = (typeof GROUPS)[number];
+// The list has three groups, not four: a service that has a queue sits under
+// Counter work whether or not it also takes a fee. Services 1, 3, 4 and 7 were
+// counter services before they began to collect an amount, and moving them to a
+// group of their own would renumber the whole list under the clerks. The group
+// is a heading, not a rule: what a service is asked for comes from
+// collectedFields, never from this.
+// An exhaustive switch on purpose: a fifth shape fails to compile here until
+// someone decides which heading it sits under.
+function groupOf(serviceId: number): Group {
+  const shape = formShape(serviceId);
+  switch (shape) {
+    case "counter":
+    case "counterRevenue":
+      return "counter";
+    case "revenue":
+    case "fieldwork":
+      return shape;
+    default: {
+      const unreachable: never = shape;
+      return unreachable;
+    }
+  }
+}
+// The list is grouped, so a service's place in it is not its id. The clerk
+// reads the place (01 to 25, in list order); the id stays what is stored and
+// sent. Display only: nothing keyed on a service id reads this.
 const displayNumber = new Map<number, string>(
-  GROUPS.flatMap((g) => services.filter((s) => formShape(s.id) === g)).map((s, i) => [
+  GROUPS.flatMap((g) => services.filter((s) => groupOf(s.id) === g)).map((s, i) => [
     s.id,
     String(i + 1).padStart(2, "0"),
   ]),
@@ -392,7 +422,6 @@ export default function DailyEntry({
     );
   const close = applyActivity(opening, input);
   const service = services.find((s) => s.id === formServiceId)!;
-  const shape = formShape(formServiceId);
   const shownFields = numericFields(formServiceId);
   return (
     <div className="grid gap-5">
@@ -483,7 +512,7 @@ export default function DailyEntry({
                       focusRing,
                     )}
                   >
-                    {t(shapeLabel[group][0], shapeLabel[group][1])}
+                    {t(groupLabel[group][0], groupLabel[group][1])}
                     <ChevronDown
                       aria-hidden="true"
                       focusable="false"
@@ -494,7 +523,7 @@ export default function DailyEntry({
                 <div id={panelId} hidden={!isOpen}>
                 <ul className="m-0 grid list-none gap-0.5 p-0">
                   {services
-                    .filter((s) => formShape(s.id) === group)
+                    .filter((s) => groupOf(s.id) === group)
                     .map((s) => (
                   <li key={s.id}>
                     <button
@@ -560,15 +589,17 @@ export default function DailyEntry({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge>{t(shapeLabel[shape][0], shapeLabel[shape][1])}</Badge>
+              <Badge>{t(groupLabel[groupOf(formServiceId)][0], groupLabel[groupOf(formServiceId)][1])}</Badge>
               <Badge data-status="" tone={saved ? "settled" : "neutral"}>
                 {saved ? t("Submitted", "जमा") : t("Not submitted", "जमा नहीं")}
               </Badge>
             </div>
           </div>
-          {/* Only counter work has a queue, so only the counter shape has a
-              balance to open against. */}
-          {shape === "counter" && (
+          {/* Only a service with a queue has a balance to open against, and
+              movesPendingBalance is the question the ledger asks too. Whether it
+              also takes money is a different question and changes nothing
+              here. */}
+          {movesPendingBalance(formServiceId) && (
             <div data-opening="" className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[7px] bg-muted px-4 py-3 text-[13.5px] ${leadingBody}`}>
               <span className="text-muted-foreground">{t("Opening pending", "प्रारंभिक लंबित")}</span>
               <strong className="font-mono font-semibold tabular-nums">{opening.service}</strong>
@@ -643,11 +674,15 @@ export default function DailyEntry({
                   mode,
                   input: {
                     ...input,
-                    // Only the revenue shape has a money input. Everywhere else
-                    // the figure comes from the record: 0 on a new entry, and
-                    // whatever was stored on a correction.
-                    amountPaise:
-                      shape === "revenue" ? parseMoney(money) : input.amountPaise,
+                    // Only a service that collects an amount has a money input.
+                    // Everywhere else the figure comes from the record: 0 on a
+                    // new entry, and whatever was stored on a correction. A
+                    // service that has just begun collecting one opens a
+                    // correction on the 0 it was filed with, which parses to 0
+                    // again: nothing is invented.
+                    amountPaise: collects(input.serviceId, "amountPaise")
+                      ? parseMoney(money)
+                      : input.amountPaise,
                   },
                   reason: saved ? reason : mode === "backdate" ? reason : null,
                 };
@@ -777,9 +812,11 @@ export default function DailyEntry({
                     )}
                   </Field>
                 ))}
-                {/* Money is collected by the three revenue services and nobody
-                    else: grass cutting takes no payments. */}
-                {shape === "revenue" && (
+                {/* Money is asked of exactly the services whose collected fields
+                    include amountPaise: the revenue services and the four that
+                    take a fee on an application. Grass cutting takes no
+                    payments, and a birth registration has no fee here. */}
+                {collects(formServiceId, "amountPaise") && (
                   <Field className="max-w-[18rem]">
                     {t("Amount Collected (₹)", "संग्रहित राशि (₹)")}
                     {/* 118px is the design width at lg (13.5px type). Below lg the
@@ -800,9 +837,9 @@ export default function DailyEntry({
                     />
                   </Field>
                 )}
-                {/* Same treatment as the opening strip: a closing balance only
+                {/* Same predicate as the opening strip: a closing balance only
                     means something where work queues. */}
-                {shape === "counter" && (
+                {movesPendingBalance(formServiceId) && (
                   <div data-closing="" className="grid gap-1.5">
                     <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>
                       {t("Closing pending", "अंतिम लंबित")}

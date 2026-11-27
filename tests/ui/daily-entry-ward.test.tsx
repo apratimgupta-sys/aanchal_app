@@ -20,12 +20,20 @@ vi.mock("../../src/client/api", () => ({ api, RequestError }));
 
 const empty = { setup: null, entries: [], openings: [] };
 
-// Service 1 is counter work: Received and Disposed are its two figures, and the
-// form will not submit until both are filled. Typing the zeros is what the
-// removed "Set zero activity" button used to do for the office.
-async function fillZeros(user: ReturnType<typeof userEvent.setup>, received = /^received/i, disposed = /^disposed/i) {
+// Service 1 collects Received, Disposed and an Amount, and the form will not
+// submit until all three are filled. Typing the zeros is what the removed "Set
+// zero activity" button used to do for the office. The amount is typed only
+// where the form asks for one, so this works for any service.
+async function fillZeros(
+  user: ReturnType<typeof userEvent.setup>,
+  received = /^received/i,
+  disposed = /^disposed/i,
+  amount = /^(amount collected|संग्रहित राशि)/i,
+) {
   await user.type(screen.getByLabelText(received), "0");
   await user.type(screen.getByLabelText(disposed), "0");
+  const money = screen.queryByLabelText(amount);
+  if (money) await user.type(money, "0");
 }
 
 function renderForm(lang: "en" | "hi" = "en") {

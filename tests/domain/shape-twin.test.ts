@@ -1,5 +1,13 @@
-import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterAll, describe, expect, it } from "vitest";
+import {
+  BACKEND_FIXTURE,
+  backendFixtureCandidates,
+  findBackendFixture,
+} from "./backend-twin";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
 import fixture from "./shape-twin.fixture.json";
 
@@ -9,6 +17,7 @@ import fixture from "./shape-twin.fixture.json";
 // collected field without a test going red. The backend's copy is
 // backend/tests/Anchal.Tests/CommissionerMonitoring/Domain/shape-twin.fixture.json
 // and its test is CounterRevenueShapeTests.TheShapeTablesMatchTheGoldenTwinFixture.
+const repoRoot = resolve(fileURLToPath(import.meta.url), "../../..");
 const entries = Object.entries(fixture.shapes) as [
   string,
   { shape: string; collected: string[]; movesPendingBalance: boolean },
@@ -25,14 +34,61 @@ describe("the shape tables against the golden twin table", () => {
     expect(movesPendingBalance(Number(id))).toBe(e.movesPendingBalance);
   });
 
-  // Where the backend repo is checked out beside this one, the two copies of the
-  // table must be byte-identical. Skipped (not passed) when it is not there.
-  const backendCopy = new URL(
-    "../../../backend/tests/Anchal.Tests/CommissionerMonitoring/Domain/shape-twin.fixture.json",
-    import.meta.url,
-  );
-  it.skipIf(!existsSync(backendCopy))("is byte-identical to the backend repo's copy", () => {
+  // The two copies must be byte-identical. This is the only check that they
+  // are, so it must not be able to go quiet by accident: the backend is found
+  // under either directory name (see backend-twin.ts), and when it genuinely is
+  // not there the test is skipped WITH the reason, which the reporter prints,
+  // and warns on the console. Set ANCHAL_REQUIRE_BACKEND=1 where both repos are
+  // known to be present and a missing one should fail instead of skip.
+  it("is byte-identical to the backend repo's copy", (ctx) => {
+    const found = findBackendFixture(repoRoot);
+    if (!found) {
+      const looked = backendFixtureCandidates(repoRoot).join(", ");
+      const why = `backend repo not found beside this one; looked for ${looked}`;
+      if (process.env.ANCHAL_REQUIRE_BACKEND) throw new Error(why);
+      console.warn(`shape-twin: byte-identity check SKIPPED: ${why}`);
+      ctx.skip(why);
+      return;
+    }
     const here = readFileSync(new URL("./shape-twin.fixture.json", import.meta.url), "utf8");
-    expect(readFileSync(backendCopy, "utf8")).toBe(here);
+    expect(readFileSync(found, "utf8")).toBe(here);
+  });
+});
+
+describe("finding the backend repo", () => {
+  const roots: string[] = [];
+  function layout(...dirs: string[]) {
+    const base = mkdtempSync(join(tmpdir(), "twin-"));
+    roots.push(base);
+    mkdirSync(join(base, "CommissionerDashboard"));
+    for (const d of dirs) {
+      mkdirSync(join(base, d, dirname(BACKEND_FIXTURE)), { recursive: true });
+      writeFileSync(join(base, d, BACKEND_FIXTURE), "{}");
+    }
+    return { front: join(base, "CommissionerDashboard"), base };
+  }
+  afterAll(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })));
+
+  it("finds it as ../backend", () => {
+    const { front, base } = layout("backend");
+    expect(findBackendFixture(front, {})).toBe(join(base, "backend", BACKEND_FIXTURE));
+  });
+
+  it("finds it as ../backend-anchal, the name on the user's machine", () => {
+    const { front, base } = layout("backend-anchal");
+    expect(findBackendFixture(front, {})).toBe(join(base, "backend-anchal", BACKEND_FIXTURE));
+  });
+
+  it("finds it where ANCHAL_BACKEND_DIR says", () => {
+    const { front, base } = layout("elsewhere");
+    expect(findBackendFixture(front, { ANCHAL_BACKEND_DIR: join(base, "elsewhere") })).toBe(
+      join(base, "elsewhere", BACKEND_FIXTURE),
+    );
+  });
+
+  it("reports nothing found rather than guessing, and a directory without the fixture is not a match", () => {
+    const { front, base } = layout();
+    mkdirSync(join(base, "backend-anchal"));
+    expect(findBackendFixture(front, {})).toBeNull();
   });
 });

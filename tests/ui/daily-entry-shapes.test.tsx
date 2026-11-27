@@ -34,11 +34,13 @@ function labels() {
     .filter((l) => l !== DATE_LABEL);
 }
 
-async function renderFor(id: number, entries: EntryView[] = []) {
+type Opening = { serviceId: number; opening: { service: number; complaints: number; field: number } };
+
+async function renderFor(id: number, entries: EntryView[] = [], openings: Opening[] = []) {
   cleanup();
   api.mockReset();
   api.mockImplementation(async (_path: string, method = "GET") =>
-    method === "GET" ? { setup: null, entries, openings: [] } : {},
+    method === "GET" ? { setup: null, entries, openings } : {},
   );
   const user = userEvent.setup();
   render(
@@ -112,7 +114,7 @@ beforeEach(() => {
 
 describe("the three shapes", () => {
   it("shows a counter service two numbers", async () => {
-    await renderFor(1);
+    await renderFor(11);
     expect(labels()).toEqual([
       "Ward",
       "Received",
@@ -147,7 +149,7 @@ describe("the three shapes", () => {
   });
 
   it("shows no retired field on any shape", async () => {
-    for (const id of [1, 2, 15]) {
+    for (const id of [1, 11, 2, 15]) {
       await renderFor(id);
       for (const gone of [
         "SLA Within Time",
@@ -179,8 +181,8 @@ describe("the three shapes", () => {
     }
   });
 
-  it("shows the opening pending strip on the counter shape only", async () => {
-    await renderFor(1);
+  it("shows the opening pending strip on the services that have a queue only", async () => {
+    await renderFor(11);
     expect(screen.getByText("Opening pending")).toBeTruthy();
     await renderFor(2);
     expect(screen.queryByText("Opening pending")).toBeNull();
@@ -221,7 +223,7 @@ describe("what goes over the wire", () => {
   });
 
   it("sends zero for the counter shape's hidden fields and money", async () => {
-    const user = await renderFor(1);
+    const user = await renderFor(11);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^received\b/i), "5");
     await user.type(screen.getByLabelText(/^disposed\b/i), "3");
@@ -309,7 +311,7 @@ describe("correcting an entry filed before the change", () => {
   // Counter lowers Disposed below the stored slaWithinTime of 4; revenue lowers
   // Payments below the stored completed of 5; field work lowers Work done.
   it.each([
-    [1, /^disposed\b/i, "3", { completed: 3, received: 7 }],
+    [11, /^disposed\b/i, "3", { completed: 3, received: 7 }],
     [2, /^payments\b/i, "3", { received: 3, completed: 5 }],
     [15, /^sites\b/i, "2", { completed: 2, received: 7 }],
   ] as const)(
@@ -397,5 +399,180 @@ describe("a server error on a field the form does not render", () => {
     const shown = await screen.findByText(/cannot be combined with reported/i);
     expect(shown.textContent).toContain("Nothing to report");
     expect(shown.textContent).not.toContain("nothingToReport");
+  });
+});
+
+// Services 1, 3, 4 and 7 collect a queue AND money. Every assertion here is
+// about what the form asks for, never about what the shape is called: labels are
+// left to the label tests, so these use the current ones.
+describe("a service that collects a queue and money together", () => {
+  const withOpening = (serviceId: number, service: number): Opening => ({
+    serviceId,
+    opening: { service, complaints: 0, field: 0 },
+  });
+  const closing = () =>
+    document.querySelector("[data-closing] strong")!.textContent;
+
+  it.each([1, 3, 4, 7])("service %i asks for both counts and the amount", async (id) => {
+    await renderFor(id);
+    expect(labels()).toEqual([
+      "Ward",
+      "Received",
+      "Disposed",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
+  });
+
+  it("shows the opening strip and the closing readout, which a collection-only service lacks", async () => {
+    await renderFor(1, [], [withOpening(1, 10)]);
+    expect(screen.getByText("Opening pending")).toBeTruthy();
+    expect(document.querySelector("[data-opening] strong")!.textContent).toBe("10");
+    expect(document.querySelector("[data-closing]")).not.toBeNull();
+    await renderFor(2);
+    expect(document.querySelector("[data-opening]")).toBeNull();
+    expect(document.querySelector("[data-closing]")).toBeNull();
+  });
+
+  it("files the counts, the parsed amount, and zero for everything the service does not collect", async () => {
+    const user = await renderFor(1);
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
+    await user.type(screen.getByLabelText(/^received\b/i), "5");
+    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+    await user.clear(screen.getByLabelText(/^amount collected/i));
+    await user.type(screen.getByLabelText(/^amount collected/i), "150.50");
+    await submitEntry(user);
+    const { input } = await sentOverTheWire("POST");
+    expect(input).toMatchObject({
+      serviceId: 1,
+      received: 5,
+      completed: 3,
+      amountPaise: 15050,
+      slaWithinTime: 0,
+      complaintsReceived: 0,
+      complaintsResolved: 0,
+      fieldReceived: 0,
+      fieldCompleted: 0,
+    });
+  });
+
+  it("moves the closing pending exactly as the equivalent counter entry does", async () => {
+    // Opening 10, 5 in, 3 out: 12 on a plain counter service, so 12 here.
+    const closes: string[] = [];
+    for (const id of [11, 1, 3, 4, 7]) {
+      const user = await renderFor(id, [], [withOpening(id, 10)]);
+      await user.type(screen.getByLabelText(/^received\b/i), "5");
+      await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+      closes.push(closing()!);
+    }
+    expect(closes).toEqual(["12", "12", "12", "12", "12"]);
+  });
+
+  it("does not let money move the balance", async () => {
+    const user = await renderFor(1, [], [withOpening(1, 10)]);
+    await user.type(screen.getByLabelText(/^received\b/i), "5");
+    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+    await user.clear(screen.getByLabelText(/^amount collected/i));
+    await user.type(screen.getByLabelText(/^amount collected/i), "9999");
+    expect(closing()).toBe("12");
+  });
+
+  it("holds disposed to no more than received, on the field the office can see", async () => {
+    const user = await renderFor(1);
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
+    await user.type(screen.getByLabelText(/^received\b/i), "3");
+    await user.type(screen.getByLabelText(/^disposed\b/i), "5");
+    await user.clear(screen.getByLabelText(/^amount collected/i));
+    await user.type(screen.getByLabelText(/^amount collected/i), "10");
+    await submitEntry(user);
+    expect(await screen.findByText(/please correct the highlighted fields/i)).toBeTruthy();
+    expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(false);
+  });
+
+  it("requires both counts on filing, not just the one that was always there", async () => {
+    const user = await renderFor(1);
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
+    await user.type(screen.getByLabelText(/^received\b/i), "3");
+    await user.clear(screen.getByLabelText(/^amount collected/i));
+    await user.type(screen.getByLabelText(/^amount collected/i), "10");
+    // Disposed left empty. The input is `required`, so submit through the form
+    // to reach the schema the way a browser that skipped validation would.
+    const form = screen.getByLabelText(/^received\b/i).closest("form")!;
+    form.noValidate = true;
+    await submitEntry(user);
+    expect(await screen.findByText(/please correct the highlighted fields/i)).toBeTruthy();
+    expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(false);
+  });
+
+  it("lists service 1 under Counter work and badges it so, without a group of its own", async () => {
+    await renderFor(1);
+    const group = screen.getByRole("button", { name: /counter work/i });
+    const panel = document.getElementById(group.getAttribute("aria-controls")!)!;
+    expect(panel.textContent).toContain("01");
+    expect(screen.getAllByRole("heading", { level: 2 }).filter((h) => h.querySelector("button")).length).toBe(3);
+    expect(document.querySelector("form")?.closest("section, div")?.textContent).toContain("Counter work");
+  });
+});
+
+// Review Focus: a service-1 entry filed while it was a counter service stored
+// amountPaise 0. Opening it must not conjure a figure, and must not cost the
+// entry anything else it holds.
+describe("correcting a service-1 entry filed before it collected money", () => {
+  const filedAsCounter = (): EntryView => ({
+    ...preCutoverEntry(1),
+    amountPaise: 0,
+    received: 7,
+    completed: 5,
+    closing: { service: 2, complaints: 1, field: 0 },
+  });
+  const money = () => screen.getByLabelText(/^amount collected/i) as HTMLInputElement;
+
+  async function startCorrection(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /edit entry/i }));
+    await user.type(screen.getByLabelText(/correction reason/i), "recount");
+  }
+
+  it("opens with an empty or zero amount, never a figure", async () => {
+    await renderFor(1, [filedAsCounter()]);
+    expect(["", "0", "0.00"]).toContain(money().value);
+  });
+
+  it("saves the amount as zero and keeps every other stored value", async () => {
+    const user = await renderFor(1, [filedAsCounter()]);
+    await startCorrection(user);
+    const disposed = screen.getByLabelText(/^disposed\b/i);
+    await user.clear(disposed);
+    await user.type(disposed, "6");
+    await user.click(screen.getByRole("button", { name: /save correction/i }));
+    const { input } = await sentOverTheWire("PUT");
+    expect(input).toMatchObject({
+      received: 7,
+      completed: 6,
+      amountPaise: 0,
+      slaWithinTime: 4,
+      complaintsReceived: 2,
+      complaintsResolved: 1,
+      fieldReceived: 3,
+      fieldCompleted: 3,
+      avgDisposalDays: 2.5,
+      remarks: "filed before the cutover",
+      ward: "Ward 24",
+    });
+    expect(screen.queryByText(/please correct the highlighted fields/i)).toBeNull();
+  });
+
+  it("lets the office supply the amount it never had", async () => {
+    const user = await renderFor(1, [filedAsCounter()]);
+    await startCorrection(user);
+    await user.clear(money());
+    await user.type(money(), "75.25");
+    await user.click(screen.getByRole("button", { name: /save correction/i }));
+    const { input } = await sentOverTheWire("PUT");
+    expect(input).toMatchObject({ amountPaise: 7525, received: 7, completed: 5, slaWithinTime: 4 });
+  });
+
+  it("closes the balance from the stored opening, as before", async () => {
+    await renderFor(1, [{ ...filedAsCounter(), opening: { service: 4, complaints: 0, field: 0 } }]);
+    expect(document.querySelector("[data-closing] strong")!.textContent).toBe("6");
   });
 });

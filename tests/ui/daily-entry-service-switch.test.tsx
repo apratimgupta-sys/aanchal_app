@@ -100,7 +100,7 @@ describe("switching service with an unsaved draft", () => {
   it("files against the service on screen, not the one typed into first", async () => {
     const user = await renderForm();
 
-    // Service 1, a counter service: two figures typed, nothing saved.
+    // Service 1: two counts typed, nothing saved.
     await user.selectOptions(ward(), "Ward 4");
     await user.type(number("Received"), "5");
     await user.type(number("Disposed"), "3");
@@ -116,6 +116,7 @@ describe("switching service with an unsaved draft", () => {
     await user.selectOptions(ward(), "Ward 9");
     await user.type(number("Received"), "7");
     await user.type(number("Disposed"), "2");
+    await user.type(screen.getByRole("textbox", { name: /^amount collected/i }), "10");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
 
     const input = await filed();
@@ -123,6 +124,7 @@ describe("switching service with an unsaved draft", () => {
     expect(input.serviceId).toBe(3);
     expect(input.received).toBe(7);
     expect(input.completed).toBe(2);
+    expect(input.amountPaise).toBe(1000);
   });
 
   it("leaves a saveable form when the shapes differ", async () => {
@@ -183,11 +185,13 @@ describe("the entry panel is keyed to the draft, not to the selection", () => {
     "utf8",
   );
 
-  it("derives the service, its shape and its fields from the draft", () => {
+  it("derives the service, what it collects and its fields from the draft", () => {
     expect(source).toContain("const formServiceId = input.serviceId;");
     for (const derivation of [
       "const service = services.find((s) => s.id === formServiceId)!",
-      "const shape = formShape(formServiceId)",
+      "movesPendingBalance(formServiceId)",
+      'collects(formServiceId, "amountPaise")',
+      "groupOf(formServiceId)",
       "const shownFields = numericFields(formServiceId)",
       "data?.openings.find((b) => b.serviceId === formServiceId)",
     ])
