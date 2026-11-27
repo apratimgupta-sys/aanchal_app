@@ -179,9 +179,9 @@ describe("commissioner dashboard after the form shapes", () => {
       expect(bodyCell(blank), `${blank} body cell`).toBe("");
       expect(footCell(blank), `${blank} total`).toBe("");
     }
-    // What the service does collect still shows.
+    // What the service does collect still shows. Field work collects no money,
+    // so its amount is blank too (see the field-work amount test below).
     expect(bodyCell("Work done")).toBe("18");
-    expect(bodyCell("Amount Collected (₹)")).toBeTruthy();
   });
 
   it("blanks the work done column when the filter pins a service that is not field work", async () => {
@@ -287,9 +287,128 @@ describe("commissioner dashboard after the form shapes", () => {
     );
   });
 
-  // Pinned to a service that collects a queue and money (1, 3, 4, 7), pending,
-  // disposal and collection must all show. Not written here: the gate is
-  // Dashboard.tsx's `onlyFor`, which is Task 4's to replace, and that task owns
-  // the failing test for it.
-  it.todo("shows pending, disposal and collection when pinned to service 1 (Task 4)");
+  // The helpers below read the tiles and the table the way the tests above do.
+  const tileOf = (label: string) => {
+    const found = screen.getByText(label).closest("[data-metric]") as HTMLElement;
+    return {
+      value: found.querySelector("strong")!.textContent,
+      note: found.querySelector("small")!.textContent,
+    };
+  };
+  const cellsOf = (name: string) => {
+    const table = labelledTable(/anchal-wise performance table/i);
+    const column = headers(table).indexOf(name);
+    return {
+      body: Array.from(table.querySelectorAll("tbody tr")).map(
+        (tr) => Array.from(tr.querySelectorAll("td"))[column].textContent,
+      ),
+      foot: Array.from(table.querySelectorAll("tfoot td"))[column].textContent,
+    };
+  };
+
+  it.each(["1", "3", "4", "7"])(
+    "shows pending, disposal and collection when pinned to service %s, which collects a queue and money",
+    async (id) => {
+      mockApi([row()]);
+      await renderDashboard();
+      const user = userEvent.setup();
+      await user.selectOptions(screen.getByLabelText("Service", { exact: true }), id);
+      await waitFor(() => expect(tileOf("Work done this period").value).toBe(""));
+      expect(tileOf("Total pending").value).toBe("12");
+      expect(tileOf("Disposal").value).toBe("75.0%");
+      expect(tileOf("Disposal").note).toBe("30 / 40");
+      expect(tileOf("Total collection").value).toBe("₹2,500.00");
+      // The table agrees with the tiles: every column the service collects.
+      for (const [name, shown] of [
+        ["Received", "40"],
+        ["Completed", "30"],
+        ["Pending", "12"],
+        ["Disposal %", "75.0%"],
+        ["Amount Collected (₹)", "₹2,500.00"],
+      ] as const) {
+        expect(cellsOf(name).body, `${name} body`).toEqual([shown]);
+        expect(cellsOf(name).foot, `${name} total`).toBe(shown);
+      }
+      // Field work is the one thing it does not collect.
+      expect(cellsOf("Work done").body).toEqual([""]);
+    },
+  );
+
+  it("leaves the collection blank, not zero, for a counter service that takes no money", async () => {
+    // The distinction the page's own comment names: a zero says "no money was
+    // collected", a blank says "this service collects none". The row carries a
+    // real zero so a cell that merely printed its data would read ₹0.00.
+    mockApi([row({ amountPaise: 0 })]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "11");
+    await waitFor(() => expect(tileOf("Total collection").value).toBe(""));
+    expect(tileOf("Total collection").value).not.toBe("₹0.00");
+    expect(cellsOf("Amount Collected (₹)").body).toEqual([""]);
+    expect(cellsOf("Amount Collected (₹)").foot).toBe("");
+    // A queue service that does collect money shows a real zero as a zero.
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
+    await waitFor(() => expect(tileOf("Total collection").value).toBe("₹0.00"));
+    expect(cellsOf("Amount Collected (₹)").body).toEqual(["₹0.00"]);
+  });
+
+  it("leaves pending blank when pinned to a revenue service", async () => {
+    mockApi([row({ pending: 0 })]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "2");
+    await waitFor(() => expect(tileOf("Total collection").value).toBe("₹2,500.00"));
+    expect(tileOf("Total pending").value).toBe("");
+    expect(cellsOf("Pending").body).toEqual([""]);
+    expect(cellsOf("Pending").foot).toBe("");
+    expect(cellsOf("Amount Collected (₹)").body).toEqual(["₹2,500.00"]);
+  });
+
+  it("leaves the amount blank when pinned to field work, which collects no money", async () => {
+    mockApi([row({ amountPaise: 0 })]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
+    await waitFor(() => expect(cellsOf("Amount Collected (₹)").body).toEqual([""]));
+    expect(cellsOf("Amount Collected (₹)").foot).toBe("");
+  });
+
+  it("leaves the unpinned table unchanged", async () => {
+    mockApi([row()]);
+    await renderDashboard();
+    expect(cellsOf("Received").body).toEqual(["40"]);
+    expect(cellsOf("Pending").body).toEqual(["12"]);
+    expect(cellsOf("Work done").body).toEqual(["18"]);
+    expect(cellsOf("Amount Collected (₹)").body).toEqual(["₹2,500.00"]);
+    expect(cellsOf("Amount Collected (₹)").foot).toBe("₹2,500.00");
+  });
+
+  describe("the notes under the tiles count the services that feed the figure", () => {
+    // Service ids by shape: counter 11, 12 and 18-25 (ten); counterRevenue 1, 3,
+    // 4, 7; revenue 2, 5, 6; field work 8-10 and 13-17 (eight). A note that
+    // counted one shape would say 10 and 3 where the figure spans 14 and 7.
+    it("counts counter and counterRevenue services under pending, revenue and counterRevenue under collection", async () => {
+      mockApi([row()]);
+      await renderDashboard();
+      expect(tileOf("Total pending").note).toBe("across 14 services with a pending balance");
+      expect(tileOf("Total collection").note).toBe("across 7 services that collect an amount");
+      expect(tileOf("Work done this period").note).toBe("across 8 field-work services");
+    });
+
+    it("says it in Hindi with the plural the count needs", async () => {
+      mockApi([row()]);
+      await renderDashboard("hi");
+      expect(tileOf("कुल लंबित").note).toBe("लंबित शेष वाली 14 सेवाओं में");
+      expect(tileOf("कुल संग्रह").note).toBe("राशि संग्रहित करने वाली 7 सेवाओं में");
+    });
+
+    it("falls back to what the figure is once a service is pinned", async () => {
+      mockApi([row()]);
+      await renderDashboard();
+      const user = userEvent.setup();
+      await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
+      await waitFor(() => expect(tileOf("Total pending").note).toBe("Closing balance"));
+      expect(tileOf("Total collection").note).toBe("Actual collection");
+    });
+  });
 });

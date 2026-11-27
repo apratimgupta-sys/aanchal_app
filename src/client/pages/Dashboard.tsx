@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MonitoringRow } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { formShape, type FormShape } from "../../domain/service-kind";
+import { collects, isFieldWork, movesPendingBalance } from "../../domain/service-kind";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
@@ -98,48 +98,80 @@ export default function Dashboard() {
   const disposal = totals.received
     ? (totals.completed / totals.received) * 100
     : null;
-  // Every figure on this page belongs to exactly one shape: Received,
-  // Completed, Pending and Disposal % to counter work, the amount to revenue,
-  // work done to field work. Pinned to a single service, the figures the other
-  // two shapes own are not collected at all, so they are left blank rather than
-  // shown as 0 or — : a blank says "not collected for this service", a zero
-  // says "no work was done", and only one of those is true.
-  const pinnedShape = service === "" ? null : formShape(Number(service));
-  const onlyFor =
-    (shape: FormShape) =>
-    (value: string | number) =>
-      pinnedShape === null || pinnedShape === shape ? value : "";
-  const counterCell = onlyFor("counter");
-  const revenueCell = onlyFor("revenue");
-  const fieldWorkCell = onlyFor("fieldwork");
-  const shapeCount = (shape: FormShape) => services.filter((x) => formShape(x.id) === shape).length;
+  // Each figure on this page is derived from a field a service either collects
+  // or does not. Pinned to one service, a figure derived from a field it does
+  // not collect is left blank rather than shown as 0 or "—": a blank says "not
+  // collected for this service", a zero says "no work was done", and only one
+  // of those is true. The test is collection, never shape identity: a service
+  // that collects a queue and money (counterRevenue) owns figures from two
+  // shapes, and an equality test would blank all of them.
+  //   Received, Completed, Pending, Disposal %  the queue figures, kept for
+  //     services whose balance moves (movesPendingBalance)
+  //   Amount                                    collects(id, "amountPaise")
+  //   Work done                                 field work: its own figure,
+  //     not the "completed" count (isFieldWork)
+  const pinnedId = service === "" ? null : Number(service);
+  const gate = (collected: (id: number) => boolean) => (value: string | number) =>
+    pinnedId === null || collected(pinnedId) ? value : "";
+  const queueCell = gate(movesPendingBalance);
+  const amountCell = gate((id) => collects(id, "amountPaise"));
+  const fieldWorkCell = gate(isFieldWork);
+  // The services that feed a figure, so a note never counts fewer than the
+  // figure spans. Counted by what they collect, not by shape: pending spans
+  // counter and counterRevenue services, collection spans revenue and
+  // counterRevenue services.
+  const serviceCount = (feeds: (id: number) => boolean) => services.filter((x) => feeds(x.id)).length;
   // "Across N services" only says something when the figure really spans them;
   // pinned to one service the note falls back to what the figure is.
-  const spans = (shape: FormShape, en: string, hi: string, fallbackEn: string, fallbackHi: string) =>
-    pinnedShape === null
-      ? t(`across ${shapeCount(shape)} ${en}`, `${shapeCount(shape)} ${hi} में`)
-      : t(fallbackEn, fallbackHi);
+  const spans = (
+    feeds: (id: number) => boolean,
+    note: (n: number) => string,
+    noteHi: (n: number) => string,
+    fallbackEn: string,
+    fallbackHi: string,
+  ) => {
+    const n = serviceCount(feeds);
+    return pinnedId === null ? t(note(n), noteHi(n)) : t(fallbackEn, fallbackHi);
+  };
   const metrics = [
     [
       t("Total pending", "कुल लंबित"),
-      counterCell(totals.pending),
-      spans("counter", "counter services", "काउंटर सेवाओं", "Closing balance", "अंतिम शेष"),
+      queueCell(totals.pending),
+      spans(
+        movesPendingBalance,
+        (n) => `across ${n} ${n === 1 ? "service" : "services"} with a pending balance`,
+        (n) => `लंबित शेष वाली ${n} ${n === 1 ? "सेवा" : "सेवाओं"} में`,
+        "Closing balance",
+        "अंतिम शेष",
+      ),
     ],
     [
       t("Disposal", "निस्तारण"),
-      counterCell(percent(disposal)),
-      // The ratio under it is the same two counter figures, so it goes with them.
-      counterCell(`${totals.completed} / ${totals.received}`),
+      queueCell(percent(disposal)),
+      // The ratio under it is the same two queue figures, so it goes with them.
+      queueCell(`${totals.completed} / ${totals.received}`),
     ],
     [
       t("Total collection", "कुल संग्रह"),
-      revenueCell(currency(totals.amountPaise)),
-      spans("revenue", "revenue services", "राजस्व सेवाओं", "Actual collection", "वास्तविक संग्रह"),
+      amountCell(currency(totals.amountPaise)),
+      spans(
+        (id) => collects(id, "amountPaise"),
+        (n) => `across ${n} ${n === 1 ? "service" : "services"} that collect an amount`,
+        (n) => `राशि संग्रहित करने वाली ${n} ${n === 1 ? "सेवा" : "सेवाओं"} में`,
+        "Actual collection",
+        "वास्तविक संग्रह",
+      ),
     ],
     [
       t("Work done this period", "इस अवधि में किया गया कार्य"),
       fieldWorkCell(totals.workDone),
-      spans("fieldwork", "field-work services", "क्षेत्रीय कार्य सेवाओं", "Field work completed", "पूर्ण क्षेत्रीय कार्य"),
+      spans(
+        isFieldWork,
+        (n) => `across ${n} field-work ${n === 1 ? "service" : "services"}`,
+        (n) => `${n} क्षेत्रीय कार्य ${n === 1 ? "सेवा" : "सेवाओं"} में`,
+        "Field work completed",
+        "पूर्ण क्षेत्रीय कार्य",
+      ),
     ],
   ];
   // Filing status is about one day. Under any other period the heading must not
@@ -163,8 +195,8 @@ export default function Dashboard() {
   const anchalLabel = t("Anchal", "अंचल");
   const perAnchalHeads: [string, boolean][] = [
     [anchalLabel, false],
-    // Neutral wording: these three are counter-shape figures
-    // only, so naming transactions or field work would be wrong.
+    // Neutral wording: these are queue figures, so naming transactions
+    // or field work would be wrong.
     [t("Received", "प्राप्त"), true],
     [t("Completed", "पूर्ण"), true],
     [t("Pending", "लंबित"), true],
@@ -393,24 +425,24 @@ export default function Dashboard() {
                 <Td label={hAnchal} className={cardTitle}>
                   {anchalLabel} {r.officeId}
                 </Td>
-                <Td label={hReceived} className={figure}>{counterCell(r.received)}</Td>
-                <Td label={hCompleted} className={figure}>{counterCell(r.completed)}</Td>
-                <Td label={hPending} className={figure}>{counterCell(r.pending)}</Td>
-                <Td label={hDisposal} className={figure}>{counterCell(percent(r.disposalPct))}</Td>
+                <Td label={hReceived} className={figure}>{queueCell(r.received)}</Td>
+                <Td label={hCompleted} className={figure}>{queueCell(r.completed)}</Td>
+                <Td label={hPending} className={figure}>{queueCell(r.pending)}</Td>
+                <Td label={hDisposal} className={figure}>{queueCell(percent(r.disposalPct))}</Td>
                 <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
-                <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(r.amountPaise)}</Td>
+                <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(r.amountPaise))}</Td>
               </tr>
             ))}
           </tbody>
           <tfoot role="rowgroup">
             <tr role="row">
               <Td label={hAnchal} className={cardTitle}>{t("TOTAL", "कुल")}</Td>
-              <Td label={hReceived} className={figure}>{counterCell(totals.received)}</Td>
-              <Td label={hCompleted} className={figure}>{counterCell(totals.completed)}</Td>
-              <Td label={hPending} className={figure}>{counterCell(totals.pending)}</Td>
-              <Td label={hDisposal} className={figure}>{counterCell(percent(disposal))}</Td>
+              <Td label={hReceived} className={figure}>{queueCell(totals.received)}</Td>
+              <Td label={hCompleted} className={figure}>{queueCell(totals.completed)}</Td>
+              <Td label={hPending} className={figure}>{queueCell(totals.pending)}</Td>
+              <Td label={hDisposal} className={figure}>{queueCell(percent(disposal))}</Td>
               <Td label={hWork} className={figure}>{fieldWorkCell(totals.workDone)}</Td>
-              <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{currency(totals.amountPaise)}</Td>
+              <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(totals.amountPaise))}</Td>
             </tr>
           </tfoot>
         </Table>

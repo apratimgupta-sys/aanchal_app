@@ -117,8 +117,10 @@ describe("dashboard layout order and structure", () => {
 
   it("says what each tile spans", async () => {
     await renderDashboard([row()]);
-    expect(screen.getByText(/^across \d+ counter services$/)).toBeTruthy();
-    expect(screen.getByText(/^across \d+ revenue services$/)).toBeTruthy();
+    // Wording changed with the fourth shape: the notes count the services that
+    // feed the figure, not the services of one shape. Counts: dashboard-shapes.
+    expect(screen.getByText(/^across \d+ services with a pending balance$/)).toBeTruthy();
+    expect(screen.getByText(/^across \d+ services that collect an amount$/)).toBeTruthy();
   });
 
   it("renders no second <main> landmark", async () => {
