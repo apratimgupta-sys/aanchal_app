@@ -83,9 +83,10 @@ export function movesPendingBalance(serviceId: number): boolean {
 // service collects, not by what shape it is called, so a future shape that
 // collects `completed` alone is summed and shown without anyone remembering to
 // add it here. Today that is the eight field-work services. The server's
-// MonitoringRules.IsFieldWork is still a shape test (the backend repo owns it);
-// the two agree on every service because workDone is defined as the sum of
-// `completed` over services with no queue.
+// MonitoringService computes workDone from this same rule — `Collects(id,
+// "completed") && !Collects(id, "received")` — so both repos derive it one way.
+// MonitoringRules.IsFieldWork survives there as a shape helper with no
+// production caller, used only to classify services in one test.
 export function collectsWorkDone(serviceId: number): boolean {
   return collects(serviceId, "completed") && !collects(serviceId, "received");
 }
