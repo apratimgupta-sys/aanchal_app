@@ -69,6 +69,30 @@ const WORK_DONE_LABEL: Record<number, readonly [string, string]> = {
   16: ["Sites", "स्थल"],
   17: ["Routes", "मार्ग"],
 };
+// A queue's two counts, worded for the services whose client asked for their own
+// words. Keyed by service, like the table above: a service not listed here keeps
+// the plain "Received" / "Disposed". The four fee services (1, 3, 4, 7) count
+// applications; the grievance service counts what came through Smart Ranchi.
+const APPLICATIONS: readonly [readonly [string, string], readonly [string, string]] = [
+  ["Applications received", "प्राप्त आवेदन"],
+  ["Applications disposed", "निस्तारित आवेदन"],
+];
+const QUEUE_LABELS: Record<number, typeof APPLICATIONS> = {
+  1: APPLICATIONS,
+  3: APPLICATIONS,
+  4: APPLICATIONS,
+  7: APPLICATIONS,
+  12: [
+    [
+      "Number of grievances posted through Smart Ranchi",
+      "स्मार्ट राँची के माध्यम से दर्ज शिकायतों की संख्या",
+    ],
+    [
+      "Number of grievances resolved through Smart Ranchi",
+      "स्मार्ट राँची के माध्यम से निस्तारित शिकायतों की संख्या",
+    ],
+  ],
+};
 type NumericField = { key: CountKey; en: string; hi: string };
 // The questions a service is actually asked: the counts it collects, in the
 // order it collects them. Taken from collectedFields rather than from the
@@ -83,14 +107,18 @@ function numericFields(serviceId: number): NumericField[] {
   );
   const hasQueue = collects(serviceId, "received", "completed");
   return keys.map((key) => {
-    if (key === "received")
+    if (key === "received") {
       // Received on its own is a payment count: a payment completes nothing, so
       // there is no disposal figure beside it.
-      return hasQueue
-        ? { key, en: "Received", hi: "प्राप्त" }
-        : { key, en: "Payments", hi: "भुगतान" };
+      if (!hasQueue) return { key, en: "Payments", hi: "भुगतान" };
+      const [qen, qhi] = QUEUE_LABELS[serviceId]?.[0] ?? ["Received", "प्राप्त"];
+      return { key, en: qen, hi: qhi };
+    }
     // Completed beside received is a disposal; completed alone is work done.
-    if (hasQueue) return { key, en: "Disposed", hi: "निस्तारित" };
+    if (hasQueue) {
+      const [qen, qhi] = QUEUE_LABELS[serviceId]?.[1] ?? ["Disposed", "निस्तारित"];
+      return { key, en: qen, hi: qhi };
+    }
     const [en, hi] = WORK_DONE_LABEL[serviceId] ?? [
       "Work done",
       "किया गया कार्य",

@@ -110,14 +110,14 @@ describe("collapsible groups", () => {
   it("keeps the selection and the draft when the selected service's group is collapsed", async () => {
     const user = await renderForm();
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 4");
-    await user.type(screen.getByLabelText(/^received/i), "5");
+    await user.type(screen.getByLabelText(/^applications received/i), "5");
     await user.click(header("Counter work"));
     expect(screen.queryByRole("button", { name: /^01(?!\d)/ })).toBeNull();
     // Panel and draft are untouched while the row is out of sight.
     expect(screen.getByText(/^SERVICE 01 ·/)).toBeTruthy();
-    expect((screen.getByLabelText(/^received/i) as HTMLInputElement).value).toBe("5");
+    expect((screen.getByLabelText(/^applications received/i) as HTMLInputElement).value).toBe("5");
     await user.click(header("Counter work"));
     expect(screen.getByRole("button", { name: /^01(?!\d)/ }).getAttribute("aria-current")).toBe("true");
-    expect((screen.getByLabelText(/^received/i) as HTMLInputElement).value).toBe("5");
+    expect((screen.getByLabelText(/^applications received/i) as HTMLInputElement).value).toBe("5");
   });
 });

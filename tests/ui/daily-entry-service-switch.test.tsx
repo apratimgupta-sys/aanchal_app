@@ -102,20 +102,20 @@ describe("switching service with an unsaved draft", () => {
 
     // Service 1: two counts typed, nothing saved.
     await user.selectOptions(ward(), "Ward 4");
-    await user.type(number("Received"), "5");
-    await user.type(number("Disposed"), "3");
+    await user.type(number("Applications received"), "5");
+    await user.type(number("Applications disposed"), "3");
 
     // Wrong service. Switch, and confirm the discard.
     await pick(user, 3);
 
     // The draft really was discarded: the boxes belong to service 3 now.
-    expect(number("Received").value).toBe("");
-    expect(number("Disposed").value).toBe("");
+    expect(number("Applications received").value).toBe("");
+    expect(number("Applications disposed").value).toBe("");
     expect(ward().value).toBe("");
 
     await user.selectOptions(ward(), "Ward 9");
-    await user.type(number("Received"), "7");
-    await user.type(number("Disposed"), "2");
+    await user.type(number("Applications received"), "7");
+    await user.type(number("Applications disposed"), "2");
     await user.type(screen.getByRole("textbox", { name: /^amount collected/i }), "10");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
 
@@ -155,13 +155,13 @@ describe("switching service with an unsaved draft", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = await renderForm();
     await user.selectOptions(ward(), "Ward 4");
-    await user.type(number("Received"), "5");
+    await user.type(number("Applications received"), "5");
 
     await user.click(screen.getByRole("button", { name: /^02(?!\d)/ }));
 
     // Still on service 1, still holding what was typed.
     expect(screen.getByText(/SERVICE 01\b/)).toBeTruthy();
-    expect(number("Received").value).toBe("5");
+    expect(number("Applications received").value).toBe("5");
     expect(ward().value).toBe("Ward 4");
   });
 });

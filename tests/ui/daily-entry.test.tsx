@@ -49,7 +49,7 @@ describe("nothing to report", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     // Service 1 collects two counts and an amount, so the boxes are Received,
     // Disposed and Amount Collected: a typed zero in each is a figure.
-    for (const label of [/^received/i, /^disposed/i, /^amount collected/i])
+    for (const label of [/^applications received/i, /^applications disposed/i, /^amount collected/i])
       await user.type(screen.getByLabelText(label), "0");
     const input = await submittedInput(user);
     expect(input.nothingToReport).toBe(false);
@@ -82,7 +82,7 @@ describe("nothing to report", () => {
     renderForm();
     await screen.findByText(/daily service entry/i);
     await user.click(screen.getByRole("button", { name: /edit entry/i }));
-    const received = screen.getByLabelText(/^received/i);
+    const received = screen.getByLabelText(/^applications received/i);
     await user.clear(received);
     await user.type(received, "3");
     await user.type(screen.getByRole("textbox", { name: /correction reason/i }), "corrected");

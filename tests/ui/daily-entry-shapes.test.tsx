@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
 import { servicePosition } from "./service-position";
@@ -142,8 +142,8 @@ describe("the three shapes", () => {
     await renderFor(12);
     expect(labels()).toEqual([
       "Ward",
-      "Received",
-      "Disposed",
+      "Number of grievances posted through Smart Ranchi",
+      "Number of grievances resolved through Smart Ranchi",
       "Remarks",
     ]);
   });
@@ -403,8 +403,7 @@ describe("a server error on a field the form does not render", () => {
 });
 
 // Services 1, 3, 4 and 7 collect a queue AND money. Every assertion here is
-// about what the form asks for, never about what the shape is called: labels are
-// left to the label tests, so these use the current ones.
+// about what the form asks for, never about what the shape is called.
 describe("a service that collects a queue and money together", () => {
   const withOpening = (serviceId: number, service: number): Opening => ({
     serviceId,
@@ -417,8 +416,8 @@ describe("a service that collects a queue and money together", () => {
     await renderFor(id);
     expect(labels()).toEqual([
       "Ward",
-      "Received",
-      "Disposed",
+      "Applications received",
+      "Applications disposed",
       "Amount Collected (₹)",
       "Remarks",
     ]);
@@ -437,8 +436,8 @@ describe("a service that collects a queue and money together", () => {
   it("files the counts, the parsed amount, and zero for everything the service does not collect", async () => {
     const user = await renderFor(1);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^received\b/i), "5");
-    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+    await user.type(screen.getByLabelText(/^applications received\b/i), "5");
+    await user.type(screen.getByLabelText(/^applications disposed\b/i), "3");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "150.50");
     await submitEntry(user);
@@ -461,8 +460,8 @@ describe("a service that collects a queue and money together", () => {
     const closes: string[] = [];
     for (const id of [11, 1, 3, 4, 7]) {
       const user = await renderFor(id, [], [withOpening(id, 10)]);
-      await user.type(screen.getByLabelText(/^received\b/i), "5");
-      await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+      await user.type(screen.getByLabelText(/^(applications )?received\b/i), "5");
+      await user.type(screen.getByLabelText(/^(applications )?disposed\b/i), "3");
       closes.push(closing()!);
     }
     expect(closes).toEqual(["12", "12", "12", "12", "12"]);
@@ -470,8 +469,8 @@ describe("a service that collects a queue and money together", () => {
 
   it("does not let money move the balance", async () => {
     const user = await renderFor(1, [], [withOpening(1, 10)]);
-    await user.type(screen.getByLabelText(/^received\b/i), "5");
-    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
+    await user.type(screen.getByLabelText(/^applications received\b/i), "5");
+    await user.type(screen.getByLabelText(/^applications disposed\b/i), "3");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "9999");
     expect(closing()).toBe("12");
@@ -480,8 +479,8 @@ describe("a service that collects a queue and money together", () => {
   it("holds disposed to no more than received, on the field the office can see", async () => {
     const user = await renderFor(1);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^received\b/i), "3");
-    await user.type(screen.getByLabelText(/^disposed\b/i), "5");
+    await user.type(screen.getByLabelText(/^applications received\b/i), "3");
+    await user.type(screen.getByLabelText(/^applications disposed\b/i), "5");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "10");
     await submitEntry(user);
@@ -492,12 +491,12 @@ describe("a service that collects a queue and money together", () => {
   it("requires both counts on filing, not just the one that was always there", async () => {
     const user = await renderFor(1);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^received\b/i), "3");
+    await user.type(screen.getByLabelText(/^applications received\b/i), "3");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "10");
     // Disposed left empty. The input is `required`, so submit through the form
     // to reach the schema the way a browser that skipped validation would.
-    const form = screen.getByLabelText(/^received\b/i).closest("form")!;
+    const form = screen.getByLabelText(/^applications received\b/i).closest("form")!;
     form.noValidate = true;
     await submitEntry(user);
     expect(await screen.findByText(/please correct the highlighted fields/i)).toBeTruthy();
@@ -540,7 +539,7 @@ describe("correcting a service-1 entry filed before it collected money", () => {
   it("saves the amount as zero and keeps every other stored value", async () => {
     const user = await renderFor(1, [filedAsCounter()]);
     await startCorrection(user);
-    const disposed = screen.getByLabelText(/^disposed\b/i);
+    const disposed = screen.getByLabelText(/^applications disposed\b/i);
     await user.clear(disposed);
     await user.type(disposed, "6");
     await user.click(screen.getByRole("button", { name: /save correction/i }));
@@ -574,5 +573,80 @@ describe("correcting a service-1 entry filed before it collected money", () => {
   it("closes the balance from the stored opening, as before", async () => {
     await renderFor(1, [{ ...filedAsCounter(), opening: { service: 4, complaints: 0, field: 0 } }]);
     expect(document.querySelector("[data-closing] strong")!.textContent).toBe("6");
+  });
+});
+
+// The client's wording for the services it renamed. Only the four fee services
+// and the grievance service are worded differently; every other service keeps
+// "Received" / "Disposed".
+describe("the labels the client asked for", () => {
+  const SMART_RANCHI = [
+    "Number of grievances posted through Smart Ranchi",
+    "Number of grievances resolved through Smart Ranchi",
+  ];
+
+  it.each([1, 3, 4, 7])("service %i says applications received and disposed, and keeps its amount", async (id) => {
+    await renderFor(id);
+    expect(labels()).toEqual([
+      "Ward",
+      "Applications received",
+      "Applications disposed",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
+  });
+
+  it("service 12 says grievances posted and resolved through Smart Ranchi, with no amount", async () => {
+    await renderFor(12);
+    expect(labels()).toEqual(["Ward", ...SMART_RANCHI, "Remarks"]);
+    expect(labels()).not.toContain("Amount Collected (₹)");
+  });
+
+  it("service 11 keeps Received and Disposed, with no amount", async () => {
+    await renderFor(11);
+    expect(labels()).toEqual(["Ward", "Received", "Disposed", "Remarks"]);
+  });
+
+  it("every other counter service keeps Received and Disposed", async () => {
+    for (const id of [18, 19, 20, 21, 22, 23, 24, 25]) {
+      await renderFor(id);
+      expect(labels(), `service ${id}`).toEqual(["Ward", "Received", "Disposed", "Remarks"]);
+    }
+  });
+
+  it("renders the Smart Ranchi labels in Hindi too, and the renamed service title", async () => {
+    cleanup();
+    api.mockReset();
+    api.mockImplementation(async (_p: string, m = "GET") =>
+      m === "GET" ? { setup: null, entries: [], openings: [] } : {},
+    );
+    const user = userEvent.setup();
+    render(
+      <Language.Provider value="hi">
+        <DailyEntry officeId={1} mode="today" startDate="2020-01-01" onDirtyChange={() => {}}
+          preserveDraftSignal={0} onContinueDraftInBackdate={() => {}} />
+      </Language.Provider>,
+    );
+    await screen.findByText(/दैनिक सेवा प्रविष्टि/);
+    await user.click(screen.getByRole("button", { name: new RegExp(`^${servicePosition(12)}(?!\\d)`) }));
+    const text = Array.from(document.querySelectorAll("form label")).map((l) => l.textContent ?? "").join("|");
+    expect(text).toMatch(/स्मार्ट राँची/);
+    expect(text).not.toMatch(/Smart Ranchi/);
+  });
+});
+
+describe("the service list carries the six new names", () => {
+  it("lists them in English", async () => {
+    await renderFor(1);
+    const list = screen.getByRole("list", { name: "Municipal services" });
+    for (const name of [
+      "New Holding Application Reporting (SAF)",
+      "Municipal Trade Licence Application Reporting",
+      "New Water Connection Application Reporting",
+      "Data Correction Application Reporting",
+      "Birth and Death Registration Reporting",
+      "Public Grievance Application Reporting",
+    ])
+      expect(within(list).getByText(name)).toBeTruthy();
   });
 });

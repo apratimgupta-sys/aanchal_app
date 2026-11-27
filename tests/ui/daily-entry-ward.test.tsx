@@ -26,8 +26,8 @@ const empty = { setup: null, entries: [], openings: [] };
 // where the form asks for one, so this works for any service.
 async function fillZeros(
   user: ReturnType<typeof userEvent.setup>,
-  received = /^received/i,
-  disposed = /^disposed/i,
+  received = /^applications received/i,
+  disposed = /^applications disposed/i,
   amount = /^(amount collected|संग्रहित राशि)/i,
 ) {
   await user.type(screen.getByLabelText(received), "0");

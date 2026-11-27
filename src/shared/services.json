@@ -1,8 +1,8 @@
 [
   {
     "id": 1,
-    "name": "नए होल्डिंग प्राप्त करने हेतु आवेदन",
-    "en": "New holding application",
+    "name": "नए होल्डिंग आवेदन की रिपोर्टिंग (SAF)",
+    "en": "New Holding Application Reporting (SAF)",
     "category": "Citizen Service",
     "unit": "Applications / ₹",
     "evidence": "Register / MIS entry / supporting document",
@@ -19,8 +19,8 @@
   },
   {
     "id": 3,
-    "name": "Municipal Trade Licence के लिए आवेदन",
-    "en": "Municipal trade licence application",
+    "name": "नगर निगम व्यापार लाइसेंस आवेदन की रिपोर्टिंग",
+    "en": "Municipal Trade Licence Application Reporting",
     "category": "Licence",
     "unit": "Applications / ₹",
     "evidence": "Application register + issued licence",
@@ -28,8 +28,8 @@
   },
   {
     "id": 4,
-    "name": "New जल संयोजन के लिए आवेदन",
-    "en": "New water connection application",
+    "name": "नए जल संयोजन आवेदन की रिपोर्टिंग",
+    "en": "New Water Connection Application Reporting",
     "category": "Water",
     "unit": "Applications / ₹",
     "evidence": "Register / MIS entry / supporting document",
@@ -55,8 +55,8 @@
   },
   {
     "id": 7,
-    "name": "होल्डिंग में त्रुटि सुधार",
-    "en": "Holding correction",
+    "name": "डेटा सुधार आवेदन की रिपोर्टिंग",
+    "en": "Data Correction Application Reporting",
     "category": "Property",
     "unit": "Cases / ₹",
     "evidence": "Register / MIS entry / supporting document",
@@ -91,8 +91,8 @@
   },
   {
     "id": 11,
-    "name": "जन्म एवं मृत्यु निबंधन",
-    "en": "Birth and death registration",
+    "name": "जन्म एवं मृत्यु निबंधन की रिपोर्टिंग",
+    "en": "Birth and Death Registration Reporting",
     "category": "Registration",
     "unit": "Registrations",
     "evidence": "Register / MIS entry / supporting document",
@@ -100,8 +100,8 @@
   },
   {
     "id": 12,
-    "name": "जन शिकायत",
-    "en": "Public grievance",
+    "name": "जन शिकायत आवेदन की रिपोर्टिंग",
+    "en": "Public Grievance Application Reporting",
     "category": "Grievance",
     "unit": "Complaints",
     "evidence": "Complaint ID + disposal note",
