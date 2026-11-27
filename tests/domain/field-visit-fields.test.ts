@@ -78,3 +78,13 @@ describe("fieldsFor", () => {
     expect(fieldsFor(15).find((f) => f.key === "areaCut")?.en).toBe("Area cut (sq metres)");
   });
 });
+
+describe("whole-number counts", () => {
+  it("marks exactly the three counts as integer, and no measurement", () => {
+    const marked = [8, 9, 10, 13, 14, 15, 16, 17].flatMap((id) =>
+      fieldsFor(id).filter((f) => f.integer).map((f) => `${id}:${f.key}`),
+    );
+    expect(marked).toEqual(["10:dogsPicked", "10:dogsNeutered", "16:treeCount"]);
+    expect(fieldsFor(8).find((f) => f.key === "quantity")?.integer).toBeFalsy();
+  });
+});

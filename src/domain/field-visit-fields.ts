@@ -5,7 +5,7 @@ import definitions from "../shared/field-visit-fields.json" with { type: "json" 
 // list; every other service has none.
 //
 // TWIN: MonitoringFieldDefinitions in the backend repo holds the same keys, types,
-// requiredness and option values and will validate a submitted details object
+// requiredness, whole-number marker and option values and will validate a submitted details object
 // against them. The golden fixture tests/domain/shape-twin.fixture.json
 // (fieldVisitFields) is committed identically in both repos and each side asserts
 // its own copy against it. Labels and Hindi live here only.
@@ -24,6 +24,9 @@ export interface VisitField {
   key: string;
   type: VisitFieldType;
   required: boolean;
+  // A number field that takes a whole number only: a count of dogs or trees, not a
+  // measurement. The form's input and the server's validation both follow it.
+  integer?: true;
   en: string;
   hi: string;
   options?: readonly VisitFieldOption[];
@@ -34,11 +37,12 @@ type RawField = (typeof definitions)[keyof typeof definitions][number];
 const BY_SERVICE = new Map<number, readonly VisitField[]>(
   Object.entries(definitions).map(([id, fields]) => [
     Number(id),
-    (fields as readonly (RawField & { options?: { value: string; label: { en: string; hi: string } }[] })[]).map(
+    (fields as readonly (RawField & { integer?: boolean; options?: { value: string; label: { en: string; hi: string } }[] })[]).map(
       (f): VisitField => ({
         key: f.key,
         type: f.type as VisitFieldType,
         required: f.required,
+        ...(f.integer ? { integer: true as const } : {}),
         en: f.label.en,
         hi: f.label.hi,
         ...(f.options

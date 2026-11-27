@@ -112,6 +112,7 @@
       "key": "dogsPicked",
       "type": "number",
       "required": false,
+      "integer": true,
       "label": {
         "en": "Dogs picked",
         "hi": "पकड़े गए कुत्ते"
@@ -121,6 +122,7 @@
       "key": "dogsNeutered",
       "type": "number",
       "required": false,
+      "integer": true,
       "label": {
         "en": "Dogs neutered & released",
         "hi": "नसबंदी कर छोड़े गए कुत्ते"
@@ -294,6 +296,7 @@
       "key": "treeCount",
       "type": "number",
       "required": false,
+      "integer": true,
       "label": {
         "en": "Number of trees",
         "hi": "पेड़ों की संख्या"

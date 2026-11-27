@@ -60,6 +60,7 @@ describe("the shape tables against the golden twin table", () => {
         key: f.key,
         type: f.type,
         required: f.required,
+        ...(f.integer ? { integer: true } : {}),
         ...(f.options ? { options: f.options.map((o) => o.value) } : {}),
       }));
     const ids = services.map((s) => s.id);
