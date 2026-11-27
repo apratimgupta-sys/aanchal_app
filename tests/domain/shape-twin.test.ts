@@ -8,6 +8,7 @@ import {
   backendFixtureCandidates,
   findBackendFixture,
 } from "./backend-twin";
+import { fieldsFor } from "../../src/domain/field-visit-fields";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
 import fixture from "./shape-twin.fixture.json";
 import services from "../../src/shared/services.json";
@@ -45,6 +46,29 @@ describe("the shape tables against the golden twin table", () => {
     const fromJson = Object.fromEntries(services.map((s) => [String(s.id), s.name]));
     expect(fromJson).toEqual(fixture.serviceNames);
     expect(services).toHaveLength(25);
+  });
+
+  // The per-service field definitions are the third hand-kept twin: the backend
+  // holds the same keys, types, requiredness and option values in
+  // MonitoringFieldDefinitions and will validate a submitted details object
+  // against them. Labels and Hindi are presentation and stay here only. A key or
+  // option value changed on this side goes red here; the backend asserts its own
+  // table against the same fixture (FieldVisitFieldDefinitionTests).
+  it("holds every field definition exactly as field-visit-fields.json does, and no other", () => {
+    const structure = (id: number) =>
+      fieldsFor(id).map((f) => ({
+        key: f.key,
+        type: f.type,
+        required: f.required,
+        ...(f.options ? { options: f.options.map((o) => o.value) } : {}),
+      }));
+    const ids = services.map((s) => s.id);
+    const fromReader = Object.fromEntries(
+      ids.filter((id) => fieldsFor(id).length > 0).map((id) => [String(id), structure(id)]),
+    );
+    expect(fromReader).toEqual(fixture.fieldVisitFields);
+    // A definition for an id that is not a service would never be reached.
+    for (const id of Object.keys(fixture.fieldVisitFields)) expect(ids).toContain(Number(id));
   });
 
   // The two copies must be byte-identical. This is the only check that they
