@@ -250,18 +250,6 @@ export function Table({
   );
 }
 
-export function ReportProgress({ value, max }: { value: number; max: number }) {
-  const percent = max ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3 text-[13px] text-muted-foreground" role="progressbar" aria-label="Services submitted" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
-      </div>
-      <span>{percent}%</span>
-    </div>
-  );
-}
-
 // Wide tables below lg: each row becomes a card and every cell carries its own header
 // through data-label, so no column is dropped; at lg and up it is an ordinary table that
 // scrolls inside its own container. One DOM serves both. Pass `role="table"` on <Table>

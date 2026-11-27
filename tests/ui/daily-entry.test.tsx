@@ -93,3 +93,20 @@ describe("nothing to report", () => {
     expect(input.received).toBe(3);
   });
 });
+
+// A count of submitted services out of 25 implies the 25 are comparable, and
+// they no longer collect the same things.
+describe("the daily entry header", () => {
+  it.each(["en", "hi"] as const)("shows no services-submitted count or progress bar (%s)", async (lang) => {
+    render(
+      <Language.Provider value={lang}>
+        <DailyEntry officeId={1} mode="today" startDate="2020-01-01" onDirtyChange={() => {}}
+          preserveDraftSignal={0} onContinueDraftInBackdate={() => {}} />
+      </Language.Provider>,
+    );
+    await screen.findByText(lang === "en" ? /daily service entry/i : /दैनिक सेवा प्रविष्टि/);
+    expect(document.body.textContent).not.toMatch(/\/\s*25/);
+    expect(screen.queryByText(/services submitted|सेवाएँ जमा/i)).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+});

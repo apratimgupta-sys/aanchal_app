@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { Badge, Button, Field, FieldError, Input, Notice, Panel, ReportProgress, Select, Table } from "../../src/client/ui";
+import { Badge, Button, Field, FieldError, Input, Notice, Panel, Select, Table } from "../../src/client/ui";
 
 const classes = (el: Element) => Array.from(el.classList);
 const legacy = /(^|\s)(ux4g-|app-|ui-|visit-)/;
@@ -187,21 +187,6 @@ describe("Table", () => {
   });
 });
 
-describe("ReportProgress", () => {
-  it("exposes its value as a progressbar and rounds the percentage", () => {
-    render(<ReportProgress value={1} max={3} />);
-    const bar = screen.getByRole("progressbar", { name: "Services submitted" });
-    expect(bar.getAttribute("aria-valuenow")).toBe("1");
-    expect(bar.getAttribute("aria-valuemax")).toBe("3");
-    expect(screen.getByText("33%")).toBeTruthy();
-  });
-
-  it("survives max of zero", () => {
-    render(<ReportProgress value={0} max={0} />);
-    expect(screen.getByText("0%")).toBeTruthy();
-  });
-});
-
 describe("the component layer", () => {
   it("renders no class name from the old stylesheet", () => {
     render(
@@ -213,7 +198,6 @@ describe("the component layer", () => {
         <Notice>Oops</Notice><Notice role="status">Ok</Notice>
         <Badge tone="settled">Filed</Badge>
         <Table><tbody><tr><td>1</td></tr></tbody></Table>
-        <ReportProgress value={1} max={2} />
       </Panel>,
     );
     const offenders = Array.from(document.querySelectorAll("[class]")).filter((el) => legacy.test(el.getAttribute("class")!));

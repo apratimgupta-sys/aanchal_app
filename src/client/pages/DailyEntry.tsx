@@ -6,7 +6,6 @@ import {
   Input,
   Notice,
   Panel,
-  ReportProgress,
   Select,
   focusRing,
   leadingBody,
@@ -501,20 +500,6 @@ export default function DailyEntry({
           </div>
         </Notice>
       )}
-      <Panel className="flex flex-wrap items-center gap-x-5 gap-y-3 py-4 sm:py-4">
-        <div className="flex items-baseline gap-2">
-          <strong className={`text-[18px] font-semibold ${leadingHeading}`}>
-            {data.entries.length}
-            <span className={`font-normal ${leadingBody} text-muted-foreground`}> / 25</span>
-          </strong>
-          <div className={`text-[13.5px] ${leadingBody} text-muted-foreground`}>
-            {t("services submitted", "सेवाएँ जमा")}
-          </div>
-        </div>
-        <div className="min-w-[12rem] flex-1">
-          <ReportProgress value={data.entries.length} max={25} />
-        </div>
-      </Panel>
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(15rem,19rem)_minmax(0,1fr)]">
         <Panel className="flex flex-col overflow-hidden p-0 sm:p-0 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)]">
           <div className={`flex justify-between border-b border-border bg-muted px-4 py-3 ${eyebrow}`}>
