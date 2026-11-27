@@ -23,3 +23,26 @@ export function backendFixtureCandidates(frontendRoot: string, env = process.env
 export function findBackendFixture(frontendRoot: string, env = process.env): string | null {
   return backendFixtureCandidates(frontendRoot, env).find((p) => existsSync(p)) ?? null;
 }
+
+// What `npm test` says, last, when the backend repo is not beside this one and the
+// byte-identity check therefore did not run. A skip is one line in a long summary; this
+// is meant to be the last thing a person reads. Returns null when the backend is found.
+export function twinNotice(frontendRoot: string, env = process.env): string | null {
+  if (findBackendFixture(frontendRoot, env)) return null;
+  const bar = "=".repeat(78);
+  return [
+    "",
+    bar,
+    "THE TWO FIXTURE COPIES WERE NOT COMPARED. A GREEN RUN HERE DOES NOT COVER THEM.",
+    "",
+    "The backend repo was not found beside this one, so the check that",
+    "tests/domain/shape-twin.fixture.json is byte-identical to the backend's copy was skipped.",
+    "An edit made to the definitions, the service names or the shape tables on one side only",
+    "passes this run. Looked for:",
+    ...backendFixtureCandidates(frontendRoot, env).map((c) => `  ${c}`),
+    "Put the backend checkout next to this one, or set ANCHAL_BACKEND_DIR, and run again.",
+    "Set ANCHAL_REQUIRE_BACKEND=1 to make a missing backend fail the run instead.",
+    bar,
+    "",
+  ].join("\n");
+}

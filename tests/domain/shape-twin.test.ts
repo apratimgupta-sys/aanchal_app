@@ -7,6 +7,7 @@ import {
   BACKEND_FIXTURE,
   backendFixtureCandidates,
   findBackendFixture,
+  twinNotice,
 } from "./backend-twin";
 import { fieldsFor } from "../../src/domain/field-visit-fields";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
@@ -78,6 +79,8 @@ describe("the shape tables against the golden twin table", () => {
   // not there the test is skipped WITH the reason, which the reporter prints,
   // and warns on the console. Set ANCHAL_REQUIRE_BACKEND=1 where both repos are
   // known to be present and a missing one should fail instead of skip.
+  // `npm test` also prints a closing notice when the backend is absent (twin-notice.ts),
+  // so a run that did not compare the copies says so as its last lines.
   it("is byte-identical to the backend repo's copy", (ctx) => {
     const found = findBackendFixture(repoRoot);
     if (!found) {
@@ -128,5 +131,34 @@ describe("finding the backend repo", () => {
     const { front, base } = layout();
     mkdirSync(join(base, "backend-anchal"));
     expect(findBackendFixture(front, {})).toBeNull();
+  });
+});
+
+describe("saying so when the twin could not be compared", () => {
+  const roots: string[] = [];
+  afterAll(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })));
+  function layout(withBackend: boolean) {
+    const base = mkdtempSync(join(tmpdir(), "twin-notice-"));
+    roots.push(base);
+    mkdirSync(join(base, "front"));
+    if (withBackend) {
+      mkdirSync(join(base, "backend", dirname(BACKEND_FIXTURE)), { recursive: true });
+      writeFileSync(join(base, "backend", BACKEND_FIXTURE), "{}");
+    }
+    return join(base, "front");
+  }
+
+  it("is silent when the backend is there", () => {
+    expect(twinNotice(layout(true), {})).toBeNull();
+  });
+
+  it("says plainly that the copies were not compared, and where it looked", () => {
+    const front = layout(false);
+    const notice = twinNotice(front, {})!;
+    expect(notice).toMatch(/NOT COMPARED/);
+    expect(notice).toMatch(/DOES NOT COVER/);
+    for (const candidate of backendFixtureCandidates(front, {})) expect(notice).toContain(candidate);
+    expect(notice).toContain("ANCHAL_BACKEND_DIR");
+    expect(notice).toContain("ANCHAL_REQUIRE_BACKEND");
   });
 });
