@@ -68,6 +68,10 @@ export type FieldVisitInput = {
   serviceId: number;
   gps: GpsReading;
   issueAction: string;
+  // The service's own fields (see field-visit-fields.json), keyed by field key. null or absent when the
+  // visit carries none, which includes every visit filed before the server stored details. Optional so
+  // the form that predates it still compiles; the server always sends it (null when empty).
+  details?: Record<string, string | number> | null;
 };
 export type StoredFieldVisit = FieldVisitInput & {
   id: string;
