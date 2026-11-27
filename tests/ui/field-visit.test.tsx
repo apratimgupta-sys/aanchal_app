@@ -423,7 +423,7 @@ describe("FieldVisit — each service's own details", () => {
     await user.click(screen.getByRole("button", { name: /capture location/i }));
     await user.click(await screen.findByRole("button", { name: /submit/i }));
     await waitFor(() => expect(createVisit).toHaveBeenCalled());
-    expect(createVisit.mock.calls[0][0].details).toEqual({ street: "Main lane", wasteType: "wet", quantity: 12.5 });
+    expect(createVisit.mock.calls[0][0].details).toEqual({ street: "Main lane", wasteType: "wet", quantityKg: 12.5 });
   });
 
   it("sends no details at all for a service that has none", async () => {

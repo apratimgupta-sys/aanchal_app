@@ -51,7 +51,7 @@
       ]
     },
     {
-      "key": "quantity",
+      "key": "quantityKg",
       "type": "number",
       "required": false,
       "label": {
@@ -235,7 +235,7 @@
       ]
     },
     {
-      "key": "length",
+      "key": "lengthMetres",
       "type": "number",
       "required": false,
       "label": {
@@ -255,7 +255,7 @@
       }
     },
     {
-      "key": "areaCut",
+      "key": "areaCutSqMetres",
       "type": "number",
       "required": false,
       "label": {

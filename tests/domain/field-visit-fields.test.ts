@@ -7,12 +7,12 @@ import services from "../../src/shared/services.json";
 // backend; this file pins what the reader does with it and what every field
 // must carry.
 const KEYS: Record<number, [string, string][]> = {
-  8: [["vehicleLabour", "text"], ["street", "text"], ["wasteType", "select"], ["quantity", "number"]],
+  8: [["vehicleLabour", "text"], ["street", "text"], ["wasteType", "select"], ["quantityKg", "number"]],
   9: [["team", "text"], ["vehicleNumber", "text"], ["street", "text"], ["route", "text"]],
   10: [["teamLabour", "text"], ["dogsPicked", "number"], ["dogsNeutered", "number"], ["actionLocation", "text"]],
   13: [["technician", "text"], ["street", "text"], ["poleNumber", "text"], ["workType", "select"]],
-  14: [["street", "text"], ["structureType", "select"], ["length", "number"]],
-  15: [["reportingOfficer", "text"], ["areaCut", "number"]],
+  14: [["street", "text"], ["structureType", "select"], ["lengthMetres", "number"]],
+  15: [["reportingOfficer", "text"], ["areaCutSqMetres", "number"]],
   16: [["vehicle", "text"], ["team", "text"], ["street", "text"], ["treeCount", "number"]],
   17: [["team", "text"]],
 };
@@ -72,10 +72,25 @@ describe("fieldsFor", () => {
     }
   });
 
-  it("carries the guessed units in the labels, where a correction is a label change", () => {
-    expect(fieldsFor(8).find((f) => f.key === "quantity")?.en).toBe("Quantity (kg)");
-    expect(fieldsFor(14).find((f) => f.key === "length")?.en).toBe("Length (metres)");
-    expect(fieldsFor(15).find((f) => f.key === "areaCut")?.en).toBe("Area cut (sq metres)");
+  // A label comes from today's definition for every row ever filed, so a unit that
+  // lives only in a label would be re-read in the new unit by every old figure (4,200
+  // kg shown under "Quantity (tonnes)"). The unit is therefore part of the key: a
+  // unit change is a NEW key, old rows keep the old key and the old label.
+  it("puts the unit of every measurement in its key as well as its label", () => {
+    const measured = [8, 9, 10, 13, 14, 15, 16, 17].flatMap((id) =>
+      fieldsFor(id).filter((f) => /\([^)]+\)\s*$/.test(f.en)).map((f) => ({ id, f })),
+    );
+    expect(measured.map(({ f }) => f.key)).toEqual(["quantityKg", "lengthMetres", "areaCutSqMetres"]);
+    for (const { id, f } of measured) {
+      const unit = /\(([^)]+)\)\s*$/.exec(f.en)![1].replace(/\s+/g, "").toLowerCase();
+      expect(f.key.toLowerCase().endsWith(unit), `${id}.${f.key} should end in its label's unit "${unit}"`).toBe(true);
+    }
+  });
+
+  it("names the guessed units in the labels", () => {
+    expect(fieldsFor(8).find((f) => f.key === "quantityKg")?.en).toBe("Quantity (kg)");
+    expect(fieldsFor(14).find((f) => f.key === "lengthMetres")?.en).toBe("Length (metres)");
+    expect(fieldsFor(15).find((f) => f.key === "areaCutSqMetres")?.en).toBe("Area cut (sq metres)");
   });
 });
 
@@ -85,6 +100,6 @@ describe("whole-number counts", () => {
       fieldsFor(id).filter((f) => f.integer).map((f) => `${id}:${f.key}`),
     );
     expect(marked).toEqual(["10:dogsPicked", "10:dogsNeutered", "16:treeCount"]);
-    expect(fieldsFor(8).find((f) => f.key === "quantity")?.integer).toBeFalsy();
+    expect(fieldsFor(8).find((f) => f.key === "quantityKg")?.integer).toBeFalsy();
   });
 });

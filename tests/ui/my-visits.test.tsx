@@ -176,7 +176,7 @@ describe("MyVisits — review findings", () => {
 });
 
 describe("MyVisits — service details", () => {
-  const eight = { vehicleLabour: "Truck 12 with 3 labour", street: "Main Rd, Kadru", wasteType: "dry", quantity: 420 };
+  const eight = { vehicleLabour: "Truck 12 with 3 labour", street: "Main Rd, Kadru", wasteType: "dry", quantityKg: 420 };
 
   it("lists a service 8 visit's four details, labelled, in the definition's order", async () => {
     listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: eight })], total: 1 });
@@ -227,6 +227,20 @@ describe("MyVisits — service details", () => {
     expect(within(box).getByText("Left by the old form")).toBeTruthy();
   });
 
+  // The unit lives in the key. A figure filed under the key a unit used to have
+  // keeps that key, and is shown under it, never under the label of the key that
+  // replaced it: 420 filed as kilograms must not read "Quantity (tonnes)".
+  it("shows a figure filed under a key that has since been replaced under its old key, not the new label", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ serviceId: 8, details: { quantity: 420, quantityKg: 12 } })],
+      total: 1,
+    });
+    renderList();
+    const box = within(await screen.findByTestId("visit-v1")).getByTestId("visit-details");
+    const rows = Array.from(box.querySelectorAll("dt")).map((n) => [n.textContent, n.nextElementSibling?.textContent]);
+    expect(rows).toEqual([["Quantity (kg)", "12"], ["quantity", "420"]]);
+  });
+
   it("shows a select value it has no option for as it was stored", async () => {
     listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: { wasteType: "hazardous" } })], total: 1 });
     renderList();
@@ -235,7 +249,7 @@ describe("MyVisits — service details", () => {
 
   it("looks the labels up by the visit's own service", async () => {
     listVisits.mockResolvedValue({
-      rows: [visit({ id: "a", serviceId: 15, details: { reportingOfficer: "R. Singh", areaCut: 90 } }), visit({ id: "b", serviceId: 8, details: eight })],
+      rows: [visit({ id: "a", serviceId: 15, details: { reportingOfficer: "R. Singh", areaCutSqMetres: 90 } }), visit({ id: "b", serviceId: 8, details: eight })],
       total: 2,
     });
     renderList();
