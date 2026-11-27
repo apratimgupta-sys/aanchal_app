@@ -13,6 +13,7 @@ import { fieldsFor } from "../../src/domain/field-visit-fields";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
 import fixture from "./shape-twin.fixture.json";
 import services from "../../src/shared/services.json";
+import bounds from "../../src/shared/field-visit-bounds.json";
 
 // The shape tables are a hand-maintained twin of MonitoringRules in the backend
 // repo. This golden table is committed identically in both repos, and each side
@@ -60,7 +61,6 @@ describe("the shape tables against the golden twin table", () => {
       fieldsFor(id).map((f) => ({
         key: f.key,
         type: f.type,
-        required: f.required,
         ...(f.integer ? { integer: true } : {}),
         ...(f.options ? { options: f.options.map((o) => o.value) } : {}),
       }));
@@ -71,6 +71,15 @@ describe("the shape tables against the golden twin table", () => {
     expect(fromReader).toEqual(fixture.fieldVisitFields);
     // A definition for an id that is not a service would never be reached.
     for (const id of Object.keys(fixture.fieldVisitFields)) expect(ids).toContain(Number(id));
+  });
+
+  // The limits a details value is held to: the form's inputs and the Hindi length
+  // messages read src/shared/field-visit-bounds.json, the server holds the same three
+  // numbers as constants (MonitoringFieldVisitService.Details*), and the fixture is
+  // the one place both are asserted against. The backend asserts its constants
+  // against the same entry (FieldVisitDetailsTests).
+  it("holds the details bounds exactly as field-visit-bounds.json does", () => {
+    expect(bounds).toEqual(fixture.fieldVisitBounds);
   });
 
   // The two copies must be byte-identical. This is the only check that they

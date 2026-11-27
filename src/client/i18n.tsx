@@ -5,6 +5,7 @@ export function useText() {
   const lang = useContext(Language);
   return (en: string, hi: string) => (lang === "hi" ? hi : en);
 }
+import fieldVisitBounds from "../shared/field-visit-bounds.json";
 const runtimeHindi: Record<string, string> = {
   "Initial balances not configured": "प्रारंभिक शेष दर्ज नहीं हैं",
   "Enter a valid value": "वैध मान दर्ज करें",
@@ -19,8 +20,12 @@ const runtimeHindi: Record<string, string> = {
   "Enter a number from 0 to 1,000,000,000": "0 से 1,000,000,000 के बीच संख्या दर्ज करें",
   "Select one of the listed options": "सूची में से एक विकल्प चुनें",
   "Enter text": "पाठ दर्ज करें",
-  "Shorten this to 200 characters or fewer": "इसे अधिकतम 200 अक्षर तक छोटा करें",
-  "Shorten this to 2000 characters or fewer": "इसे अधिकतम 2000 अक्षर तक छोटा करें",
+  // The two length messages are keyed by the bounds the server and the form share
+  // (field-visit-bounds.json), so a changed bound moves the key with it.
+  [`Shorten this to ${fieldVisitBounds.textMax} characters or fewer`]: `इसे अधिकतम ${fieldVisitBounds.textMax} अक्षर तक छोटा करें`,
+  [`Shorten this to ${fieldVisitBounds.textAreaMax} characters or fewer`]: `इसे अधिकतम ${fieldVisitBounds.textAreaMax} अक्षर तक छोटा करें`,
+  // The 409 a double-tapped submit on an edited payload draws (pre-existing, no key until now).
+  "This request identifier was already used for different data": "यह अनुरोध पहचानकर्ता पहले अलग डेटा के लिए उपयोग हो चुका है",
   "Enter a number of 0 or more": "0 या उससे अधिक संख्या दर्ज करें",
   "Enter a number up to 1,000,000,000": "अधिकतम 1,000,000,000 तक संख्या दर्ज करें",
   "Completed cannot exceed received": "निस्तारित प्राप्त से अधिक नहीं हो सकते",

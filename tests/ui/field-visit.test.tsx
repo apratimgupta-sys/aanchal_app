@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { Language } from "../../src/client/i18n";
 import FieldVisit from "../../src/client/pages/FieldVisit";
 import type { OfficerProfile } from "../../src/shared/types";
+import bounds from "../../src/shared/field-visit-bounds.json";
 
 const capturePosition = vi.hoisted(() => vi.fn());
 const createVisit = vi.hoisted(() => vi.fn());
@@ -639,14 +640,20 @@ describe("FieldVisit — phone-width controls", () => {
 // message with no key here would show in English to a Hindi reader with no failing
 // test. These are the details messages the server can send (MonitoringFieldVisitService).
 describe("FieldVisit — the server's details messages have Hindi", () => {
+  // The two length messages are built from the same bounds the form's inputs use
+  // (src/shared/field-visit-bounds.json), which the golden fixture binds to the
+  // server's constants. Spelled out as literals they would stop matching the server
+  // the day a bound moved, and a Hindi reader would get English with nothing red.
   it.each([
     "This activity does not ask for this detail",
     "Enter a number from 0 to 1,000,000,000",
     "Enter a whole number from 0 to 1,000,000,000",
     "Select one of the listed options",
     "Enter text",
-    "Shorten this to 200 characters or fewer",
-    "Shorten this to 2000 characters or fewer",
+    `Shorten this to ${bounds.textMax} characters or fewer`,
+    `Shorten this to ${bounds.textAreaMax} characters or fewer`,
+    // M7: the 409 a double-tapped submit on an edited payload can draw.
+    "This request identifier was already used for different data",
   ])("translates %s", async (message) => {
     const { runtimeText } = await import("../../src/client/i18n");
     expect(runtimeText(message, "hi")).not.toBe(message);
@@ -808,5 +815,44 @@ describe("FieldVisit — the visit date is taken when the visit is submitted", (
     await user.click(submit);
     await screen.findByText(/could not record the visit/i);
     expect(screen.getByText("2026-11-20", { selector: "[data-visit-date]" })).toBeTruthy();
+  });
+});
+
+describe("FieldVisit — the visit date's error is announced", () => {
+  it("is an alert, and the date it is about points at it", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockRejectedValue(
+      new RequestError({ code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors: { "input.visitDate": "A visit can only be recorded on the day it was made" } }, 422),
+    );
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 9);
+    await user.type(screen.getByLabelText(/description/i), "Fogging done along the main lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    const message = await screen.findByText(/only be recorded on the day/i);
+    expect(message.getAttribute("role")).toBe("alert");
+    const date = document.querySelector("[data-visit-date]")!;
+    expect(date.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(date.getAttribute("aria-describedby")!)).toBe(message);
+  });
+
+  it("has no alert and no description before there is an error", () => {
+    renderForm();
+    const date = document.querySelector("[data-visit-date]")!;
+    expect(date.getAttribute("aria-describedby")).toBeNull();
+    expect(date.getAttribute("aria-invalid")).toBeNull();
+  });
+});
+
+describe("FieldVisit — the inputs' bounds are the shared ones", () => {
+  it("takes its text and number limits from field-visit-bounds.json", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 8);
+    expect((screen.getByLabelText("Street / lane") as HTMLInputElement).maxLength).toBe(bounds.textMax);
+    expect((screen.getByLabelText("Quantity (kg)") as HTMLInputElement).max).toBe(String(bounds.numberMax));
   });
 });

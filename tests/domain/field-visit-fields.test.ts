@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { fieldsFor } from "../../src/domain/field-visit-fields";
+import { detailValue, fieldsFor } from "../../src/domain/field-visit-fields";
 import services from "../../src/shared/services.json";
+import definitions from "../../src/shared/field-visit-fields.json";
 
 // The keys and types the spec's "eight forms" table lists, in its order. The
 // golden twin fixture (shape-twin.test.ts) pins the same structure against the
@@ -64,12 +65,23 @@ describe("fieldsFor", () => {
       }
   });
 
-  it("has no duplicate key inside a service, and every field is optional", () => {
+  it("has no duplicate key inside a service", () => {
     for (const id of Object.keys(KEYS).map(Number)) {
       const keys = fieldsFor(id).map((f) => f.key);
       expect(new Set(keys).size).toBe(keys.length);
-      for (const f of fieldsFor(id)) expect(f.required, `${id}.${f.key}`).toBe(false);
     }
+  });
+
+  // M3: a `required` flag was carried through the JSON, the reader, the fixture and both
+  // servers' tables and obeyed by none of them. Every field is optional by the client's
+  // ruling, so the flag is gone; a field that one day must be required needs the form
+  // and the server to enforce it in the same change, and this is where that change
+  // starts: the flag may not come back as data nothing reads.
+  it("carries no requiredness flag that nothing honours, and every field is optional", () => {
+    for (const fields of Object.values(definitions))
+      for (const f of fields) expect(Object.keys(f), f.key).not.toContain("required");
+    for (const id of Object.keys(KEYS).map(Number))
+      for (const f of fieldsFor(id)) expect(f, `${id}.${f.key}`).not.toHaveProperty("required");
   });
 
   // A label comes from today's definition for every row ever filed, so a unit that
@@ -101,5 +113,26 @@ describe("whole-number counts", () => {
     );
     expect(marked).toEqual(["10:dogsPicked", "10:dogsNeutered", "16:treeCount"]);
     expect(fieldsFor(8).find((f) => f.key === "quantityKg")?.integer).toBeFalsy();
+  });
+});
+
+// M1: the form's number input can hand over text that Number() reads as Infinity or
+// NaN. JSON.stringify writes both as null and the server treats null as "left blank",
+// so the visit is filed with 201 and the figure gone. (jsdom blanks such a value, so
+// the component cannot be driven there; the conversion is tested where it lives.)
+describe("detailValue", () => {
+  const number = { type: "number" as const };
+  it("sends a finite number as a number", () => {
+    expect(detailValue(number, "12.5")).toBe(12.5);
+    expect(detailValue(number, "0")).toBe(0);
+  });
+  it.each(["1e999", "9".repeat(400), "-1e999", "abc", "1e"])("sends %s as typed, never as a value JSON turns into null", (raw) => {
+    const sent = detailValue(number, raw);
+    expect(sent).toBe(raw);
+    expect(JSON.parse(JSON.stringify({ sent })).sent).not.toBeNull();
+  });
+  it("leaves text and select values alone", () => {
+    expect(detailValue({ type: "text" }, "1e999")).toBe("1e999");
+    expect(detailValue({ type: "select" }, "wet")).toBe("wet");
   });
 });

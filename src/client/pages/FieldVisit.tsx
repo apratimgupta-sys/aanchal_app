@@ -1,9 +1,10 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Camera, MapPin } from "lucide-react";
 import services from "../../shared/services.json";
+import bounds from "../../shared/field-visit-bounds.json";
 import type { FieldVisitInput, GpsReading, OfficerProfile } from "../../shared/types";
 import { validateVisitInput, WARD_MAX, WARD_MIN } from "../../domain/visit";
-import { fieldsFor, type VisitField } from "../../domain/field-visit-fields";
+import { detailValue, fieldsFor, type VisitField } from "../../domain/field-visit-fields";
 import { RequestError } from "../api";
 import { createVisit } from "../field-visits";
 import { normalizeFieldErrors } from "../field-errors";
@@ -41,7 +42,6 @@ const VISIT_LABELS: Record<number, { date: readonly [string, string]; descriptio
   16: { date: ["Work date", "कार्य तिथि"], description: ["Pruning description", "छंटाई का विवरण"] },
   17: { date: ["Date", "तिथि"], description: ["Work description", "कार्य का विवरण"] },
 };
-const NUMBER_MAX = 1_000_000_000;
 // Errors the form has a place for. A server message under any other key is listed
 // at the top rather than lost: the envelope alone says "correct the highlighted
 // fields" and a person must never be left with nothing highlighted.
@@ -62,6 +62,7 @@ export default function FieldVisit({
 }) {
   const text = useText();
   const locationId = useId();
+  const dateId = useId();
   const lang = useContext(Language);
   const translate = (message: string) => runtimeText(message, lang);
   // The day the form files under. `today` is only where it starts: it is read once,
@@ -154,7 +155,7 @@ export default function FieldVisit({
     for (const field of serviceFields) {
       const raw = (details[field.key] ?? "").trim();
       if (raw === "") continue;
-      out[field.key] = field.type === "number" ? Number(raw) : raw;
+      out[field.key] = detailValue(field, raw);
     }
     return Object.keys(out).length > 0 ? out : undefined;
   }
@@ -267,7 +268,7 @@ export default function FieldVisit({
       return (
         <Field key={field.key} className="lg:col-span-2">
           {label}
-          <textarea {...common} rows={3} maxLength={2000} />
+          <textarea {...common} rows={3} maxLength={bounds.textAreaMax} />
           {message}
         </Field>
       );
@@ -279,7 +280,7 @@ export default function FieldVisit({
             {...common}
             type="number"
             min={0}
-            max={NUMBER_MAX}
+            max={bounds.numberMax}
             // A count takes a whole number: the digit keypad and a step of one. A
             // measurement may carry a decimal: the decimal keypad and any step.
             step={field.integer ? 1 : "any"}
@@ -291,7 +292,7 @@ export default function FieldVisit({
     return (
       <Field key={field.key}>
         {label}
-        <input {...common} type="text" maxLength={200} />
+        <input {...common} type="text" maxLength={bounds.textMax} />
         {message}
       </Field>
     );
@@ -427,11 +428,16 @@ export default function FieldVisit({
           <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{text(labels.date[0], labels.date[1])}</span>
           <span
             data-visit-date=""
+          id={dateId}
+          aria-invalid={errors.visitDate ? true : undefined}
+          aria-describedby={errors.visitDate ? `${dateId}-error` : undefined}
             className={`flex min-h-[44px] items-center rounded-[7px] border border-border bg-muted px-3 font-mono text-[16px] tabular-nums lg:text-[13.5px] ${leadingBody} text-foreground`}
           >
             {day}
           </span>
-          {errors.visitDate && <FieldError>{translate(errors.visitDate)}</FieldError>}
+          {errors.visitDate && (
+            <FieldError id={`${dateId}-error`} role="alert">{translate(errors.visitDate)}</FieldError>
+          )}
         </div>
         <Field>
           {text("Time of visit", "निरीक्षण का समय")}
