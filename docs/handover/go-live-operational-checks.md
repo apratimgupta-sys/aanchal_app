@@ -88,6 +88,22 @@ Delete the scratch database afterwards.
 
 ---
 
+## The field-visit details release deploys backend first
+
+**Deploy the backend, and let it finish, before the frontend goes out.** The new visit form sends an
+`input.details` object that a backend from before this release does not know. It does not refuse it:
+the request reader skips members it has no field for, stores the visit without them and answers 201.
+An officer on the new form with the old backend files dogs picked, pole number and tree count, and the
+figures are gone from the server with nothing in any log to show it.
+
+The form now compares what came back with what it sent and, if the details are missing, tells the
+officer in so many words and keeps what they typed. That turns a silent loss into a visible one; it
+does not recover the figures, and every visit filed in the gap still has to be re-keyed by hand. The
+fix is the order, not the notice. The reverse order is safe: a new backend accepts a form that sends no
+details exactly as before.
+
+---
+
 ## Who administers users
 
 User administration moved to a dedicated account. **The commissioner can no longer add, deactivate
