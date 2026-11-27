@@ -46,7 +46,7 @@ async function fillAndCapture(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(screen.getByLabelText(/ward/i), "24");
   await user.selectOptions(screen.getByLabelText(/activity/i), "9");
   await user.type(
-    screen.getByLabelText(/issue/i),
+    screen.getByLabelText(/issue|description/i),
     "Fogging done along the main lane; two bylanes still pending.",
   );
   await user.click(screen.getByRole("button", { name: /capture location/i }));
@@ -69,7 +69,7 @@ describe("FieldVisit", () => {
     renderForm();
     await user.selectOptions(screen.getByLabelText(/ward/i), "24");
     await user.selectOptions(screen.getByLabelText(/activity/i), "9");
-    await user.type(screen.getByLabelText(/issue/i), "Drain blocked near the school gate.");
+    await user.type(screen.getByLabelText(/issue|description/i), "Drain blocked near the school gate.");
     expect((screen.getByRole("button", { name: /submit/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(createVisit).not.toHaveBeenCalled();
   });
@@ -128,7 +128,7 @@ describe("FieldVisit", () => {
     await user.click(screen.getByRole("button", { name: /submit/i }));
 
     expect(await screen.findByText(/please sign in/i)).toBeTruthy();
-    expect((screen.getByLabelText(/issue/i) as HTMLTextAreaElement).value).toContain("Fogging done");
+    expect((screen.getByLabelText(/issue|description/i) as HTMLTextAreaElement).value).toContain("Fogging done");
   });
 
   it("shows server field errors against their own fields", async () => {
@@ -257,7 +257,7 @@ describe("FieldVisit — review findings", () => {
 describe("the observation field's ceiling", () => {
   it("stops typing at the length the server and the column accept", () => {
     renderForm();
-    const field = screen.getByLabelText(/issue/i);
+    const field = screen.getByLabelText(/issue|description/i);
     expect(field.getAttribute("maxlength")).toBe("4000");
   });
 });
@@ -315,5 +315,293 @@ describe("FieldVisit — the rebuilt screen", () => {
     document.querySelectorAll("[class]").forEach((el) => el.classList.forEach((c) => legacy.test(c) && used.add(c)));
     expect([...used]).toEqual([]);
     expect(readFileSync("src/client/pages/FieldVisit.tsx", "utf8")).not.toMatch(/legacy-ui/);
+  });
+});
+
+// The labels a service's visit is filed under. Date is not an input (a visit is
+// always dated today), so it is a labelled value, not a control.
+async function pick(user: ReturnType<typeof userEvent.setup>, id: number) {
+  await user.selectOptions(screen.getByLabelText(/^activity/i), String(id));
+}
+const controls = () => document.querySelectorAll("form input, form select, form textarea").length;
+
+describe("FieldVisit — each service's own details", () => {
+  it("renders service 8's four fields in order, each with its own control", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 8);
+    const labour = screen.getByLabelText("Vehicle & labour") as HTMLInputElement;
+    const street = screen.getByLabelText("Street / lane") as HTMLInputElement;
+    const waste = screen.getByLabelText("Waste type") as HTMLSelectElement;
+    const quantity = screen.getByLabelText("Quantity (kg)") as HTMLInputElement;
+    expect([labour.type, street.type, waste.tagName, quantity.type]).toEqual(["text", "text", "SELECT", "number"]);
+    expect([...waste.options].map((o) => o.value)).toEqual(["", "wet", "dry", "mixed"]);
+    const order = [labour, street, waste, quantity, screen.getByLabelText(/description/i)];
+    order.slice(1).forEach((el, i) =>
+      expect(order[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(),
+    );
+    // between the ward and the description
+    expect(screen.getByLabelText(/^ward/i).compareDocumentPosition(labour) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("renders no extra field for a service with none", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const before = controls();
+    await pick(user, 1);
+    expect(controls()).toBe(before);
+  });
+
+  it("makes every details field optional", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 8);
+    for (const label of ["Vehicle & labour", "Street / lane", "Waste type", "Quantity (kg)"])
+      expect((screen.getByLabelText(label) as HTMLInputElement).required).toBe(false);
+  });
+
+  it.each([
+    [8, "Pickup date", "Work description"],
+    [9, "Fogging date", "Work description"],
+    [10, "Activity date", "Outcome description"],
+    [13, "Work date", "Fault description"],
+    [14, "Inspection date", "Inspection description"],
+    [15, "Work date", "Work description"],
+    [16, "Work date", "Pruning description"],
+    [17, "Work date", "Work description"],
+  ])("labels service %i's date %s and its description %s", async (id, date, description) => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, id);
+    expect(screen.getByText(date)).toBeTruthy();
+    expect(screen.getByText("2026-11-19", { selector: "[data-visit-date]" })).toBeTruthy();
+    const box = screen.getByLabelText(new RegExp(`^${description}`)) as HTMLTextAreaElement;
+    expect(box.tagName).toBe("TEXTAREA");
+    expect(box.required).toBe(true);
+  });
+
+  it("keeps the plain labels before an activity is chosen, and a service with no table entry", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    expect(screen.getByText("Visit date")).toBeTruthy();
+    expect(screen.getByLabelText(/issue \/ action/i)).toBeTruthy();
+    await pick(user, 1);
+    expect(screen.getByText("Visit date")).toBeTruthy();
+    expect(screen.getByLabelText(/issue \/ action/i)).toBeTruthy();
+  });
+
+  it("labels date and description in Hindi", async () => {
+    const user = userEvent.setup();
+    renderForm("hi");
+    await user.selectOptions(screen.getByLabelText(/^गतिविधि/), "10");
+    expect(screen.getByText("गतिविधि तिथि")).toBeTruthy();
+    expect(screen.getByLabelText(/^परिणाम का विवरण/)).toBeTruthy();
+    expect(screen.getByLabelText("पकड़े गए कुत्ते")).toBeTruthy();
+  });
+
+  it("files details carrying only that service's keys, blanks left out, numbers as numbers", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 8);
+    await user.type(screen.getByLabelText("Street / lane"), "Main lane");
+    await user.selectOptions(screen.getByLabelText("Waste type"), "wet");
+    await user.type(screen.getByLabelText("Quantity (kg)"), "12.5");
+    await user.type(screen.getByLabelText(/description/i), "Collected from both sides of the lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(createVisit.mock.calls[0][0].details).toEqual({ street: "Main lane", wasteType: "wet", quantity: 12.5 });
+  });
+
+  it("sends no details at all for a service that has none", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 1);
+    await user.type(screen.getByLabelText(/issue|description/i), "Counter checked; queue was short.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    expect(createVisit.mock.calls[0][0].details ?? null).toBeNull();
+  });
+
+  // The daily entry shipped this bug once ("files against the service on screen,
+  // not the one typed into first"). Service 8 and 16 both have a `street` key, so
+  // only a reset on the change — not the filter on the keys — keeps 8's street
+  // out of 16's filing.
+  it("files against the details of the service on screen, not the one typed into first", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 8);
+    await user.type(screen.getByLabelText("Street / lane"), "Old lane typed under waste");
+    await user.type(screen.getByLabelText("Quantity (kg)"), "40");
+    await pick(user, 16);
+    expect((screen.getByLabelText("Street / lane") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByLabelText("Quantity (kg)")).toBeNull();
+    await user.type(screen.getByLabelText("Number of trees"), "3");
+    await user.type(screen.getByLabelText(/description/i), "Three trees pruned along the road.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(createVisit).toHaveBeenCalled());
+    const [input] = createVisit.mock.calls[0];
+    expect(input.serviceId).toBe(16);
+    expect(input.details).toEqual({ treeCount: 3 });
+  });
+
+  it("does not bring a stale details error across a change of service", async () => {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockRejectedValue(
+      new RequestError({ code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors: { "input.details.street": "Enter text" } }, 422),
+    );
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 8);
+    await user.type(screen.getByLabelText(/description/i), "Collected from both sides of the lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    expect(await screen.findByText("Enter text")).toBeTruthy();
+    await pick(user, 16);
+    expect(screen.queryByText("Enter text")).toBeNull();
+  });
+
+  it("clears the details after a visit is filed", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 8);
+    await user.type(screen.getByLabelText("Street / lane"), "Main lane");
+    await user.type(screen.getByLabelText(/description/i), "Collected from both sides of the lane.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    await screen.findByText(/visit recorded/i);
+    await pick(user, 8);
+    expect((screen.getByLabelText("Street / lane") as HTMLInputElement).value).toBe("");
+  });
+});
+
+describe("FieldVisit — a server error on a details field", () => {
+  async function refused(fieldErrors: Record<string, string>, lang: "en" | "hi" = "en", id = 10) {
+    const user = userEvent.setup();
+    const { RequestError } = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockRejectedValue(
+      new RequestError({ code: "VALIDATION", message: "Please correct the highlighted fields", fieldErrors }, 422),
+    );
+    renderForm(lang);
+    await user.selectOptions(screen.getByLabelText(lang === "hi" ? /^वार्ड/ : /^ward/i), "24");
+    await user.selectOptions(screen.getByLabelText(lang === "hi" ? /^गतिविधि/ : /^activity/i), String(id));
+    await user.type(screen.getByLabelText(/description|विवरण/i), "Dogs picked up near the market gate.");
+    await user.click(screen.getByRole("button", { name: /capture location|स्थान कैप्चर/i }));
+    await user.click(await screen.findByRole("button", { name: /submit|जमा करें/i }));
+  }
+
+  it.each([
+    ["dogsPicked", "Dogs picked", "Enter a whole number from 0 to 1,000,000,000"],
+    ["teamLabour", "Team / labour", "Shorten this to 200 characters or fewer"],
+    ["actionLocation", "Location of action", "Enter text"],
+  ])("puts the message for %s on that field, tied to it", async (key, label, message) => {
+    await refused({ [`input.details.${key}`]: message });
+    const control = screen.getByLabelText(label);
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    const described = control.getAttribute("aria-describedby")!.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+    expect(described).toContain(message);
+  });
+
+  it("puts a select's message on the select", async () => {
+    await refused({ "input.details.wasteType": "Select one of the listed options" }, "en", 8);
+    const control = screen.getByLabelText("Waste type");
+    expect(control.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(control.getAttribute("aria-describedby")!)?.textContent).toContain("Select one of the listed options");
+  });
+
+  it("says every refused field's message at once", async () => {
+    await refused({
+      "input.details.dogsPicked": "Enter a whole number from 0 to 1,000,000,000",
+      "input.details.dogsNeutered": "Enter a whole number from 0 to 1,000,000,000",
+    });
+    expect(screen.getByLabelText("Dogs picked").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("Dogs neutered & released").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("shows the message in Hindi to a Hindi reader", async () => {
+    await refused({ "input.details.dogsPicked": "Enter a whole number from 0 to 1,000,000,000" }, "hi");
+    expect(screen.getByText("0 से 1,000,000,000 के बीच पूर्ण संख्या दर्ज करें")).toBeTruthy();
+  });
+
+  it("does not leave a message with nowhere to land", async () => {
+    // A key the screen has no field for must still be said somewhere visible.
+    await refused({ "input.details.noSuchKey": "This activity does not ask for this detail" });
+    expect(screen.getByText(/does not ask for this detail/i)).toBeTruthy();
+  });
+
+  it("shows a refused visit date, which has no input of its own", async () => {
+    await refused({ "input.visitDate": "A visit can only be recorded on the day it was made" });
+    expect(screen.getByText(/only be recorded on the day/i)).toBeTruthy();
+  });
+});
+
+describe("FieldVisit — a whole-number input for a count", () => {
+  it("asks a count for a whole number and a measurement for a decimal", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 10);
+    const dogs = screen.getByLabelText("Dogs picked") as HTMLInputElement;
+    expect([dogs.type, dogs.getAttribute("step"), dogs.getAttribute("inputmode"), dogs.min]).toEqual(["number", "1", "numeric", "0"]);
+    await pick(user, 8);
+    const kg = screen.getByLabelText("Quantity (kg)") as HTMLInputElement;
+    expect([kg.getAttribute("step"), kg.getAttribute("inputmode"), kg.min]).toEqual(["any", "decimal", "0"]);
+  });
+});
+
+describe("FieldVisit — phone-width controls", () => {
+  it("gives every details control the 44px floor, the no-zoom type size and a visible focus ring", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 8);
+    for (const label of ["Vehicle & labour", "Street / lane", "Waste type", "Quantity (kg)"]) {
+      const el = screen.getByLabelText(label);
+      expect(el.className).toMatch(/min-h-\[44px\]/);
+      expect(el.className).toMatch(/text-\[16px\]/);
+      expect(el.className).toMatch(/focus-visible:outline/);
+      expect(el.tabIndex).toBe(0);
+    }
+  });
+
+  it("wraps no new control in a fixed width", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await pick(user, 8);
+    expect(screen.getByLabelText("Quantity (kg)").className).not.toMatch(/\bw-\[\d+px\]/);
+  });
+});
+
+// Server messages match by exact string and fall back to English silently, so a
+// message with no key here would show in English to a Hindi reader with no failing
+// test. These are the details messages the server can send (MonitoringFieldVisitService).
+describe("FieldVisit — the server's details messages have Hindi", () => {
+  it.each([
+    "This activity does not ask for this detail",
+    "Enter a number from 0 to 1,000,000,000",
+    "Enter a whole number from 0 to 1,000,000,000",
+    "Select one of the listed options",
+    "Enter text",
+    "Shorten this to 200 characters or fewer",
+    "Shorten this to 2000 characters or fewer",
+  ])("translates %s", async (message) => {
+    const { runtimeText } = await import("../../src/client/i18n");
+    expect(runtimeText(message, "hi")).not.toBe(message);
+    expect(runtimeText(message, "en")).toBe(message);
   });
 });

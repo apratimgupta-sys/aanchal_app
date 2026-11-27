@@ -3,6 +3,7 @@ import { Camera, MapPin } from "lucide-react";
 import services from "../../shared/services.json";
 import type { FieldVisitInput, GpsReading, OfficerProfile } from "../../shared/types";
 import { validateVisitInput, WARD_MAX, WARD_MIN } from "../../domain/visit";
+import { fieldsFor, type VisitField } from "../../domain/field-visit-fields";
 import { RequestError } from "../api";
 import { createVisit } from "../field-visits";
 import { normalizeFieldErrors } from "../field-errors";
@@ -20,6 +21,30 @@ import { useContext } from "react";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
+
+// What a field-work service calls the date of its visit and the description of what
+// was found or done, kept by hand like the daily entry's WORK_DONE_LABEL. A service
+// not listed (the counter services) keeps the plain pair. The date is always today
+// and is shown, not asked for; the description is the required Issue / Action text.
+const PLAIN_LABELS = {
+  date: ["Visit date", "निरीक्षण की तिथि"],
+  description: ["Issue / Action", "समस्या / कार्रवाई"],
+} as const;
+const VISIT_LABELS: Record<number, { date: readonly [string, string]; description: readonly [string, string] }> = {
+  8: { date: ["Pickup date", "उठाव की तिथि"], description: ["Work description", "कार्य का विवरण"] },
+  9: { date: ["Fogging date", "फॉगिंग तिथि"], description: ["Work description", "कार्य का विवरण"] },
+  10: { date: ["Activity date", "गतिविधि तिथि"], description: ["Outcome description", "परिणाम का विवरण"] },
+  13: { date: ["Work date", "कार्य तिथि"], description: ["Fault description", "खराबी का विवरण"] },
+  14: { date: ["Inspection date", "निरीक्षण तिथि"], description: ["Inspection description", "निरीक्षण का विवरण"] },
+  15: { date: ["Work date", "कार्य तिथि"], description: ["Work description", "कार्य का विवरण"] },
+  16: { date: ["Work date", "कार्य तिथि"], description: ["Pruning description", "छंटाई का विवरण"] },
+  17: { date: ["Work date", "कार्य तिथि"], description: ["Work description", "कार्य का विवरण"] },
+};
+const NUMBER_MAX = 1_000_000_000;
+// Errors the form has a place for. A server message under any other key is listed
+// at the top rather than lost: the envelope alone says "correct the highlighted
+// fields" and a person must never be left with nothing highlighted.
+const PLACED = new Set(["officeId", "ward", "serviceId", "visitTime", "issueAction", "gps", "visitDate"]);
 
 function timeOf(now: Date): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -42,6 +67,9 @@ export default function FieldVisit({
   const [ward, setWard] = useState<number | "">("");
   const [serviceId, setServiceId] = useState<number | "">("");
   const [issueAction, setIssueAction] = useState("");
+  // What was typed into the service's own fields, by key. It belongs to the service
+  // on screen: changing the service empties it (see changeService).
+  const [details, setDetails] = useState<Record<string, string>>({});
   const [visitTime, setVisitTime] = useState(() => timeOf(clock()));
   const [gps, setGps] = useState<GpsReading | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -90,7 +118,41 @@ export default function FieldVisit({
     }
   }
 
+  const serviceFields = serviceId === "" ? [] : fieldsFor(serviceId);
+  const labels = (serviceId === "" ? undefined : VISIT_LABELS[serviceId]) ?? PLAIN_LABELS;
+
+  // Switching service throws away what was typed for the last one: its keys are not
+  // this service's, and a key both share (street) would otherwise carry the old
+  // value into a filing against the new service.
+  function changeService(value: number | "") {
+    setServiceId(value);
+    setDetails({});
+    setErrors((current) =>
+      Object.fromEntries(Object.entries(current).filter(([key]) => !key.startsWith("details."))),
+    );
+  }
+
+  function changeDetail(key: string, value: string) {
+    setDetails((current) => ({ ...current, [key]: value }));
+    setErrors((current) => {
+      if (!(`details.${key}` in current)) return current;
+      const { [`details.${key}`]: _gone, ...rest } = current;
+      return rest;
+    });
+  }
+
+  function detailsInput(): Record<string, string | number> | undefined {
+    const out: Record<string, string | number> = {};
+    for (const field of serviceFields) {
+      const raw = (details[field.key] ?? "").trim();
+      if (raw === "") continue;
+      out[field.key] = field.type === "number" ? Number(raw) : raw;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  }
+
   function currentInput(): FieldVisitInput {
+    const filled = detailsInput();
     return {
       visitDate: today,
       visitTime,
@@ -99,6 +161,7 @@ export default function FieldVisit({
       serviceId: serviceId === "" ? 0 : serviceId,
       gps: gps ?? { latitude: Number.NaN, longitude: Number.NaN, accuracyMetres: Number.NaN, capturedAt: "" },
       issueAction,
+      ...(filled ? { details: filled } : {}),
     };
   }
 
@@ -121,6 +184,7 @@ export default function FieldVisit({
       setSaved(stored.id);
       setWard("");
       setServiceId("");
+      setDetails({});
       setIssueAction("");
       setGps(null);
       setVisitTime(timeOf(clock()));
@@ -139,6 +203,62 @@ export default function FieldVisit({
   }
 
   const ready = gps !== null && !capturing;
+  const shownKeys = new Set([...PLACED, ...serviceFields.map((f) => `details.${f.key}`)]);
+  const unplaced = Object.entries(errors).filter(([key]) => !shownKeys.has(key)).map(([, message]) => message);
+
+  function detailControl(field: VisitField) {
+    const label = text(field.en, field.hi);
+    const id = `detail-${field.key}`;
+    const value = details[field.key] ?? "";
+    const error = errors[`details.${field.key}`];
+    const common = { id, value, onChange: (e: { target: { value: string } }) => changeDetail(field.key, e.target.value) };
+    const message = error && <FieldError>{translate(error)}</FieldError>;
+    if (field.type === "select")
+      return (
+        <Field key={field.key}>
+          {label}
+          <select {...common}>
+            <option value="">{text("Select", "चुनें")}</option>
+            {field.options?.map((option) => (
+              <option key={option.value} value={option.value}>{text(option.en, option.hi)}</option>
+            ))}
+          </select>
+          {message}
+        </Field>
+      );
+    if (field.type === "textarea")
+      return (
+        <Field key={field.key} className="lg:col-span-2">
+          {label}
+          <textarea {...common} rows={3} maxLength={2000} />
+          {message}
+        </Field>
+      );
+    if (field.type === "number")
+      return (
+        <Field key={field.key}>
+          {label}
+          <input
+            {...common}
+            type="number"
+            min={0}
+            max={NUMBER_MAX}
+            // A count takes a whole number: the digit keypad and a step of one. A
+            // measurement may carry a decimal: the decimal keypad and any step.
+            step={field.integer ? 1 : "any"}
+            inputMode={field.integer ? "numeric" : "decimal"}
+          />
+          {message}
+        </Field>
+      );
+    return (
+      <Field key={field.key}>
+        {label}
+        <input {...common} type="text" maxLength={200} />
+        {message}
+      </Field>
+    );
+  }
 
   return (
     <Panel className="border-0 bg-transparent p-0 sm:p-0 lg:max-w-3xl lg:border lg:bg-card lg:p-6">
@@ -148,7 +268,7 @@ export default function FieldVisit({
           {officer.name} · {officer.designation} · {today}
         </p>
       </div>
-      {(saved || serverError) && (
+      {(saved || serverError || unplaced.length > 0) && (
         <div className="mb-4 grid gap-3">
           {saved && (
             <Notice role="status">
@@ -156,6 +276,9 @@ export default function FieldVisit({
             </Notice>
           )}
           {serverError && <Notice>{serverError}</Notice>}
+          {unplaced.map((message) => (
+            <Notice key={message}>{translate(message)}</Notice>
+          ))}
         </div>
       )}
       <form onSubmit={submit} noValidate className="grid gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-x-5 lg:gap-y-4">
@@ -238,7 +361,7 @@ export default function FieldVisit({
           {text("Activity", "गतिविधि")}
           <select
             value={serviceId}
-            onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
+            onChange={(e) => changeService(e.target.value === "" ? "" : Number(e.target.value))}
             required
           >
             <option value="">{text("Select an activity", "गतिविधि चुनें")}</option>
@@ -250,13 +373,24 @@ export default function FieldVisit({
           </select>
           {errors.serviceId && <FieldError>{translate(errors.serviceId)}</FieldError>}
         </Field>
+        <div className="grid min-w-0 gap-1.5">
+          <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{text(labels.date[0], labels.date[1])}</span>
+          <span
+            data-visit-date=""
+            className={`flex min-h-[44px] items-center rounded-[7px] border border-border bg-muted px-3 font-mono text-[16px] tabular-nums lg:text-[13.5px] ${leadingBody} text-foreground`}
+          >
+            {today}
+          </span>
+          {errors.visitDate && <FieldError>{translate(errors.visitDate)}</FieldError>}
+        </div>
         <Field>
           {text("Time of visit", "निरीक्षण का समय")}
           <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} required />
           {errors.visitTime && <FieldError>{translate(errors.visitTime)}</FieldError>}
         </Field>
+        {serviceFields.map(detailControl)}
         <Field className="lg:col-span-2">
-          {text("Issue / Action", "समस्या / कार्रवाई")}
+          {text(labels.description[0], labels.description[1])}
           <textarea
             className="scroll-mb-28"
             rows={4}
