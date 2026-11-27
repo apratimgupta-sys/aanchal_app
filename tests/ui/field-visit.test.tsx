@@ -487,7 +487,8 @@ describe("FieldVisit — each service's own details", () => {
   it("clears the details after a visit is filed", async () => {
     const user = userEvent.setup();
     capturePosition.mockResolvedValue(goodReading);
-    createVisit.mockResolvedValue({ id: "v1" });
+    // A server that stored the details answers with them (C1: one that did not is a different story).
+    createVisit.mockResolvedValue({ id: "v1", details: { street: "Main lane" } });
     renderForm();
     await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
     await pick(user, 8);
@@ -613,5 +614,98 @@ describe("FieldVisit — the server's details messages have Hindi", () => {
     const { runtimeText } = await import("../../src/client/i18n");
     expect(runtimeText(message, "hi")).not.toBe(message);
     expect(runtimeText(message, "en")).toBe(message);
+  });
+});
+
+// C1: a backend that predates the details column skips `input.details` without a
+// word, answers 201, and sends back a visit with no details. The form must not read
+// that as success: the officer typed those figures in a street and has to be told.
+describe("FieldVisit — a visit stored without the details that were sent", () => {
+  async function fileWithDogs(lang: "en" | "hi" = "en") {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    renderForm(lang);
+    await user.selectOptions(screen.getByLabelText(lang === "hi" ? /^वार्ड/ : /^ward/i), "24");
+    await user.selectOptions(screen.getByLabelText(lang === "hi" ? /^गतिविधि/ : /^activity/i), "10");
+    await user.type(screen.getByLabelText(lang === "hi" ? "पकड़े गए कुत्ते" : "Dogs picked"), "4");
+    await user.type(screen.getByLabelText(lang === "hi" ? "कार्रवाई का स्थान" : "Location of action"), "Market gate");
+    await user.type(screen.getByLabelText(/description|विवरण/i), "Dogs picked up near the market gate.");
+    await user.click(screen.getByRole("button", { name: /capture location|स्थान कैप्चर/i }));
+    await user.click(await screen.findByRole("button", { name: /submit|जमा करें/i }));
+    return user;
+  }
+
+  it("says the details were not saved, and does not say 'Visit recorded.' alone", async () => {
+    createVisit.mockResolvedValue({ id: "v1" });
+    await fileWithDogs();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/details were not saved/i);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/^visit recorded\.$/i)).toBeNull();
+  });
+
+  it("lists each lost figure by its label and value, so it can be reported", async () => {
+    createVisit.mockResolvedValue({ id: "v1", details: null });
+    await fileWithDogs();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Dogs picked: 4");
+    expect(alert.textContent).toContain("Location of action: Market gate");
+  });
+
+  it("keeps everything the officer typed, rather than clearing the form", async () => {
+    createVisit.mockResolvedValue({ id: "v1" });
+    await fileWithDogs();
+    await screen.findByRole("alert");
+    expect((screen.getByLabelText("Dogs picked") as HTMLInputElement).value).toBe("4");
+    expect((screen.getByLabelText("Location of action") as HTMLInputElement).value).toBe("Market gate");
+    expect((screen.getByLabelText(/description/i) as HTMLTextAreaElement).value).toContain("market gate");
+  });
+
+  it("names only the figures that are missing when some came back", async () => {
+    createVisit.mockResolvedValue({ id: "v1", details: { dogsPicked: 4 } });
+    await fileWithDogs();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Location of action: Market gate");
+    expect(alert.textContent).not.toContain("Dogs picked: 4");
+  });
+
+  it("is an ordinary success when every sent figure comes back", async () => {
+    createVisit.mockResolvedValue({ id: "v1", details: { dogsPicked: 4, actionLocation: "Market gate" } });
+    await fileWithDogs();
+    expect(await screen.findByText("Visit recorded.")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    // The service resets with the form, so the description is back to its plain label.
+    expect((screen.getByLabelText(/issue/i) as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("does not treat a visit filed with no details as a loss", async () => {
+    const user = userEvent.setup();
+    capturePosition.mockResolvedValue(goodReading);
+    createVisit.mockResolvedValue({ id: "v1" });
+    renderForm();
+    await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
+    await pick(user, 10);
+    await user.type(screen.getByLabelText(/description/i), "Dogs picked up near the market gate.");
+    await user.click(screen.getByRole("button", { name: /capture location/i }));
+    await user.click(await screen.findByRole("button", { name: /submit/i }));
+    expect(await screen.findByText("Visit recorded.")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not file a second visit when the officer submits again: the same request id is reused", async () => {
+    createVisit.mockResolvedValue({ id: "v1" });
+    const user = await fileWithDogs();
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(createVisit).toHaveBeenCalledTimes(2));
+    expect(createVisit.mock.calls[1][1]).toBe(createVisit.mock.calls[0][1]);
+  });
+
+  it("says it in Hindi", async () => {
+    createVisit.mockResolvedValue({ id: "v1" });
+    await fileWithDogs("hi");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("विवरण सहेजे नहीं गए");
+    expect(alert.textContent).toContain("पकड़े गए कुत्ते: 4");
   });
 });

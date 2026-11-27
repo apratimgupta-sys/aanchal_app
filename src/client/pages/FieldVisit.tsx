@@ -77,6 +77,9 @@ export default function FieldVisit({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  // Figures the officer typed that the server's answer did not carry back: the
+  // visit exists, its details do not. See submit().
+  const [unsaved, setUnsaved] = useState<{ key: string; label: string; shown: string }[]>([]);
   const [saving, setSaving] = useState(false);
   // Held in a ref, not state: two submits in the same flush must share one
   // request id, and a state update has not committed by then.
@@ -169,6 +172,7 @@ export default function FieldVisit({
     event.preventDefault();
     setServerError(null);
     setSaved(null);
+    setUnsaved([]);
     if (submittingRef.current) return;
     const input = currentInput();
     const found = validateVisitInput(input, today);
@@ -181,6 +185,25 @@ export default function FieldVisit({
     setSaving(true);
     try {
       const stored = await createVisit(input, next.requestId);
+      // A backend that predates the details column skips `input.details` without
+      // complaint and answers 201 with a visit that carries none. That is not a
+      // success the officer should be told about in one line: the figures typed in
+      // the street are gone from the server. Keep the form as it is (nothing typed
+      // is thrown away), keep the request id (pressing submit again replays this
+      // visit rather than filing a second), and say which figures were lost.
+      const lost = serviceFields.filter(
+        (field) => input.details?.[field.key] !== undefined && stored.details?.[field.key] == null,
+      );
+      if (lost.length > 0) {
+        setUnsaved(
+          lost.map((field) => {
+            const value = input.details![field.key];
+            const option = field.options?.find((o) => o.value === value);
+            return { key: field.key, label: text(field.en, field.hi), shown: option ? text(option.en, option.hi) : String(value) };
+          }),
+        );
+        return;
+      }
       setSaved(stored.id);
       setWard("");
       setServiceId("");
@@ -268,11 +291,24 @@ export default function FieldVisit({
           {officer.name} · {officer.designation} · {today}
         </p>
       </div>
-      {(saved || serverError || unplaced.length > 0) && (
+      {(saved || serverError || unsaved.length > 0 || unplaced.length > 0) && (
         <div className="mb-4 grid gap-3">
           {saved && (
             <Notice role="status">
               {text("Visit recorded.", "निरीक्षण दर्ज हो गया।")}
+            </Notice>
+          )}
+          {unsaved.length > 0 && (
+            <Notice>
+              {text(
+                "The visit was recorded, but its details were not saved. They are still in the form below. Do not file the visit again; report these figures to your supervisor:",
+                "निरीक्षण दर्ज हो गया, लेकिन उसके विवरण सहेजे नहीं गए। वे नीचे फ़ॉर्म में अभी भी हैं। निरीक्षण दोबारा दर्ज न करें; ये आंकड़े अपने पर्यवेक्षक को बताएँ:",
+              )}
+              <ul className="mt-1.5 grid gap-0.5">
+                {unsaved.map((item) => (
+                  <li key={item.key}>{`${item.label}: ${item.shown}`}</li>
+                ))}
+              </ul>
             </Notice>
           )}
           {serverError && <Notice>{serverError}</Notice>}
