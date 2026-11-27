@@ -4,6 +4,8 @@ import services from "../shared/services.json" with { type: "json" };
 // Primary Monitoring Unit column rather than a hand-kept list of ids.
 //
 //   counter   — cases that arrive, queue and get disposed
+//   counterRevenue — cases that arrive, queue and get disposed AND money taken
+//               on them (an application with a fee): a queue and money together
 //   revenue   — payments taken; nothing queues
 //   fieldwork — work done on the ground, often with no request behind it
 //   grievance — complaint handling, which service 12 does record: a complaint
@@ -14,7 +16,7 @@ import services from "../shared/services.json" with { type: "json" };
 // Nothing downstream may be keyed on `kind` — use formShape below, which maps
 // grievance onto counter. Keying the shape predicates on kind is what would
 // quietly stop service 12's balance from moving.
-export type ServiceKind = "counter" | "revenue" | "fieldwork" | "grievance";
+export type ServiceKind = "counter" | "counterRevenue" | "revenue" | "fieldwork" | "grievance";
 
 const KIND_BY_UNIT: Record<string, ServiceKind> = {
   Applications: "counter",
@@ -25,6 +27,8 @@ const KIND_BY_UNIT: Record<string, ServiceKind> = {
   "Beneficiaries / Applications": "counter",
   "Beneficiaries / Licences": "counter",
   Bookings: "counter",
+  "Applications / ₹": "counterRevenue",
+  "Cases / ₹": "counterRevenue",
   "Transactions / ₹": "revenue",
   Complaints: "grievance",
   "Requests / Trips": "fieldwork",
@@ -46,27 +50,33 @@ export function serviceKind(serviceId: number): ServiceKind {
   return KIND_BY_ID.get(serviceId) ?? "counter";
 }
 
-// The three shapes the daily entry form takes. Grievance handling is a queue
-// of cases like any other, so it takes the counter shape.
+// The four shapes the daily entry form takes. Grievance handling is a queue
+// of cases like any other, so it takes the counter shape. counterRevenue is
+// the one shape where a queue and money coexist (services 1, 3, 4, 7).
 //
 // TWIN: MonitoringRules.FormShape in the backend repo
 // (src/Anchal.Domain/CommissionerMonitoring/Rules/MonitoringRules.cs), which
-// hardcodes the same three sets because the backend has no service master.
+// hardcodes the same four sets because the backend has no service master.
 // This side derives them from services.json's `unit` column, so the two agree
 // only by hand. An edit to either must be made in both, in the same change: a
 // service that validates and derives under one shape and renders under another
 // re-derives its whole closing history on the next read. Changing a `unit`
-// string is an edit to both.
-export type FormShape = "counter" | "revenue" | "fieldwork";
+// string is an edit to both. The order of the collected fields is part of the
+// twin: tests/domain/shape-twin.fixture.json holds the golden table, and the
+// backend repo carries the identical file.
+export type FormShape = "counter" | "counterRevenue" | "revenue" | "fieldwork";
 
 export function formShape(serviceId: number): FormShape {
   const kind = serviceKind(serviceId);
   return kind === "grievance" ? "counter" : kind;
 }
 
-// Only the counter shape has a queue, so only it moves the pending balance.
+// Only the shapes with a queue move the pending balance: counter, and
+// counterRevenue, whose services were counter services with opening balances
+// already locked in.
 export function movesPendingBalance(serviceId: number): boolean {
-  return formShape(serviceId) === "counter";
+  const shape = formShape(serviceId);
+  return shape === "counter" || shape === "counterRevenue";
 }
 
 export function isFieldWork(serviceId: number): boolean {
@@ -79,6 +89,7 @@ export function isFieldWork(serviceId: number): boolean {
 // Mirrors MonitoringRules.CollectedFields on the server.
 const COLLECTED: Record<FormShape, readonly string[]> = {
   counter: ["received", "completed"],
+  counterRevenue: ["received", "completed", "amountPaise"],
   revenue: ["received", "amountPaise"],
   fieldwork: ["completed"],
 };

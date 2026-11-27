@@ -4,7 +4,7 @@
     "name": "नए होल्डिंग प्राप्त करने हेतु आवेदन",
     "en": "New holding application",
     "category": "Citizen Service",
-    "unit": "Applications",
+    "unit": "Applications / ₹",
     "evidence": "Register / MIS entry / supporting document",
     "sla": "As per notified service standard / local work schedule"
   },
@@ -22,7 +22,7 @@
     "name": "Municipal Trade Licence के लिए आवेदन",
     "en": "Municipal trade licence application",
     "category": "Licence",
-    "unit": "Applications / Licences",
+    "unit": "Applications / ₹",
     "evidence": "Application register + issued licence",
     "sla": "As per notified service standard / local work schedule"
   },
@@ -31,7 +31,7 @@
     "name": "New जल संयोजन के लिए आवेदन",
     "en": "New water connection application",
     "category": "Water",
-    "unit": "Applications / Connections",
+    "unit": "Applications / ₹",
     "evidence": "Register / MIS entry / supporting document",
     "sla": "As per notified service standard / local work schedule"
   },
@@ -58,7 +58,7 @@
     "name": "होल्डिंग में त्रुटि सुधार",
     "en": "Holding correction",
     "category": "Property",
-    "unit": "Cases",
+    "unit": "Cases / ₹",
     "evidence": "Register / MIS entry / supporting document",
     "sla": "As per notified service standard / local work schedule"
   },

@@ -22,6 +22,15 @@ describe("cross-field rules on a daily entry", () => {
     });
   });
 
+  // counterRevenue collects both operands AND money: the rule must fire there
+  // (it is skipped on the revenue shape), and an amount must not disturb it.
+  it.each([1, 3, 4, 7])("stops service %i finishing more than it received, amount or not", (id) => {
+    expect(entryCrossFieldErrors(id, { ...zero, completed: 5, amountPaise: 50_000 })).toEqual({
+      completed: "Completed cannot exceed received",
+    });
+    expect(entryCrossFieldErrors(id, { ...zero, received: 5, completed: 5, amountPaise: 50_000 })).toEqual({});
+  });
+
   // Deleted with the rules they asserted, not weakened:
   //   "keeps the within-SLA rule everywhere, since it compares like with like"
   //     — its premise is the one the review overturned. No shape collects
@@ -104,6 +113,18 @@ describe("revenue services and the pending balance", () => {
 
 // Break caught: the stored ward drifting from `Ward N` (one space, no leading
 // zero, 1 to 53). The server enforces the same format; neither side keeps a list.
+describe("counterRevenue services and the pending balance", () => {
+  // Money beside a queue: the amount is collected but is not a case, so the
+  // balance moves by received minus completed exactly as on counter.
+  it.each([1, 3, 4, 7])("service %i moves its balance and ignores the amount", (serviceId) => {
+    const after = applyActivity(
+      { service: 7, complaints: 0, field: 0 },
+      { ...zero, serviceId, received: 40, completed: 15, amountPaise: 123_400 },
+    );
+    expect(after.service).toBe(32);
+  });
+});
+
 describe("the canonical ward", () => {
   // Break caught: two constants for one municipal fact. Daily entry and field visits must
   // read the same bound, so the last ward is accepted by both and the next by neither.
