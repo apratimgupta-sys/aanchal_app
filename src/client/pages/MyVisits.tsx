@@ -6,6 +6,7 @@ import { indiaToday } from "../lib/dates";
 import { myVisitsQueryKey } from "../session-caches";
 import { useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
+import VisitDetails from "../components/VisitDetails";
 import { Notice, leadingBody, leadingHeading } from "../ui";
 
 const DAYS_SHOWN = 30;
@@ -66,6 +67,7 @@ export default function MyVisits({ officerId }: { officerId: string }) {
               </span>
               <span>{serviceName(row.serviceId)}</span>
               <p className="whitespace-pre-wrap">{firstLine(row.issueAction)}</p>
+              <VisitDetails serviceId={row.serviceId} details={row.details} />
               <VisitLocation gps={row.gps} ward={row.ward} visitDate={row.visitDate} visitTime={row.visitTime} />
               {row.voidedAt && (
                 // Atomic inline: the row's strike-through does not run through the reason.

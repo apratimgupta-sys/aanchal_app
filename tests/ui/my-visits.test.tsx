@@ -174,3 +174,87 @@ describe("MyVisits — review findings", () => {
     expect(keys.some((key) => key.includes("off-7"))).toBe(true);
   });
 });
+
+describe("MyVisits — service details", () => {
+  const eight = { vehicleLabour: "Truck 12 with 3 labour", street: "Main Rd, Kadru", wasteType: "dry", quantity: 420 };
+
+  it("lists a service 8 visit's four details, labelled, in the definition's order", async () => {
+    listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: eight })], total: 1 });
+    renderList();
+    const row = await screen.findByTestId("visit-v1");
+    const box = within(row).getByTestId("visit-details");
+    const labels = Array.from(box.querySelectorAll("dt")).map((n) => n.textContent);
+    expect(labels).toEqual(["Vehicle & labour", "Street / lane", "Waste type", "Quantity (kg)"]);
+    const values = Array.from(box.querySelectorAll("dd")).map((n) => n.textContent);
+    expect(values).toEqual(["Truck 12 with 3 labour", "Main Rd, Kadru", "Dry", "420"]);
+  });
+
+  it("shows the details in Hindi, including the option's Hindi name", async () => {
+    listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: eight })], total: 1 });
+    renderList("hi");
+    const box = within(await screen.findByTestId("visit-v1")).getByTestId("visit-details");
+    expect(Array.from(box.querySelectorAll("dt")).map((n) => n.textContent)).toContain("कचरे का प्रकार");
+    expect(Array.from(box.querySelectorAll("dd")).map((n) => n.textContent)).toContain("सूखा");
+  });
+
+  it.each([
+    ["null", null],
+    ["absent", undefined],
+    ["an empty object", {}],
+    ["only blanks", { street: "", vehicleLabour: "  " }],
+  ])("renders a visit whose details are %s with no section and no placeholder", async (_name, details) => {
+    listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: details as FieldVisitView["details"] })], total: 1 });
+    renderList();
+    const row = await screen.findByTestId("visit-v1");
+    expect(within(row).queryByTestId("visit-details")).toBeNull();
+    expect(row.querySelector("dl")).toBeNull();
+    expect(within(row).queryByText(/^(—|-|n\/a|none|not recorded)$/i)).toBeNull();
+    // The rest of the row is intact.
+    expect(within(row).getByText("Fogging done along the main lane.")).toBeTruthy();
+  });
+
+  // CHOICE: a stored key the service no longer defines is SHOWN, after the defined
+  // ones, under its raw key. A person typed that value; a later edit to the field
+  // list must not make it vanish from the record.
+  it("still shows a value whose key the service no longer defines, after the defined ones", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ serviceId: 8, details: { retiredField: "Left by the old form", street: "Main Rd" } })],
+      total: 1,
+    });
+    renderList();
+    const box = within(await screen.findByTestId("visit-v1")).getByTestId("visit-details");
+    expect(Array.from(box.querySelectorAll("dt")).map((n) => n.textContent)).toEqual(["Street / lane", "retiredField"]);
+    expect(within(box).getByText("Left by the old form")).toBeTruthy();
+  });
+
+  it("shows a select value it has no option for as it was stored", async () => {
+    listVisits.mockResolvedValue({ rows: [visit({ serviceId: 8, details: { wasteType: "hazardous" } })], total: 1 });
+    renderList();
+    expect(within(await screen.findByTestId("visit-v1")).getByText("hazardous")).toBeTruthy();
+  });
+
+  it("looks the labels up by the visit's own service", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ id: "a", serviceId: 15, details: { reportingOfficer: "R. Singh", areaCut: 90 } }), visit({ id: "b", serviceId: 8, details: eight })],
+      total: 2,
+    });
+    renderList();
+    const a = within(await screen.findByTestId("visit-a")).getByTestId("visit-details");
+    expect(a.textContent).toContain("Reporting officer");
+    expect(a.textContent).not.toContain("Waste type");
+    expect(within(screen.getByTestId("visit-b")).getByTestId("visit-details").textContent).toContain("Waste type");
+  });
+
+
+
+  it("shows details on a voided row too, which stays struck through", async () => {
+    listVisits.mockResolvedValue({
+      rows: [visit({ serviceId: 8, details: eight, voidedAt: "2026-11-19T07:00:00.000Z", voidReason: "Wrong ward" })],
+      total: 1,
+    });
+    renderList();
+    const row = await screen.findByTestId("visit-v1");
+    expect(row.hasAttribute("data-voided")).toBe(true);
+    expect(within(row).getByTestId("visit-details")).toBeTruthy();
+  });
+});

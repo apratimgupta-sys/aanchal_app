@@ -9,6 +9,7 @@ import { RequestError } from "../api";
 import { indiaToday } from "../lib/dates";
 import { Language, runtimeText, useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
+import VisitDetails from "../components/VisitDetails";
 import { Button, Field, FieldError, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, confirmBar, leadingBody, leadingHeading, useScrollRegion } from "../ui";
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
@@ -240,7 +241,10 @@ export default function VisitRegister() {
                   <span>{text("Anchal", "अंचल")} {row.officeId} · {text("Ward", "वार्ड")} {row.ward}</span>
                 </Td>
                 <Td label={heads[3]} className="lg:min-w-[9rem]">{serviceName(row.serviceId)}</Td>
-                <Td label={heads[4]} className={`${cardStacked} whitespace-pre-wrap lg:min-w-[16rem]`}>{row.issueAction}</Td>
+                <Td label={heads[4]} className={`${cardStacked} lg:min-w-[16rem]`}>
+                  <span className="block whitespace-pre-wrap">{row.issueAction}</span>
+                  <VisitDetails serviceId={row.serviceId} details={row.details} className="lg:mt-2" />
+                </Td>
                 <Td label={heads[5]} className={`${cardStacked} lg:grid lg:min-w-[14rem] lg:gap-0.5`}>
                   <VisitLocation gps={row.gps} ward={row.ward} visitDate={row.visitDate} visitTime={row.visitTime} />
                 </Td>
