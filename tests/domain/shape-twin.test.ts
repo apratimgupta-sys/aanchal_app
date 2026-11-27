@@ -10,6 +10,7 @@ import {
 } from "./backend-twin";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
 import fixture from "./shape-twin.fixture.json";
+import services from "../../src/shared/services.json";
 
 // The shape tables are a hand-maintained twin of MonitoringRules in the backend
 // repo. This golden table is committed identically in both repos, and each side
@@ -32,6 +33,18 @@ describe("the shape tables against the golden twin table", () => {
     expect(formShape(Number(id))).toBe(e.shape);
     expect([...collectedFields(Number(id))]).toEqual(e.collected);
     expect(movesPendingBalance(Number(id))).toBe(e.movesPendingBalance);
+  });
+
+  // The Hindi service names are a second hand-kept twin: the backend's
+  // MonitoringProvisioner.ServiceNames re-writes the catalog rows from its own
+  // copy on every provision run. A rename that reaches only one side is caught
+  // here, in the repo where services.json was edited, not only where the two
+  // repos sit side by side. The backend asserts the same table against its names
+  // (MonitoringAuthTests.TheSeededServiceNamesMatchTheGoldenTwinFixture).
+  it("holds every service name exactly as services.json does, and no other", () => {
+    const fromJson = Object.fromEntries(services.map((s) => [String(s.id), s.name]));
+    expect(fromJson).toEqual(fixture.serviceNames);
+    expect(services).toHaveLength(25);
   });
 
   // The two copies must be byte-identical. This is the only check that they
