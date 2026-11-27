@@ -234,7 +234,14 @@ export default function FieldVisit({
 
   const ready = gps !== null && !capturing;
   const shownKeys = new Set([...PLACED, ...serviceFields.map((f) => `details.${f.key}`)]);
-  const unplaced = Object.entries(errors).filter(([key]) => !shownKeys.has(key)).map(([, message]) => message);
+  // A message for a key the form has no control for is listed at the top, and it
+  // must say WHICH key: the server's text for an undefined detail does not, and a
+  // banner saying "correct the highlighted fields" with nothing highlighted is the
+  // dead end this form must not have. The key is unique per entry, so it is also the
+  // React key (two refusals with the same words are still two notices).
+  const unplaced = Object.entries(errors)
+    .filter(([key]) => !shownKeys.has(key))
+    .map(([key, message]) => ({ key, name: key.replace(/^details\./, ""), message }));
 
   function detailControl(field: VisitField) {
     const label = text(field.en, field.hi);
@@ -319,8 +326,8 @@ export default function FieldVisit({
             </Notice>
           )}
           {serverError && <Notice>{serverError}</Notice>}
-          {unplaced.map((message) => (
-            <Notice key={message}>{translate(message)}</Notice>
+          {unplaced.map(({ key, name, message }) => (
+            <Notice key={key}>{`${name}: ${translate(message)}`}</Notice>
           ))}
         </div>
       )}

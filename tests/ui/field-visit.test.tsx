@@ -561,6 +561,39 @@ describe("FieldVisit — a server error on a details field", () => {
     expect(screen.getByText(/does not ask for this detail/i)).toBeTruthy();
   });
 
+  // I1: the banner for a key the screen has no control for must say which key it
+  // is. The server's message for an undefined detail does not contain it, and two
+  // such messages are identical, so a banner that keeps only the text is both
+  // unactionable and (as one React key) renders just one of them.
+  it("names the field in the message for a key it has no control for", async () => {
+    await refused({ "input.details.poleNumber": "This activity does not ask for this detail" });
+    const notice = screen.getByText(/does not ask for this detail/i);
+    expect(notice.textContent).toBe("poleNumber: This activity does not ask for this detail");
+  });
+
+  it("shows one notice per refused key, each naming its own, even when the messages are identical", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await refused({
+        "input.details.poleNumber": "This activity does not ask for this detail",
+        "input.details.treeCount": "This activity does not ask for this detail",
+      });
+      const shown = screen.getAllByText(/does not ask for this detail/i).map((n) => n.textContent);
+      expect(shown).toEqual([
+        "poleNumber: This activity does not ask for this detail",
+        "treeCount: This activity does not ask for this detail",
+      ]);
+      expect(spy.mock.calls.flat().join(" ")).not.toMatch(/same key/i);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("translates the message and leaves the key as the server sent it", async () => {
+    await refused({ "input.details.poleNumber": "This activity does not ask for this detail" }, "hi");
+    expect(screen.getByText("poleNumber: यह गतिविधि यह विवरण नहीं माँगती")).toBeTruthy();
+  });
+
   it("shows a refused visit date, which has no input of its own", async () => {
     await refused({ "input.visitDate": "A visit can only be recorded on the day it was made" });
     expect(screen.getByText(/only be recorded on the day/i)).toBeTruthy();
