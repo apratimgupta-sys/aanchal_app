@@ -112,7 +112,9 @@ beforeEach(() => {
   api.mockReset();
 });
 
-describe("the three shapes", () => {
+// The shapes that collect a single kind of figure. The one that collects a queue
+// and money together has its own describe further down.
+describe("the counter, revenue and field-work shapes", () => {
   it("shows a counter service two numbers", async () => {
     await renderFor(11);
     expect(labels()).toEqual([
@@ -399,6 +401,42 @@ describe("a server error on a field the form does not render", () => {
     const shown = await screen.findByText(/cannot be combined with reported/i);
     expect(shown.textContent).toContain("Nothing to report");
     expect(shown.textContent).not.toContain("nothingToReport");
+  });
+});
+
+// A clerk typing one zero too many in the amount is the ordinary way to reach
+// the server's amount bound. The rejection must land under the amount box, not
+// only in a page-level notice that points at nothing.
+describe("a server error on the amount", () => {
+  it.each([1, 2])("is shown under the amount box on service %i", async (id) => {
+    const user = await renderFor(id);
+    api.mockImplementation(async (_path: string, method = "GET") => {
+      if (method === "GET") return { setup: null, entries: [], openings: [] };
+      throw new RequestError("Please correct the highlighted fields", {
+        fieldErrors: {
+          "input.amountPaise": "Enter a nonnegative whole number within the allowed limit",
+        },
+      });
+    });
+    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
+    for (const l of document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
+      await user.type(l, "1");
+    const amount = screen.getByLabelText(/^amount collected/i);
+    await user.clear(amount);
+    await user.type(amount, "99999999.00");
+    await submitEntry(user);
+    const message = await screen.findByText(/within the allowed limit/i);
+    // On the amount's own field: a destructive-coloured message that the
+    // input is marked invalid against and described by, not a bullet in the
+    // page-level notice.
+    expect(message.className).toContain("text-destructive");
+    expect(message.closest("li")).toBeNull();
+    expect(amount.getAttribute("aria-invalid")).toBe("true");
+    const described = (amount.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+    expect(described.some((el) => el!.contains(message))).toBe(true);
   });
 });
 

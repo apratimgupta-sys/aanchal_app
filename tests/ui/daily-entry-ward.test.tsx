@@ -113,13 +113,20 @@ describe("the ward picker", () => {
     expect(api.mock.calls.find((c) => c[1] === "POST")![2].input.ward).toBe("Ward 11");
   });
 
-  // The select is `required`, so the browser stops an empty submit before the schema runs.
+  // The select is `required`, so the browser stops an empty submit before the
+  // schema runs. Asserted as: the ward is the one and only control the browser
+  // rejects, so a different unfilled field cannot make this pass.
   it("will not file with no ward chosen", async () => {
     const user = userEvent.setup();
     renderForm();
     await screen.findByText(/daily service entry/i);
+    const select = screen.getByRole("combobox", { name: "Ward" }) as HTMLSelectElement;
+    expect(select.required).toBe(true);
+    expect(select.value).toBe("");
     await fillZeros(user);
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
+    expect(select.validity.valueMissing).toBe(true);
+    expect(Array.from(document.querySelectorAll("form :invalid"))).toEqual([select]);
     expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(false);
   });
 

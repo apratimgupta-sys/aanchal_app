@@ -1,4 +1,4 @@
-import { collects, isFieldWork, movesPendingBalance } from "./service-kind";
+import { collects, collectsWorkDone, movesPendingBalance } from "./service-kind";
 import { isCanonicalWard, WARD_MESSAGE } from "./entry-rules";
 import type {
   Activity,
@@ -80,9 +80,9 @@ export function applyActivity(
   a: Activity & { serviceId: number },
 ): Balances {
   return {
-    // Only counter-shape services have a queue. Field work has none, and revenue
-    // services record payments in `received` and complete nothing, so neither
-    // may move the service balance.
+    // Only a service that collects a queue (counter and counterRevenue) moves
+    // the balance. Field work has none, and revenue services record payments in
+    // `received` and complete nothing, so neither may move it.
     service: o.service + (movesPendingBalance(a.serviceId) ? a.received - a.completed : 0),
     complaints: o.complaints + a.complaintsReceived - a.complaintsResolved,
     field: o.field + a.fieldReceived - a.fieldCompleted,
@@ -158,24 +158,26 @@ export function summarizePeriod(
           filter.to < setup.startDate
             ? { service: 0, complaints: 0, field: 0 }
             : (views.at(-1)?.closing ?? b.opening);
-        // Only the counter shape has a queue. The service balance of the 11
-        // revenue and field-work services is frozen, so counting it would
-        // report a pending figure nothing can ever work off.
+        // Only a service with a queue has a pending balance to report. The
+        // service balance of the 11 revenue and field-work services is frozen,
+        // so counting it would report a pending figure nothing can ever work
+        // off.
         if (movesPendingBalance(b.serviceId)) r.pending += close.service;
         r.complaintsPending += close.complaints;
         r.fieldPending += close.field;
         for (const e of all.filter((e) => e.serviceDate >= filter.from)) {
-          // Counter work only, exactly as the server sums them: a payment
-          // completes no case, and field work completes against a received of
-          // 0, so counting either in pushes Disposal % past 100. Field work is
-          // reported separately as workDone; money comes from every shape.
+          // Queue work only (counter and counterRevenue), exactly as the server
+          // sums them: a payment completes no case, and field work completes
+          // against a received of 0, so counting either in pushes Disposal %
+          // past 100. Field work is reported separately as workDone; money
+          // comes from every service that collects it.
           if (movesPendingBalance(b.serviceId)) {
             r.received += e.received;
             r.completed += e.completed;
             r.slaWithinTime += e.slaWithinTime;
           }
           r.amountPaise += e.amountPaise;
-          if (isFieldWork(b.serviceId)) r.workDone += e.completed;
+          if (collectsWorkDone(b.serviceId)) r.workDone += e.completed;
           r.submitted++;
         }
       }

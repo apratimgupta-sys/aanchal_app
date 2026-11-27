@@ -79,8 +79,15 @@ export function movesPendingBalance(serviceId: number): boolean {
   return shape === "counter" || shape === "counterRevenue";
 }
 
-export function isFieldWork(serviceId: number): boolean {
-  return formShape(serviceId) === "fieldwork";
+// Work done: a completed count with no queue beside it. Asked by what the
+// service collects, not by what shape it is called, so a future shape that
+// collects `completed` alone is summed and shown without anyone remembering to
+// add it here. Today that is the eight field-work services. The server's
+// MonitoringRules.IsFieldWork is still a shape test (the backend repo owns it);
+// the two agree on every service because workDone is defined as the sum of
+// `completed` over services with no queue.
+export function collectsWorkDone(serviceId: number): boolean {
+  return collects(serviceId, "completed") && !collects(serviceId, "received");
 }
 
 // What the daily form actually asks a service for, by shape: two numbers

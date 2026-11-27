@@ -215,8 +215,8 @@ test("submitted entries stay read-only until Edit and Cancel restores saved valu
         true,
         "A saved today entry is required for the read-only check",
       );
-    await page.getByRole("spinbutton", { name: "Received", exact: true }).fill("0");
-    await page.getByRole("spinbutton", { name: "Disposed", exact: true }).fill("0");
+    await page.getByRole("spinbutton", { name: "Applications received", exact: true }).fill("0");
+    await page.getByRole("spinbutton", { name: "Applications disposed", exact: true }).fill("0");
     await ward.selectOption("Ward 1");
     await submit.click();
     await expect(page.getByRole("status")).toContainText("Entry saved");
@@ -407,7 +407,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
   await page
     .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 7");
-  await page.getByLabel("Received", { exact: true }).fill("17");
+  await page.getByLabel("Applications received", { exact: true }).fill("17");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
     .getByRole("button", { name: "Backdate Entry", exact: true })
@@ -417,7 +417,7 @@ test("office navigation can be canceled without losing a dirty entry", async ({
     page.getByRole("combobox", { name: "Ward", exact: true }),
   ).toHaveValue("Ward 7");
   await expect(
-    page.getByLabel("Received", { exact: true }),
+    page.getByLabel("Applications received", { exact: true }),
   ).toHaveValue("17");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.evaluate(() => {
@@ -476,8 +476,8 @@ test("an open Today draft rolls forward at IST midnight and can continue as Back
   await expect(
     page.getByLabel("Reporting / registration date", { exact: true }),
   ).toHaveValue("2026-10-06");
-  await page.getByRole("spinbutton", { name: "Received", exact: true }).fill("0");
-  await page.getByRole("spinbutton", { name: "Disposed", exact: true }).fill("0");
+  await page.getByRole("spinbutton", { name: "Applications received", exact: true }).fill("0");
+  await page.getByRole("spinbutton", { name: "Applications disposed", exact: true }).fill("0");
   await page
     .getByRole("combobox", { name: "Ward", exact: true })
     .selectOption("Ward 8");

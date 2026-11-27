@@ -61,9 +61,10 @@ const FILED = {
   counterReceived: 23, // 9 + 8 + 6 + 0
   counterCompleted: 10, // 4 + 4 + 2 + 0
   workDone: 12, // 6 trips (s8) + 5 routes (s9) + 1 animal (s10) — field work only
-  // 125050 (s2) + 30025 (s5) + 15000 (s6, after its correction)
-  collection: "₹1,700.75",
-  collectionPaise: 170075,
+  // 125050 (s2) + 30025 (s5) + 15000 (s6, after its correction) + 25075 (s1,
+  // a queue service that also takes a fee: collection spans it too)
+  collection: "₹1,951.50",
+  collectionPaise: 195150,
   entries: 10, // s1 s2 s5 s6 s7 s8 s9 s10 s12 s20
 };
 
@@ -256,7 +257,7 @@ async function submitEntry(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("all three daily form shapes against a real backend", () => {
+test.describe("all four daily form shapes against a real backend", () => {
   test.skip(!live, "RMC_LIVE_BACKEND is not set");
 
   let officeContext: BrowserContext;
@@ -352,23 +353,32 @@ test.describe("all three daily form shapes against a real backend", () => {
   test("a counter entry files with no average-days value and moves the balance", async () => {
     await selectService(office, 1);
 
-    // The counter shape, and only the counter shape, has a queue to open against.
+    // A service that collects a queue has one to open against. Service 1 also
+    // takes a fee, but that does not change that it has a queue.
     await expect(office.locator("[data-opening]")).toHaveCount(1);
     await expect(
       office.locator("[data-opening] strong"),
       "opening pending comes from the saved setup",
     ).toHaveText("7");
-    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+    await expectFormFields(office, [
+      ...DATE_AND_WARD,
+      "Applications received",
+      "Applications disposed",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
 
     await selectField(office, "Ward").selectOption("Ward 11");
-    await numberField(office, "Received").fill("9");
-    await numberField(office, "Disposed").fill("4");
+    await numberField(office, "Applications received").fill("9");
+    await numberField(office, "Applications disposed").fill("4");
+    await textField(office, "Amount Collected (₹)").fill("250.75");
     await expect(office.locator("[data-closing] strong")).toHaveText("12");
     await submitEntry(office);
 
     const entry = await storedEntry(office, 1, today);
     expect(entry.received).toBe(9);
     expect(entry.completed).toBe(4);
+    expect(entry.amountPaise, "the fee collected on the applications").toBe(25075);
     // The form never asked for it and the server must not have invented one.
     expect(entry.avgDisposalDays, "average disposal days is collected from nobody").toBeNull();
     expect(entry.slaWithinTime).toBe(0);
@@ -517,11 +527,16 @@ test.describe("all three daily form shapes against a real backend", () => {
     // Its monitoring unit is Complaints, but it is a queue like any other: a
     // regression here is invisible to a check that only tries service 1.
     await expect(office.locator("[data-opening] strong")).toHaveText("5");
-    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+    await expectFormFields(office, [
+      ...DATE_AND_WARD,
+      "Number of grievances posted through Smart Ranchi",
+      "Number of grievances resolved through Smart Ranchi",
+      "Remarks",
+    ]);
 
     await selectField(office, "Ward").selectOption("Ward 11");
-    await numberField(office, "Received").fill("6");
-    await numberField(office, "Disposed").fill("2");
+    await numberField(office, "Number of grievances posted through Smart Ranchi").fill("6");
+    await numberField(office, "Number of grievances resolved through Smart Ranchi").fill("2");
     await expect(office.locator("[data-closing] strong")).toHaveText("9");
     await submitEntry(office);
 
@@ -563,12 +578,18 @@ test.describe("all three daily form shapes against a real backend", () => {
     await office.reload();
     await expect(office.getByRole("heading", { name: "Daily service entry" })).toBeVisible();
     await selectService(office, 7);
-    await expectFormFields(office, [...DATE_AND_WARD, "Received", "Disposed", "Remarks"]);
+    await expectFormFields(office, [
+      ...DATE_AND_WARD,
+      "Applications received",
+      "Applications disposed",
+      "Amount Collected (₹)",
+      "Remarks",
+    ]);
     await expect(office.locator(".entry-panel [data-status]")).toHaveText("Submitted");
 
     await office.getByRole("button", { name: "Edit entry" }).click();
-    await numberField(office, "Received").fill("8");
-    await numberField(office, "Disposed").fill("4");
+    await numberField(office, "Applications received").fill("8");
+    await numberField(office, "Applications disposed").fill("4");
     await textField(office, "Correction reason").fill(
       "Two more cases were found in the register.",
     );
@@ -579,6 +600,7 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(corrected.version).toBe(2);
     expect(corrected.received).toBe(8);
     expect(corrected.completed).toBe(4);
+    expect(corrected.amountPaise, "the amount was filed as 0 and not touched").toBe(0);
     // None of these was on screen; all of them must have survived the round trip.
     expect(corrected.slaWithinTime, "within-SLA completions").toBe(2);
     expect(corrected.complaintsReceived, "complaints received").toBe(4);
@@ -589,8 +611,9 @@ test.describe("all three daily form shapes against a real backend", () => {
     expect(corrected.closing.service).toBe(7);
   });
 
-  // The counter shape above is one of three. Revenue and field work are the two
-  // where the hidden-field 422 was actually found, and they rest otherwise on a
+  // The queue-and-fee correction above is one of four shapes. Revenue and field
+  // work are the two where the hidden-field 422 was actually found, and they rest
+  // otherwise on a
   // component test whose mocked api cannot return a 422 — so it could not have
   // failed before the fix. These run against the real server.
   test("a revenue correction keeps a stored disposal figure it never shows", async () => {
@@ -704,10 +727,11 @@ test.describe("all three daily form shapes against a real backend", () => {
     await expect(disposalTile.locator("small")).toHaveText(
       `${FILED.counterCompleted} / ${FILED.counterReceived}`,
     );
-    // The sum of the two revenue entries, not either one of them.
+    // The sum of every entry that took money (three revenue services and one
+    // fee on applications), not any one of them.
     const collectionTile = commissioner.locator("[data-metric]", { hasText: "Total collection" });
     await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
-    expect(row.amountPaise, "collection accumulates across revenue entries").toBe(
+    expect(row.amountPaise, "collection accumulates across every service that collects money").toBe(
       FILED.collectionPaise,
     );
 

@@ -130,6 +130,16 @@ function numericFields(serviceId: number): NumericField[] {
 // server error that has nowhere to land.
 const shownKeys = (serviceId: number) =>
   new Set<string>(numericFields(serviceId).map((f) => f.key));
+// Every key a message can be shown against: the counts above, plus the amount
+// where the service collects one. The amount is not a count, so it stays out of
+// shownKeys (which drives the count schema and the seeding); but it has its own
+// input and its own error slot, so a rejection of it must not be filed as
+// something with nowhere to land.
+const fieldKeys = (serviceId: number) => {
+  const keys = shownKeys(serviceId);
+  if (collects(serviceId, "amountPaise")) keys.add("amountPaise");
+  return keys;
+};
 // Picked out one field at a time with an explicit default, rather than cast:
 // the shape's hidden counts reach the cross-field rules as numbers or not at
 // all, and `undefined > 1` would quietly answer false and skip a rule.
@@ -660,7 +670,7 @@ export default function DailyEntry({
               try {
                 const checked = schemaForService(input.serviceId).safeParse(input);
                 if (!checked.success) {
-                  const shown = shownKeys(input.serviceId);
+                  const shown = fieldKeys(input.serviceId);
                   const hasAField = (key: string) =>
                     key === "ward" || shown.has(key);
                   const nextFields: Record<string, string> = {};
@@ -732,7 +742,7 @@ export default function DailyEntry({
                 toast.error(t("Could not save entry", "प्रविष्टि सहेजी नहीं जा सकी"));
                 if (e instanceof RequestError) {
                   const returned = normalizeFieldErrors(e.detail.fieldErrors);
-                  const shown = shownKeys(input.serviceId);
+                  const shown = fieldKeys(input.serviceId);
                   const hasAField = (key: string) =>
                     key === "ward" || shown.has(key);
                   setFields(
@@ -848,6 +858,9 @@ export default function DailyEntry({
                         setDirty(true);
                       }}
                     />
+                    {fields.amountPaise && (
+                      <FieldError>{runtimeText(fields.amountPaise, lang)}</FieldError>
+                    )}
                   </Field>
                 )}
                 {/* Same predicate as the opening strip: a closing balance only

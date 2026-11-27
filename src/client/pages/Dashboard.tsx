@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MonitoringRow } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { collects, isFieldWork, movesPendingBalance } from "../../domain/service-kind";
+import { collects, collectsWorkDone, movesPendingBalance } from "../../domain/service-kind";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
@@ -108,14 +108,14 @@ export default function Dashboard() {
   //   Received, Completed, Pending, Disposal %  the queue figures, kept for
   //     services whose balance moves (movesPendingBalance)
   //   Amount                                    collects(id, "amountPaise")
-  //   Work done                                 field work: its own figure,
-  //     not the "completed" count (isFieldWork)
+  //   Work done                                 work done: its own figure,
+  //     not the "completed" count (collectsWorkDone)
   const pinnedId = service === "" ? null : Number(service);
   const gate = (collected: (id: number) => boolean) => (value: string | number) =>
     pinnedId === null || collected(pinnedId) ? value : "";
   const queueCell = gate(movesPendingBalance);
   const amountCell = gate((id) => collects(id, "amountPaise"));
-  const fieldWorkCell = gate(isFieldWork);
+  const fieldWorkCell = gate(collectsWorkDone);
   // The services that feed a figure, so a note never counts fewer than the
   // figure spans. Counted by what they collect, not by shape: pending spans
   // counter and counterRevenue services, collection spans revenue and
@@ -166,7 +166,7 @@ export default function Dashboard() {
       t("Work done this period", "इस अवधि में किया गया कार्य"),
       fieldWorkCell(totals.workDone),
       spans(
-        isFieldWork,
+        collectsWorkDone,
         (n) => `across ${n} field-work ${n === 1 ? "service" : "services"}`,
         (n) => `${n} क्षेत्रीय कार्य ${n === 1 ? "सेवा" : "सेवाओं"} में`,
         "Field work completed",
