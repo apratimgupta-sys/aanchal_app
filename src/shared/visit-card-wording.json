@@ -1,0 +1,10 @@
+{
+  "8": { "headline": { "number": "quantityKg", "en": "kg lifted", "hi": "किग्रा उठाया" }, "sub": { "split": "wasteType" } },
+  "9": { "headline": { "en": "routes covered", "hi": "मार्ग कवर" }, "sub": { "wards": true } },
+  "10": { "headline": { "number": "dogsPicked", "en": "dogs picked", "hi": "कुत्ते पकड़े" }, "sub": { "number": "dogsNeutered", "en": "neutered", "hi": "का बधियाकरण" } },
+  "13": { "headline": { "en": "jobs", "hi": "कार्य" }, "sub": { "split": "workType" } },
+  "14": { "headline": { "number": "lengthMetres", "en": "metres", "hi": "मीटर" }, "sub": { "split": "structureType" } },
+  "15": { "headline": { "number": "areaCutSqMetres", "en": "sq metres cut", "hi": "वर्ग मीटर कटाई" }, "sub": { "wards": true } },
+  "16": { "headline": { "number": "treeCount", "en": "trees pruned", "hi": "पेड़ों की छंटाई" }, "sub": { "wards": true } },
+  "17": { "headline": { "en": "sites cleaned", "hi": "स्थल साफ किए" }, "sub": { "wards": true } }
+}

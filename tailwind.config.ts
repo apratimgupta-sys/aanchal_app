@@ -58,6 +58,15 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        chart: {
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+        },
+        ward: {
+          1: "hsl(var(--ward-1))",
+          2: "hsl(var(--ward-2))",
+          3: "hsl(var(--ward-3))",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",

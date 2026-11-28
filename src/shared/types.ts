@@ -119,6 +119,35 @@ export type MonitoringRow = {
   configured: boolean;
   reviewReasons: string[];
 };
+// The Commissioner dashboard's finer breakdowns, each rolled up by the server.
+// A service row carries the raw sums for one service; which of them mean
+// anything for its form shape is decided with the shape rules, not here.
+export type ServiceRow = {
+  serviceId: number;
+  received: number;
+  completed: number;
+  pending: number;
+  disposalPct: number | null;
+  amountPaise: number;
+};
+export type DayRow = { date: string; received: number; completed: number; amountPaise: number };
+// `sum` is over the visits that gave the number; `visits` is how many did.
+export type VisitNumberSummary = { key: string; sum: number; visits: number };
+export type VisitOptionSummary = { value: string; visits: number; numbers: VisitNumberSummary[] };
+export type VisitChoiceSummary = { key: string; options: VisitOptionSummary[] };
+export type VisitServiceSummary = {
+  serviceId: number;
+  visits: number;
+  wardsCovered: number;
+  numbers: VisitNumberSummary[];
+  choices: VisitChoiceSummary[];
+};
+export type VisitSummary = {
+  visits: number;
+  officers: number;
+  services: VisitServiceSummary[];
+  wards: { ward: number; visits: number }[];
+};
 export type Audit = {
   id: string;
   officeId: number;

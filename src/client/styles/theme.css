@@ -24,6 +24,14 @@
   --success-foreground: 0 0% 100%;
   --warning: 36.4 100% 23.9%;  /* #7A4A00 */
   --warning-foreground: 40 88.2% 93.3%;  /* #FDF3DF */
+  /* Charts. Two series colours and a three-step ramp for the ward grid (a ward
+     with no visit takes the card colour). Checked with the palette validator
+     against the card surface: lightness, chroma, colour-blind separation, contrast. */
+  --chart-1: 171.3 81.6% 29.8%;  /* #0E8A78 */
+  --chart-2: 33.3 90.2% 40%;  /* #C2700A */
+  --ward-1: 165.6 35.2% 86.1%;  /* #CFE8E2 */
+  --ward-2: 169.2 36.4% 58%;  /* #6DBBAD */
+  --ward-3: 172.4 79.8% 21.4%;  /* #0B6257 */
   /* Radius. Tailwind derives lg = r, md = r - 2px, sm = r - 4px (tailwind.config.ts).
      Design: cards 10px, controls 7px.
        r = 10px -> lg 10px (cards exact), md 8px (+1), sm 6px (-1).
@@ -52,4 +60,9 @@
   --destructive: 0 70% 56%;
   --success: 145 50% 52%;
   --warning: 34 80% 58%;
+  --chart-1: 170.9 66.8% 36.7%;
+  --chart-2: 33.8 71.1% 46.1%;
+  --ward-1: 171.6 41% 20.6%;
+  --ward-2: 170.3 48.6% 35.1%;
+  --ward-3: 169.5 50.8% 62.5%;
 }
