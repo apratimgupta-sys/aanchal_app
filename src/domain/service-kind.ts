@@ -79,6 +79,17 @@ export function movesPendingBalance(serviceId: number): boolean {
   return shape === "counter" || shape === "counterRevenue";
 }
 
+// Whether the daily entry collects this service at all. The eight field-work
+// services are reported by field officers as visits, so a clerk is not asked for
+// them; everything else is. Derived from the shape, never from a list of ids.
+// Mirrors MonitoringRules.DailyEntryCollects on the server:
+// `!IsFieldWork(id)`. The shape stays and the services stay in the master:
+// visits reference them by id and entries already filed against them must stay
+// readable, so this narrows what the entry form offers and nothing else.
+export function dailyEntryCollects(serviceId: number): boolean {
+  return formShape(serviceId) !== "fieldwork";
+}
+
 // Work done: a completed count with no queue beside it. Asked by what the
 // service collects, not by what shape it is called, so a future shape that
 // collects `completed` alone is summed and shown without anyone remembering to

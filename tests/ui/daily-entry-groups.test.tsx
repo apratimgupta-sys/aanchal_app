@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 // The service list: numbered in list order (not by service id), and grouped
-// under three collapsible headers.
+// under two collapsible headers (the eight field-work services are reported as
+// visits and are not on the daily entry).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
+import services from "../../src/shared/services.json";
+import { FIELD_WORK_IDS, OFFERED_IDS } from "./service-position";
 import DailyEntry from "../../src/client/pages/DailyEntry";
 
 const api = vi.hoisted(() => vi.fn());
@@ -42,11 +45,34 @@ const rows = () => within(list()).getAllByRole("button").filter((b) => !b.hasAtt
 beforeEach(() => cleanup());
 
 describe("service numbering", () => {
-  it("numbers the list 01 to 25 in the order it is shown", async () => {
+  it("numbers the list 01 to 17 in the order it is shown, with no gap", async () => {
     await renderForm();
     expect(rows().map((b) => b.textContent!.slice(0, 2))).toEqual(
-      Array.from({ length: 25 }, (_, i) => String(i + 1).padStart(2, "0")),
+      Array.from({ length: 17 }, (_, i) => String(i + 1).padStart(2, "0")),
     );
+  });
+
+  it("offers exactly the seventeen services, in their relative order", async () => {
+    await renderForm();
+    const name = (id: number) => services.find((s) => s.id === id)!.en;
+    // Each row reads "<number><name><mark>"; the name is what identifies it.
+    expect(rows().map((b) => b.textContent!.slice(2).replace(/[•✓]$/, ""))).toEqual(
+      OFFERED_IDS.map(name),
+    );
+  });
+
+  it("offers none of the eight field-work services", async () => {
+    await renderForm();
+    const shown = rows().map((b) => b.textContent!);
+    for (const id of FIELD_WORK_IDS) {
+      const name = services.find((s) => s.id === id)!.en;
+      expect(shown.some((t) => t.includes(name)), `service ${id}`).toBe(false);
+    }
+  });
+
+  it("states the register's size as 17", async () => {
+    await renderForm();
+    expect(screen.getByText("SERVICE REGISTER").textContent).toMatch(/17$/);
   });
 
   it("shows service 2 as 15, with the same number on the form, and still files it as service 2", async () => {
@@ -64,9 +90,11 @@ describe("service numbering", () => {
 });
 
 describe("collapsible groups", () => {
-  it("opens all three by default, each with a real button wired to its list", async () => {
+  it("opens both by default, each with a real button wired to its list, and no Field work group", async () => {
     await renderForm();
-    for (const name of ["Counter work", "Collections", "Field work"]) {
+    expect(screen.queryByRole("button", { name: "Field work" })).toBeNull();
+    expect(screen.queryByText("Field work")).toBeNull();
+    for (const name of ["Counter work", "Collections"]) {
       const h = header(name);
       expect(h.tagName).toBe("BUTTON");
       expect(h.getAttribute("aria-expanded")).toBe("true");

@@ -69,6 +69,8 @@ describe("the Hindi for server messages", () => {
     "Select a valid role",
     "That username is already taken",
     "Officer not found",
+    // MonitoringRules.ValidateEntry, Task 1 of the field-work change.
+    "Field work is reported by field officers, not on the daily entry",
   ])("has a Hindi key for %s", (message) => {
     const hindi = runtimeText(message, "hi");
     expect(hindi).not.toBe(message);

@@ -134,19 +134,20 @@ describe("switching service with an unsaved draft", () => {
     // schema cannot be satisfied by anything the next shape collects.
     await user.selectOptions(ward(), "Ward 4");
 
-    // Service 9 is field work: one figure, labelled "Routes", and no Received
-    // box for a stale counter rule to complain about.
-    await pick(user, 9);
+    // Service 2 is a collection: payments and money, no Received box for a stale
+    // counter rule to complain about.
+    await pick(user, 2);
     expect(screen.queryByRole("spinbutton", { name: "Received" })).toBeNull();
 
     await user.selectOptions(ward(), "Ward 9");
-    await user.type(number("Routes"), "4");
+    await user.type(number("Payments"), "4");
+    await user.type(screen.getByLabelText(/^amount collected/i), "10");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
 
     const input = await filed();
-    expect(input.serviceId).toBe(9);
-    expect(input.completed).toBe(4);
-    expect(input.received).toBe(0);
+    expect(input.serviceId).toBe(2);
+    expect(input.received).toBe(4);
+    expect(input.completed).toBe(0);
     // Not "Please correct the highlighted fields" with nothing highlighted.
     expect(screen.queryByText(/correct the highlighted fields/i)).toBeNull();
   });

@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import services from "../../src/shared/services.json";
-import { collectedFields, collects, formShape, collectsWorkDone, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
+import { collectedFields, collects, formShape, collectsWorkDone, dailyEntryCollects, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
 
 describe("what kind of work a service is", () => {
   // From the Service Master's Primary Monitoring Unit column, not hand-listed:
@@ -98,5 +99,37 @@ describe("what kind of work a service is", () => {
     expect(shapeOf([2, 5, 6])).toEqual(["revenue", "revenue", "revenue"]);
     expect(shapeOf([8, 9, 10, 13, 14, 15, 16, 17]).every((s) => s === "fieldwork")).toBe(true);
     expect(shapeOf([18, 19, 20, 21, 22, 23, 24, 25]).every((s) => s === "counter")).toBe(true);
+  });
+});
+
+// Mirrors the server's DailyEntryCollects(id) => !IsFieldWork(id). The expected
+// sets are written out here on purpose: they are the oracle the derivation is
+// held against, not something the derivation may be copied from.
+describe("which services the daily entry collects", () => {
+  it("collects the seventeen that are not field work", () => {
+    const found = services.map((s) => s.id).filter(dailyEntryCollects);
+    expect(found).toEqual([1, 2, 3, 4, 5, 6, 7, 11, 12, 18, 19, 20, 21, 22, 23, 24, 25]);
+  });
+
+  it("does not collect the eight that are reported as visits", () => {
+    for (const id of [8, 9, 10, 13, 14, 15, 16, 17]) expect(dailyEntryCollects(id), `service ${id}`).toBe(false);
+  });
+
+  it("leaves the field-work shape in place, so a filed entry stays readable", () => {
+    for (const id of [8, 9, 10, 13, 14, 15, 16, 17]) {
+      expect(formShape(id)).toBe("fieldwork");
+      expect(collectedFields(id)).toEqual(["completed"]);
+    }
+  });
+
+  // A literal list of the eight is behaviourally correct today and drifts the day
+  // a service changes shape, so no behavioural test can catch it. The server has
+  // the same scan over its own predicate.
+  it("derives the rule from the shape and spells out no service id", () => {
+    const source = readFileSync(new URL("../../src/domain/service-kind.ts", import.meta.url), "utf8");
+    const body = source.match(/export function dailyEntryCollects\([^)]*\)[^{]*\{([^}]*)\}/)?.[1];
+    expect(body, "dailyEntryCollects not found").toBeDefined();
+    expect(body).toContain("formShape(");
+    expect(body).not.toMatch(/\d/);
   });
 });

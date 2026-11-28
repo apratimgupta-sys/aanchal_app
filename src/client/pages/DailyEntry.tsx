@@ -41,6 +41,7 @@ import { WARD_MAX, WARD_MIN } from "../../domain/visit";
 import {
   collectedFields,
   collects,
+  dailyEntryCollects,
   formShape,
   movesPendingBalance,
 } from "../../domain/service-kind";
@@ -228,8 +229,7 @@ const groupLabel = {
   revenue: ["Collections", "संग्रह"],
   fieldwork: ["Field work", "क्षेत्रीय कार्य"],
 } as const;
-const GROUPS = ["counter", "revenue", "fieldwork"] as const;
-type Group = (typeof GROUPS)[number];
+type Group = keyof typeof groupLabel;
 // The list has three groups, not four: a service that has a queue sits under
 // Counter work whether or not it also takes a fee. Services 1, 3, 4 and 7 were
 // counter services before they began to collect an amount, and moving them to a
@@ -253,11 +253,22 @@ function groupOf(serviceId: number): Group {
     }
   }
 }
+// What the entry form offers: the services the daily entry collects, in master
+// order. The field-work services are reported as visits and are not here; they
+// stay in the service master and keep their shape, so entries already filed
+// against them stay readable, but the clerk is never offered them.
+const OFFERED = services.filter((s) => dailyEntryCollects(s.id));
+// The groups that have anything to show, in heading order. Derived from what is
+// offered rather than listed, so the Field work heading goes when its services
+// do, and returns by itself if the rule ever lets one back in.
+const GROUPS = (["counter", "revenue", "fieldwork"] as const).filter((g) =>
+  OFFERED.some((s) => groupOf(s.id) === g),
+);
 // The list is grouped, so a service's place in it is not its id. The clerk
-// reads the place (01 to 25, in list order); the id stays what is stored and
+// reads the place (01 to 17, in list order); the id stays what is stored and
 // sent. Display only: nothing keyed on a service id reads this.
 const displayNumber = new Map<number, string>(
-  GROUPS.flatMap((g) => services.filter((s) => groupOf(s.id) === g)).map((s, i) => [
+  GROUPS.flatMap((g) => OFFERED.filter((s) => groupOf(s.id) === g)).map((s, i) => [
     s.id,
     String(i + 1).padStart(2, "0"),
   ]),
@@ -292,7 +303,7 @@ export default function DailyEntry({
   const [date, setDate] = useState(
       mode === "today" ? today : backdateAvailable ? latestBackdate : startDate,
     ),
-    [selected, setSelected] = useState(1),
+    [selected, setSelected] = useState(OFFERED[0].id),
     [data, setData] = useState<Payload | null>(null),
     [editingEntry, setEditingEntry] = useState(false),
     [input, setInput] = useState<EntryInput>(blank(date, selected)),
@@ -513,7 +524,7 @@ export default function DailyEntry({
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(15rem,19rem)_minmax(0,1fr)]">
         <Panel className="flex flex-col overflow-hidden p-0 sm:p-0 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)]">
           <div className={`flex justify-between border-b border-border bg-muted px-4 py-3 ${eyebrow}`}>
-            {t("SERVICE REGISTER", "सेवा सूची")} <span>25</span>
+            {t("SERVICE REGISTER", "सेवा सूची")} <span>{OFFERED.length}</span>
           </div>
           <ul
             className="m-0 grid max-h-[15rem] list-none gap-3 overflow-y-auto p-2 lg:max-h-none lg:flex-1"
@@ -545,7 +556,7 @@ export default function DailyEntry({
                 </h2>
                 <div id={panelId} hidden={!isOpen}>
                 <ul className="m-0 grid list-none gap-0.5 p-0">
-                  {services
+                  {OFFERED
                     .filter((s) => groupOf(s.id) === group)
                     .map((s) => (
                   <li key={s.id}>

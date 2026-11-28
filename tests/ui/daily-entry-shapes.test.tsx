@@ -135,11 +135,6 @@ describe("the counter, revenue and field-work shapes", () => {
     ]);
   });
 
-  it("shows a field-work service one work-done figure and no money", async () => {
-    await renderFor(15);
-    expect(labels()).toEqual(["Ward", "Sites", "Remarks"]);
-  });
-
   it("asks the grievance service as a counter service", async () => {
     await renderFor(12);
     expect(labels()).toEqual([
@@ -151,7 +146,7 @@ describe("the counter, revenue and field-work shapes", () => {
   });
 
   it("shows no retired field on any shape", async () => {
-    for (const id of [1, 11, 2, 15]) {
+    for (const id of [1, 11, 2]) {
       await renderFor(id);
       for (const gone of [
         "SLA Within Time",
@@ -167,63 +162,17 @@ describe("the counter, revenue and field-work shapes", () => {
     }
   });
 
-  it("labels work done per service", async () => {
-    for (const [id, label] of [
-      [8, "Trips"],
-      [9, "Routes"],
-      [10, "Animals picked up"],
-      [13, "Repairs"],
-      [14, "Works"],
-      [15, "Sites"],
-      [16, "Sites"],
-      [17, "Routes"],
-    ] as const) {
-      await renderFor(id);
-      expect(labels()).toContain(label);
-    }
-  });
-
   it("shows the opening pending strip on the services that have a queue only", async () => {
     await renderFor(11);
     expect(screen.getByText("Opening pending")).toBeTruthy();
     await renderFor(2);
     expect(screen.queryByText("Opening pending")).toBeNull();
-    await renderFor(15);
+    await renderFor(5);
     expect(screen.queryByText("Opening pending")).toBeNull();
   });
 });
 
 describe("what goes over the wire", () => {
-  it("sends zero, never null, for a field the shape hides", async () => {
-    const user = await renderFor(15);
-    await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^sites\b/i), "4");
-    await submitEntry(user);
-    const { input } = await sentOverTheWire("POST");
-    expect(input).toMatchObject({
-      received: 0,
-      completed: 4,
-      slaWithinTime: 0,
-      complaintsReceived: 0,
-      complaintsResolved: 0,
-      fieldReceived: 0,
-      fieldCompleted: 0,
-      amountPaise: 0,
-      remarks: "",
-    });
-    for (const k of [
-      "received",
-      "completed",
-      "slaWithinTime",
-      "complaintsReceived",
-      "complaintsResolved",
-      "fieldReceived",
-      "fieldCompleted",
-      "amountPaise",
-    ])
-      expect(input[k]).not.toBeNull();
-  });
-
   it("sends zero for the counter shape's hidden fields and money", async () => {
     const user = await renderFor(11);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
@@ -285,14 +234,15 @@ describe("correcting an entry filed before the change", () => {
 
   // Review Focus 3. The correction path loads a saved entry into form state and
   // resends it whole, so a hidden field must survive the round trip untouched.
-  // Zeroing a historical field-work entry's Received would change the
-  // commissioner's register and the disposal-percentage denominator.
+  // Zeroing a historical entry's hidden SLA or complaint counts would change the
+  // commissioner's register. (Field-work entries are no longer corrected here:
+  // the daily entry does not offer those services, and the server refuses it.)
   it("keeps a pre-cutover entry's hidden values when correcting it", async () => {
-    const user = await renderFor(15, [preCutoverEntry(15)]);
+    const user = await renderFor(11, [preCutoverEntry(11)]);
     await startCorrection(user);
-    const sites = screen.getByLabelText(/^sites\b/i);
-    await user.clear(sites);
-    await user.type(sites, "6");
+    const disposed = screen.getByLabelText(/^disposed\b/i);
+    await user.clear(disposed);
+    await user.type(disposed, "6");
     await user.click(screen.getByRole("button", { name: /save correction/i }));
     const { input } = await sentOverTheWire("PUT");
     expect(input).toMatchObject({
@@ -311,11 +261,10 @@ describe("correcting an entry filed before the change", () => {
   // The dead end the review enumerated, once per shape: a stored hidden figure
   // must not be able to refuse a correction to the figure the office can see.
   // Counter lowers Disposed below the stored slaWithinTime of 4; revenue lowers
-  // Payments below the stored completed of 5; field work lowers Work done.
+  // Payments below the stored completed of 5.
   it.each([
     [11, /^disposed\b/i, "3", { completed: 3, received: 7 }],
     [2, /^payments\b/i, "3", { received: 3, completed: 5 }],
-    [15, /^sites\b/i, "2", { completed: 2, received: 7 }],
   ] as const)(
     "lowers the visible figure on service %i without a dead end",
     async (serviceId, label, typed, expected) => {
@@ -342,14 +291,14 @@ describe("correcting an entry filed before the change", () => {
   );
 
   it("is not blocked by a cross-field rule on a field the shape hides", async () => {
-    // Saved slaWithinTime is 4; correcting work done to 2 trips the retired
+    // Saved slaWithinTime is 4; correcting disposed to 2 trips the retired
     // "within SLA cannot exceed completed" rule, whose message has nowhere to
     // render on this shape.
-    const user = await renderFor(15, [preCutoverEntry(15)]);
+    const user = await renderFor(11, [preCutoverEntry(11)]);
     await startCorrection(user);
-    const sites = screen.getByLabelText(/^sites\b/i);
-    await user.clear(sites);
-    await user.type(sites, "2");
+    const disposed = screen.getByLabelText(/^disposed\b/i);
+    await user.clear(disposed);
+    await user.type(disposed, "2");
     await user.click(screen.getByRole("button", { name: /save correction/i }));
     const { input } = await sentOverTheWire("PUT");
     expect(input).toMatchObject({ completed: 2, slaWithinTime: 4 });
@@ -359,7 +308,7 @@ describe("correcting an entry filed before the change", () => {
 
 describe("a server error on a field the form does not render", () => {
   it("is shown in full rather than highlighting nothing", async () => {
-    const user = await renderFor(15);
+    const user = await renderFor(11);
     api.mockImplementation(async (_path: string, method = "GET") => {
       if (method === "GET") return { setup: null, entries: [], openings: [] };
       throw new RequestError("Please correct the highlighted fields", {
@@ -370,7 +319,8 @@ describe("a server error on a field the form does not render", () => {
       });
     });
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^sites\b/i), "4");
+    await user.type(screen.getByLabelText(/^received\b/i), "4");
+    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
     await submitEntry(user);
     // The key the form does render still highlights its own field.
     await waitFor(() =>
@@ -385,7 +335,7 @@ describe("a server error on a field the form does not render", () => {
   });
 
   it("names the nothing-to-report flag rather than printing its key", async () => {
-    const user = await renderFor(15);
+    const user = await renderFor(11);
     api.mockImplementation(async (_path: string, method = "GET") => {
       if (method === "GET") return { setup: null, entries: [], openings: [] };
       throw new RequestError("Please correct the highlighted fields", {
@@ -396,7 +346,8 @@ describe("a server error on a field the form does not render", () => {
       });
     });
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^sites\b/i), "4");
+    await user.type(screen.getByLabelText(/^received\b/i), "4");
+    await user.type(screen.getByLabelText(/^disposed\b/i), "3");
     await submitEntry(user);
     const shown = await screen.findByText(/cannot be combined with reported/i);
     expect(shown.textContent).toContain("Nothing to report");
@@ -546,7 +497,7 @@ describe("a service that collects a queue and money together", () => {
     const group = screen.getByRole("button", { name: /counter work/i });
     const panel = document.getElementById(group.getAttribute("aria-controls")!)!;
     expect(panel.textContent).toContain("01");
-    expect(screen.getAllByRole("heading", { level: 2 }).filter((h) => h.querySelector("button")).length).toBe(3);
+    expect(screen.getAllByRole("heading", { level: 2 }).filter((h) => h.querySelector("button")).length).toBe(2);
     expect(document.querySelector("form")?.closest("section, div")?.textContent).toContain("Counter work");
   });
 });

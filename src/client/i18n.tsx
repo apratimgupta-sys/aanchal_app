@@ -116,6 +116,12 @@ const runtimeHindi: Record<string, string> = {
   "Select a valid role": "वैध भूमिका चुनें",
   "That username is already taken": "यह उपयोगकर्ता नाम पहले से लिया जा चुका है",
   "Officer not found": "अधिकारी नहीं मिला",
+  // MonitoringRules.ValidateEntry: a daily entry for a field-work service. Drafted,
+  // not settled; waits on RMC's reviewer. Field officer = क्षेत्रीय अधिकारी (the
+  // officer role elsewhere), field work = क्षेत्रीय कार्य (the group heading the
+  // entry list used), daily entry = दैनिक प्रविष्टि (as in the deactivation notice).
+  "Field work is reported by field officers, not on the daily entry":
+    "क्षेत्रीय कार्य की रिपोर्ट क्षेत्रीय अधिकारी देते हैं, दैनिक प्रविष्टि में नहीं",
 };
 export function runtimeText(text: string, lang: Lang) {
   if (lang === "en") return text;
