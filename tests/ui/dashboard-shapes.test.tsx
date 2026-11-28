@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Language } from "../../src/client/i18n";
 import Dashboard from "../../src/client/pages/Dashboard";
 import { auditComparison, auditFields } from "../../src/client/audit";
+import { FIELD_WORK_IDS, OFFERED_IDS } from "./service-position";
 import type { MonitoringRow } from "../../src/shared/types";
 
 const api = vi.hoisted(() => vi.fn());
@@ -92,16 +93,22 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(within(table).queryByText("9")).toBeNull();
   });
 
-  it("shows work done for the period", async () => {
+  it("has no work-done tile, in either language", async () => {
+    // The clerk no longer reports field work, so the figure would read zero from
+    // the cutover, and on this page a zero says "no work was done". The row still
+    // carries workDone (the server computes it), so 22 must not reach the screen.
     mockApi([row({ workDone: 18 }), row({ officeId: 2, workDone: 4 })]);
     await renderDashboard();
-    const tile = screen.getByText("Work done this period").closest("[data-metric]");
-    expect(tile).not.toBeNull();
-    expect(within(tile as HTMLElement).getByText("22")).toBeTruthy();
+    expect(screen.queryByText("Work done this period")).toBeNull();
+    expect(document.querySelectorAll("[data-metric]")).toHaveLength(3);
+    expect(screen.queryByText(/field-work service/)).toBeNull();
+    expect(screen.queryByText("Field work completed")).toBeNull();
     cleanup();
     mockApi([row({ workDone: 18 })]);
     await renderDashboard("hi");
-    expect(screen.getByText("इस अवधि में किया गया कार्य")).toBeTruthy();
+    expect(screen.queryByText("इस अवधि में किया गया कार्य")).toBeNull();
+    expect(document.querySelectorAll("[data-metric]")).toHaveLength(3);
+    expect(screen.queryByText(/क्षेत्रीय कार्य सेवा/)).toBeNull();
   });
 
   it("no longer labels one column as requests or transactions", async () => {
@@ -134,27 +141,32 @@ describe("commissioner dashboard after the form shapes", () => {
     ).toEqual([{ key: "complaintsReceived", before: 3, after: 4 }]);
   });
 
-  it("gives field work a column of its own, with a total", async () => {
-    // workDone is on every row already; without a column the commissioner can
-    // only see it summed across all six Anchals, and cannot compare them.
+  it("has no work-done column, in either language, and keeps the other six", async () => {
     mockApi([row({ workDone: 18 }), row({ officeId: 2, workDone: 4 })]);
     await renderDashboard();
     const table = labelledTable(/anchal-wise performance table/i);
-    expect(headers(table)).toContain("Work done");
-    const column = headers(table).indexOf("Work done");
-    const cells = Array.from(table.querySelectorAll("tbody tr")).map(
-      (tr) => Array.from(tr.querySelectorAll("td"))[column].textContent,
-    );
-    expect(cells).toEqual(["18", "4"]);
-    expect(
-      Array.from(table.querySelectorAll("tfoot td"))[column].textContent,
-    ).toBe("22");
+    expect(headers(table)).toEqual([
+      "Anchal",
+      "Received",
+      "Completed",
+      "Pending",
+      "Disposal %",
+      "Amount Collected (₹)",
+    ]);
+    // Every row and the totals row have one cell per remaining header, and none
+    // of them carries the work-done figures (18, 4 or their total 22).
+    for (const tr of Array.from(table.querySelectorAll("tbody tr, tfoot tr")))
+      expect(tr.querySelectorAll("td")).toHaveLength(6);
+    const text = (table.textContent ?? "").replace(/₹[\d,.]+/g, "");
+    for (const gone of ["18", "22"]) expect(text, gone).not.toContain(gone);
+    expect(Array.from(table.querySelectorAll("td")).map((td) => td.getAttribute("data-label"))).not.toContain("Work done");
     cleanup();
     mockApi([row()]);
     await renderDashboard("hi");
-    expect(
-      headers(labelledTable(/अंचलवार प्रदर्शन तालिका/i)),
-    ).toContain("किया गया कार्य");
+    const hi = labelledTable(/अंचलवार प्रदर्शन तालिका/i);
+    expect(headers(hi)).toEqual(["अंचल", "प्राप्त", "पूर्ण", "लंबित", "निस्तारण %", "संग्रहित राशि (₹)"]);
+    expect(headers(hi)).not.toContain("किया गया कार्य");
+    expect(hi.querySelectorAll("tfoot td")).toHaveLength(6);
   });
 
   it("blanks the counter-only cells when filtered to a non-counter service", async () => {
@@ -162,10 +174,10 @@ describe("commissioner dashboard after the form shapes", () => {
     // Disposal are not collected at all. A zero would read as "nobody did
     // anything", which is a different and untrue statement — the same reason
     // the register leaves Opening Pending blank for these shapes.
-    mockApi([row({ received: 0, completed: 0, pending: 0, disposalPct: null, workDone: 18 })]);
+    mockApi([row({ received: 0, completed: 0, pending: 0, disposalPct: null })]);
     await renderDashboard();
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
+    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "2"); // revenue
     const table = labelledTable(/anchal-wise performance table/i);
     const index = (name: string) => headers(table).indexOf(name);
     const bodyCell = (name: string) =>
@@ -179,54 +191,13 @@ describe("commissioner dashboard after the form shapes", () => {
       expect(bodyCell(blank), `${blank} body cell`).toBe("");
       expect(footCell(blank), `${blank} total`).toBe("");
     }
-    // What the service does collect still shows. Field work collects no money,
-    // so its amount is blank too (see the field-work amount test below).
-    expect(bodyCell("Work done")).toBe("18");
-  });
-
-  it("blanks the work done column when the filter pins a service that is not field work", async () => {
-    // The inverse of the ruling above, and the same misreading: a 0 here says
-    // no field work was done, when field work is not collected for a counter
-    // or revenue service at all.
-    mockApi([row({ workDone: 0 })]);
-    await renderDashboard();
-    const user = userEvent.setup();
-    const table = labelledTable(/anchal-wise performance table/i);
-    const column = () => headers(table).indexOf("Work done");
-    const body = () =>
-      Array.from(
-        Array.from(table.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
-      )[column()].textContent;
-    const foot = () =>
-      Array.from(table.querySelectorAll("tfoot td"))[column()].textContent;
-
-    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "1");
-    await waitFor(() => expect(body()).toBe(""));
-    expect(foot(), "the total too").toBe("");
-
-    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "2");
-    await waitFor(() => expect(body()).toBe(""));
-
-    // Pinned to field work it is the one figure that means something.
-    cleanup();
-    mockApi([row({ workDone: 7 })]);
-    await renderDashboard();
-    const user2 = userEvent.setup();
-    await user2.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
-    const table2 = labelledTable(/anchal-wise performance table/i);
-    const index = headers(table2).indexOf("Work done");
-    await waitFor(() =>
-      expect(
-        Array.from(
-          Array.from(table2.querySelectorAll("tbody tr"))[0].querySelectorAll("td"),
-        )[index].textContent,
-      ).toBe("7"),
-    );
+    // What the service does collect still shows: a revenue service takes money.
+    expect(bodyCell("Amount Collected (₹)")).toBe("₹2,500.00");
   });
 
   it("blanks a tile whose figure the pinned service does not collect", async () => {
     // One row above the table, the same reading: Total pending 0 and Disposal —
-    // for a field-work service, Amount Collected ₹0.00 for anything but revenue.
+    // for a revenue service, Amount Collected ₹0.00 for anything but revenue.
     const tile = (label: string) => {
       const found = screen.getByText(label).closest("[data-metric]") as HTMLElement;
       return {
@@ -244,20 +215,12 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(tile("Total pending").value).toBe("12");
     expect(tile("Disposal").value).toBe("75.0%");
     expect(tile("Total collection").value).toBe("₹2,500.00");
-    expect(tile("Work done this period").value).toBe("18");
-
-    await pin("8"); // field work
-    await waitFor(() => expect(tile("Total pending").value).toBe(""));
-    expect(tile("Disposal").value).toBe("");
-    expect(tile("Disposal").note, "the ratio behind it goes too").toBe("");
-    expect(tile("Total collection").value).toBe("");
-    expect(tile("Work done this period").value).toBe("18");
 
     await pin("2"); // revenue
-    await waitFor(() => expect(tile("Total collection").value).toBe("₹2,500.00"));
-    expect(tile("Total pending").value).toBe("");
+    await waitFor(() => expect(tile("Total pending").value).toBe(""));
+    expect(tile("Total collection").value).toBe("₹2,500.00");
     expect(tile("Disposal").value).toBe("");
-    expect(tile("Work done this period").value).toBe("");
+    expect(tile("Disposal").note, "the ratio behind it goes too").toBe("");
 
     // A plain counter service. This was service 1 until it began to collect an
     // amount: it is now a counterRevenue service, for which "Total collection"
@@ -267,7 +230,6 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(tile("Disposal").value).toBe("75.0%");
     expect(tile("Disposal").note).toBe("30 / 40");
     expect(tile("Total collection").value).toBe("");
-    expect(tile("Work done this period").value).toBe("");
   });
 
   it("keeps the counter cells when filtered to a counter service", async () => {
@@ -313,8 +275,7 @@ describe("commissioner dashboard after the form shapes", () => {
       await renderDashboard();
       const user = userEvent.setup();
       await user.selectOptions(screen.getByLabelText("Service", { exact: true }), id);
-      await waitFor(() => expect(tileOf("Work done this period").value).toBe(""));
-      expect(tileOf("Total pending").value).toBe("12");
+      await waitFor(() => expect(tileOf("Total pending").value).toBe("12"));
       expect(tileOf("Disposal").value).toBe("75.0%");
       expect(tileOf("Disposal").note).toBe("30 / 40");
       expect(tileOf("Total collection").value).toBe("₹2,500.00");
@@ -329,8 +290,6 @@ describe("commissioner dashboard after the form shapes", () => {
         expect(cellsOf(name).body, `${name} body`).toEqual([shown]);
         expect(cellsOf(name).foot, `${name} total`).toBe(shown);
       }
-      // Field work is the one thing it does not collect.
-      expect(cellsOf("Work done").body).toEqual([""]);
     },
   );
 
@@ -364,21 +323,11 @@ describe("commissioner dashboard after the form shapes", () => {
     expect(cellsOf("Amount Collected (₹)").body).toEqual(["₹2,500.00"]);
   });
 
-  it("leaves the amount blank when pinned to field work, which collects no money", async () => {
-    mockApi([row({ amountPaise: 0 })]);
-    await renderDashboard();
-    const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Service", { exact: true }), "8");
-    await waitFor(() => expect(cellsOf("Amount Collected (₹)").body).toEqual([""]));
-    expect(cellsOf("Amount Collected (₹)").foot).toBe("");
-  });
-
   it("leaves the unpinned table unchanged", async () => {
     mockApi([row()]);
     await renderDashboard();
     expect(cellsOf("Received").body).toEqual(["40"]);
     expect(cellsOf("Pending").body).toEqual(["12"]);
-    expect(cellsOf("Work done").body).toEqual(["18"]);
     expect(cellsOf("Amount Collected (₹)").body).toEqual(["₹2,500.00"]);
     expect(cellsOf("Amount Collected (₹)").foot).toBe("₹2,500.00");
   });
@@ -392,7 +341,6 @@ describe("commissioner dashboard after the form shapes", () => {
       await renderDashboard();
       expect(tileOf("Total pending").note).toBe("across 14 services with a pending balance");
       expect(tileOf("Total collection").note).toBe("across 7 services that collect an amount");
-      expect(tileOf("Work done this period").note).toBe("across 8 field-work services");
     });
 
     it("says it in Hindi with the plural the count needs", async () => {
@@ -410,5 +358,103 @@ describe("commissioner dashboard after the form shapes", () => {
       await waitFor(() => expect(tileOf("Total pending").note).toBe("Closing balance"));
       expect(tileOf("Total collection").note).toBe("Actual collection");
     });
+  });
+});
+
+describe("the dashboard once the daily entry no longer collects field work", () => {
+  const serviceSelect = () => screen.getByLabelText("Service", { exact: true }) as HTMLSelectElement;
+  const optionIds = () =>
+    Array.from(serviceSelect().options)
+      .map((o) => o.value)
+      .filter((v) => v !== "")
+      .map(Number);
+
+  it("offers the seventeen the daily entry collects, in the service master's order, and none of the eight", async () => {
+    mockApi([row()]);
+    await renderDashboard();
+    // Compared with a hand-written list (service-position.ts), never with the
+    // implementation's own predicate, so a filter and a predicate that drifted
+    // together would still be caught.
+    expect(optionIds()).toEqual([...OFFERED_IDS].sort((a, b) => a - b));
+    expect(optionIds()).toHaveLength(17);
+    for (const id of FIELD_WORK_IDS) expect(optionIds(), `service ${id}`).not.toContain(id);
+  });
+
+  it("names the count it offers, in both languages", async () => {
+    mockApi([row()]);
+    await renderDashboard();
+    expect(within(serviceSelect()).getByRole("option", { name: "All 17 services" })).toBeTruthy();
+    expect(screen.queryByText("All 25 services")).toBeNull();
+    cleanup();
+    mockApi([row()]);
+    await renderDashboard("hi");
+    const hi = screen.getByLabelText("सेवा", { exact: true }) as HTMLSelectElement;
+    expect(within(hi).getByRole("option", { name: "सभी 17 सेवाएँ" })).toBeTruthy();
+    expect(within(hi).queryByRole("option", { name: "सभी 25 सेवाएँ" })).toBeNull();
+  });
+
+  it("shows the server's filed count as it comes, over a range that spans the cutover", async () => {
+    // Before the cutover Anchal 1 filed field-work entries as well; after it,
+    // none. The server counts only the services the entry collects, so over four
+    // days (17 a day = 68) an office that filed everything reads 68 / 68, and an
+    // office with three services missing reads 65 / 68. The page repeats those
+    // figures: it neither recomputes them nor lets the stored workDone (a sum
+    // across the cutover that mixes the two regimes) onto the screen.
+    mockApi([
+      row({ officeId: 1, submitted: 68, expected: 68, workDone: 31 }),
+      row({ officeId: 2, submitted: 65, expected: 68, workDone: 0 }),
+      row({ officeId: 3, submitted: 0, expected: 68, workDone: 0 }),
+    ]);
+    await renderDashboard();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("View", { exact: true }), "range");
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-01-01" } });
+    await waitFor(() => expect(api.mock.calls.some((c) => String(c[0]).includes("from=2026-01-01"))).toBe(true));
+    const filed = screen.getByRole("heading", { name: "Filing status" }).closest("section")!;
+    const item = (n: number) => within(filed).getByText(`Anchal ${n}`).closest("li")!;
+    await waitFor(() => expect(item(1).textContent).toContain("68 / 68"));
+    expect(item(1).textContent).toContain("Filed");
+    expect(item(2).textContent).toContain("65 / 68");
+    expect(item(2).textContent).toContain("Partly filed");
+    expect(item(3).textContent).toContain("Not filed");
+    expect(screen.getByText(/133 \/ 204/).closest("[data-report-count]")).not.toBeNull();
+    // 31 is Anchal 1's pre-cutover field work. Nowhere on the page.
+    expect(document.body.textContent).not.toMatch(/\b31\b/);
+    expect(screen.queryByText("Work done")).toBeNull();
+    // The request carries no per-service restriction a stale field could add.
+    expect(api.mock.calls.every((c) => !String(c[0]).includes("serviceId"))).toBe(true);
+  });
+
+  it("does not throw on a spanning range whose rows carry only field-work history", async () => {
+    // A range wholly before the cutover, pinned nowhere: all the figures are
+    // historical field work, workDone large, the queue figures zero. Whatever the
+    // server sends, the page renders its six columns and the three tiles.
+    mockApi([row({ received: 0, completed: 0, pending: 0, disposalPct: null, amountPaise: 0, workDone: 412, submitted: 0, expected: 34 })]);
+    await renderDashboard();
+    const table = labelledTable(/anchal-wise performance table/i);
+    expect(table.querySelectorAll("tbody td")).toHaveLength(6);
+    expect(document.body.textContent).not.toContain("412");
+  });
+
+  it("reads an office whose only unfiled services were field work as fully filed", async () => {
+    // Anchal 1 filed all seventeen collected services and none of the eight. With
+    // a denominator of 25 that read 17 / 25, "Partly filed"; the server now
+    // expects 17, so the row arrives as 17 / 17.
+    mockApi([row({ officeId: 1, submitted: 17, expected: 17, workDone: 0 })]);
+    await renderDashboard();
+    const filed = screen.getByRole("heading", { name: "Filed today" }).closest("section")!;
+    const item = within(filed).getByText("Anchal 1").closest("li")!;
+    expect(item.textContent).toContain("17 / 17");
+    expect(item.textContent).toContain("Filed");
+    expect(item.textContent).not.toContain("Partly filed");
+    expect(item.textContent).not.toContain("Not filed");
+    expect(document.querySelector("[data-report-count]")!.textContent).toContain("17 / 17");
+    cleanup();
+    mockApi([row({ officeId: 1, submitted: 17, expected: 17, workDone: 0 })]);
+    await renderDashboard("hi");
+    const filedHi = screen.getByRole("heading", { name: "आज दर्ज" }).closest("section")!;
+    const itemHi = within(filedHi).getByText("अंचल 1").closest("li")!;
+    expect(itemHi.textContent).toContain("17 / 17");
+    expect(itemHi.textContent).not.toContain("आंशिक दर्ज");
   });
 });

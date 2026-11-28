@@ -135,6 +135,20 @@ describe("Dashboard source", () => {
     expect(src).not.toMatch(/legacy-ui/);
     expect(src).toMatch(/from "\.\.\/ui"/);
   });
+  it("derives the services it offers from dailyEntryCollects, never from a list of ids", () => {
+    const line = src.split("\n").find((l) => l.startsWith("const OFFERED"));
+    expect(line, "OFFERED not found").toBeDefined();
+    expect(line).toMatch(/services\.filter\(\(s\) => dailyEntryCollects\(s\.id\)\)/);
+    expect(line).not.toMatch(/\d/);
+    expect(src).not.toMatch(/\b8,\s*9,\s*10\b/);
+  });
+  it("lays three tiles out in three columns, not four with a hole in the fourth", () => {
+    // Measured at 1600px: the grid was xl:grid-cols-4 for four tiles; with three it
+    // left a 372px gap. jsdom does no layout, so the class is what can be pinned.
+    const grid = src.match(/data-metrics="" className="([^"]*)"/)?.[1] ?? "";
+    expect(grid).toMatch(/lg:grid-cols-3/);
+    expect(grid).not.toMatch(/grid-cols-4/);
+  });
   it("uses no class name from the old stylesheets", () => {
     expect(src).not.toMatch(/ux4g-|className="[^"]*(?<![\w:-])(panel|metric|metrics|table-wrap|monitoring-table|details-panel|details-trigger|section-heading|page-heading|status-tag|report-count|review-cell|nowrap|eyebrow)(?![\w-])/);
   });

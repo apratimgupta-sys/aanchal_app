@@ -4,10 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MonitoringRow } from "../../shared/types";
 import services from "../../shared/services.json";
 import { todayIST } from "../../domain/ledger";
-import { collects, collectsWorkDone, movesPendingBalance } from "../../domain/service-kind";
+import { collects, dailyEntryCollects, movesPendingBalance } from "../../domain/service-kind";
 import { api } from "../api";
 import { Language, useText, runtimeText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
+// The services the dashboard can be pinned to: the ones the daily entry collects.
+// A pinned field-work service would have no figure left to show.
+const OFFERED = services.filter((s) => dailyEntryCollects(s.id));
 const currency = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -78,7 +81,6 @@ export default function Dashboard() {
         "completed",
         "pending",
         "amountPaise",
-        "workDone",
         "submitted",
         "expected",
       ] as const)
@@ -90,7 +92,6 @@ export default function Dashboard() {
       completed: 0,
       pending: 0,
       amountPaise: 0,
-      workDone: 0,
       submitted: 0,
       expected: 0,
     },
@@ -108,14 +109,14 @@ export default function Dashboard() {
   //   Received, Completed, Pending, Disposal %  the queue figures, kept for
   //     services whose balance moves (movesPendingBalance)
   //   Amount                                    collects(id, "amountPaise")
-  //   Work done                                 work done: its own figure,
-  //     not the "completed" count (collectsWorkDone)
+  // There is no work-done figure: the daily entry no longer collects field
+  // work, so it would read zero, which says "no work was done". Field work is
+  // reported as visits.
   const pinnedId = service === "" ? null : Number(service);
   const gate = (collected: (id: number) => boolean) => (value: string | number) =>
     pinnedId === null || collected(pinnedId) ? value : "";
   const queueCell = gate(movesPendingBalance);
   const amountCell = gate((id) => collects(id, "amountPaise"));
-  const fieldWorkCell = gate(collectsWorkDone);
   // The services that feed a figure, so a note never counts fewer than the
   // figure spans. Counted by what they collect, not by shape: pending spans
   // counter and counterRevenue services, collection spans revenue and
@@ -162,17 +163,6 @@ export default function Dashboard() {
         "वास्तविक संग्रह",
       ),
     ],
-    [
-      t("Work done this period", "इस अवधि में किया गया कार्य"),
-      fieldWorkCell(totals.workDone),
-      spans(
-        collectsWorkDone,
-        (n) => `across ${n} field-work ${n === 1 ? "service" : "services"}`,
-        (n) => `${n} क्षेत्रीय कार्य ${n === 1 ? "सेवा" : "सेवाओं"} में`,
-        "Field work completed",
-        "पूर्ण क्षेत्रीय कार्य",
-      ),
-    ],
   ];
   // Filing status is about one day. Under any other period the heading must not
   // say "today", so it is named for what it is and the period is printed beneath.
@@ -196,18 +186,14 @@ export default function Dashboard() {
   const perAnchalHeads: [string, boolean][] = [
     [anchalLabel, false],
     // Neutral wording: these are queue figures, so naming transactions
-    // or field work would be wrong.
+    // would be wrong.
     [t("Received", "प्राप्त"), true],
     [t("Completed", "पूर्ण"), true],
     [t("Pending", "लंबित"), true],
     [t("Disposal %", "निस्तारण %"), true],
-    // Field work has no place in the four above, and without a
-    // column of its own it can only be read as a cross-office
-    // total, so no Anchal can be compared with another.
-    [t("Work done", "किया गया कार्य"), true],
     [t("Amount Collected (₹)", "संग्रहित राशि (₹)"), true],
   ];
-  const [hAnchal, hReceived, hCompleted, hPending, hDisposal, hWork, hAmount] = perAnchalHeads.map(([h]) => h);
+  const [hAnchal, hReceived, hCompleted, hPending, hDisposal, hAmount] = perAnchalHeads.map(([h]) => h);
 
   return (
     <div className="grid min-w-0 gap-6">
@@ -316,8 +302,8 @@ export default function Dashboard() {
         <Field className="sm:col-span-2">
           {t("Service", "सेवा")}
           <select value={service} onChange={(e) => setService(e.target.value)}>
-            <option value="">{t("All 25 services", "सभी 25 सेवाएँ")}</option>
-            {services.map((s) => (
+            <option value="">{t(`All ${OFFERED.length} services`, `सभी ${OFFERED.length} सेवाएँ`)}</option>
+            {OFFERED.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.id}. {lang === "hi" ? s.name : s.en}
               </option>
@@ -375,7 +361,7 @@ export default function Dashboard() {
         </ul>
       </Panel>
 
-      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:gap-4">
         {metrics.map(([label, value, note]) => (
           <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
             <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{label}</span>
@@ -429,7 +415,6 @@ export default function Dashboard() {
                 <Td label={hCompleted} className={figure}>{queueCell(r.completed)}</Td>
                 <Td label={hPending} className={figure}>{queueCell(r.pending)}</Td>
                 <Td label={hDisposal} className={figure}>{queueCell(percent(r.disposalPct))}</Td>
-                <Td label={hWork} className={figure}>{fieldWorkCell(r.workDone)}</Td>
                 <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(r.amountPaise))}</Td>
               </tr>
             ))}
@@ -441,7 +426,6 @@ export default function Dashboard() {
               <Td label={hCompleted} className={figure}>{queueCell(totals.completed)}</Td>
               <Td label={hPending} className={figure}>{queueCell(totals.pending)}</Td>
               <Td label={hDisposal} className={figure}>{queueCell(percent(disposal))}</Td>
-              <Td label={hWork} className={figure}>{fieldWorkCell(totals.workDone)}</Td>
               <Td label={hAmount} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(totals.amountPaise))}</Td>
             </tr>
           </tfoot>
