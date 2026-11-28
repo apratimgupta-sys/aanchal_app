@@ -28,7 +28,7 @@ export default function ServiceSection() {
   const scrollRegion = useScrollRegion();
   const [period, setPeriod] = useState<PeriodValue>({ kind: "today", from: "", to: "" });
   const [officeId, setOfficeId] = useState<number | undefined>(undefined);
-  const { data, error } = useSection("services", period, { officeId }, getServiceRows);
+  const { data, range, error } = useSection("services", period, { officeId }, getServiceRows);
 
   // A service the server did not send reads as zeros.
   const sent = new Map((data?.rows ?? []).map((r) => [r.serviceId, r]));
@@ -63,6 +63,7 @@ export default function ServiceSection() {
   return (
     <SectionCard
       id="services"
+      range={range}
       title={t("Service-wise progress", "सेवावार प्रगति")}
       subtitle={t(
         `The ${n} daily services. A blank means the service does not record that figure.`,

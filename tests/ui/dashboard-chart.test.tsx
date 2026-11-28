@@ -342,6 +342,29 @@ describe("the day chart's usability", () => {
     },
   );
 
+  it("keeps the bar tooltip exactly 12 clear of a bar narrower than its cap (26 days)", () => {
+    const n = 26;
+    const days = daysOf(n).map((d, i) => ({
+      date: d.date,
+      values: [i === 0 || i === n - 1 ? 450 : 50],
+    }));
+    show({ kind: "bars", series: one, days });
+    const bars = all("[data-bar]");
+    const rects = all("[data-day]");
+    const box = () => document.querySelector("[data-chart-tooltip] rect")!;
+
+    fireEvent.mouseEnter(rects[0]);
+    const first = barBox(bars[0]);
+    expect(first.right - first.left).toBeLessThan(40);
+    expect(num(box(), "x")).toBeGreaterThanOrEqual(first.right);
+    expect(Math.abs(num(box(), "x") - first.right - 12)).toBeLessThan(0.01);
+    fireEvent.mouseLeave(rects[0]);
+    fireEvent.mouseEnter(rects[n - 1]);
+    const last = barBox(bars[n - 1]);
+    expect(num(box(), "x") + num(box(), "width")).toBeLessThanOrEqual(last.left);
+    expect(Math.abs(last.left - (num(box(), "x") + num(box(), "width")) - 12)).toBeLessThan(0.01);
+  });
+
   it("names the table view on a narrow screen too", async () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
@@ -355,11 +378,11 @@ describe("the day chart's usability", () => {
         .setup()
         .click(screen.getByRole("button", { name: "View as table" }));
 
-      expect(
-        screen
-          .getByRole("table")
-          .closest('[aria-label="Received and disposed per day"]'),
-      ).not.toBeNull();
+      const named = screen
+        .getByRole("table")
+        .closest('[aria-label="Received and disposed per day"]');
+      expect(named).not.toBeNull();
+      expect(named!.getAttribute("role")).toBe("group");
     } finally {
       vi.unstubAllGlobals();
     }

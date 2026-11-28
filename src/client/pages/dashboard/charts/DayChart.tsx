@@ -99,7 +99,7 @@ export default function DayChart({
   const table = (
     <Table
       role="table"
-      containerProps={{ ...scrollRegion(title), "aria-label": title }}
+      containerProps={{ role: "group", ...scrollRegion(title), "aria-label": title }}
     >
       <thead role="rowgroup">
         <tr role="row">
@@ -204,7 +204,7 @@ export default function DayChart({
             role="img"
             aria-label={title}
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-            className="block h-auto w-full min-w-[640px]"
+            className="block h-auto w-full min-w-[960px]"
           >
             {ticks.map((tick) => (
               <g key={tick}>

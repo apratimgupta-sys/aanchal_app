@@ -107,6 +107,19 @@ describe("the field visits section", () => {
     expect(card(stray)).toBeNull();
   });
 
+  it.each([
+    ["en", 1, 1, "1 visit by 1 officer."],
+    ["en", 2, 2, "2 visits by 2 officers."],
+    ["hi", 1, 1, "1 अधिकारी द्वारा 1 निरीक्षण।"],
+    ["hi", 2, 2, "2 अधिकारियों द्वारा 2 निरीक्षण।"],
+  ] as const)("counts one visit and one officer in the singular (%s, %d visits, %d officers)", async (lang, visits, officers, expected) => {
+    route(api, { summary: visitSummary({ visits, officers, wards: [] }) });
+    renderWithin(<FieldVisitsSection />, lang);
+
+    await waitFor(() => expect(document.querySelector("[data-visit-count]")).not.toBeNull());
+    expect(document.querySelector("[data-visit-count]")!.textContent).toContain(expected);
+  });
+
   it("says it in Hindi", async () => {
     renderWithin(<FieldVisitsSection />, "hi");
     await waitFor(() => expect(cards()).toHaveLength(8));

@@ -42,6 +42,15 @@ describe("the Anchal-wise performance section", () => {
     expect(cells(totalRow())).toEqual(["TOTAL", "50", "35", "15", "70.0%", "₹3,500.00"]);
   });
 
+  it("groups the counts in rows and total the Indian way, and leaves a recorded zero and the dash alone", async () => {
+    route(api, { anchals: [anchalRow({ received: 1234, completed: 1000, pending: 234 }), anchalRow({ officeId: 2, received: 0, completed: 0, pending: 0, disposalPct: null })] });
+    await shown();
+
+    expect(cells(bodyRows()[0]).slice(1, 4)).toEqual(["1,234", "1,000", "234"]);
+    expect(cells(bodyRows()[1])).toEqual(["Anchal 2", "0", "0", "0", "—", "₹2,500.00"]);
+    expect(cells(totalRow()).slice(1, 4)).toEqual(["1,234", "1,000", "234"]);
+  });
+
   it("says it in Hindi", async () => {
     route(api, { anchals: [anchalRow()] });
     await shown("hi");

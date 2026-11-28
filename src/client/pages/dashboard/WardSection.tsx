@@ -19,7 +19,7 @@ const shade = (visits: number) => SHADE[Math.min(visits, 3)];
 export default function WardSection() {
   const t = useText();
   const [period, setPeriod] = useState<PeriodValue>({ kind: "today", from: "", to: "" });
-  const { data, error } = useSection("wards", period, {}, getVisitSummary);
+  const { data, range, error } = useSection("wards", period, {}, getVisitSummary);
 
   const numbers = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
   const counts = new Map((data?.wards ?? []).map((w) => [w.ward, w.visits]));
@@ -35,6 +35,7 @@ export default function WardSection() {
   return (
     <SectionCard
       id="wards"
+      range={range}
       title={t("Where the visits were", "निरीक्षण कहाँ हुए")}
       subtitle={
         data
@@ -73,6 +74,7 @@ export default function WardSection() {
                     `वार्ड ${n}, ${visits === 0 ? "कोई निरीक्षण नहीं" : `${visits} निरीक्षण`}`,
                   )}
                 </span>
+                {/* These spans hold digits only, so they take no Hindi line-height lift. */}
                 <span aria-hidden="true" data-ward-number className="text-[13px] leading-[1] [html[lang=hi]_&]:leading-[1]">
                   {n}
                 </span>

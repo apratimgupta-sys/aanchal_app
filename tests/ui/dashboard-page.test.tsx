@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Dashboard from "../../src/client/pages/Dashboard";
 import { anchalRow, paths, renderWithin, route, visitService, visitSummary } from "./dashboard-harness";
 import { FIELD_WORK_IDS } from "./service-position";
+import { rangeLabel } from "../../src/client/pages/dashboard/format";
+import { todayIST } from "../../src/domain/ledger";
+import { periodRange } from "../../src/domain/period";
 
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/api", () => ({ api }));
@@ -98,5 +101,39 @@ describe("the Commissioner's dashboard page", () => {
     expect(paths(api, "/dashboard/days")).toHaveLength(before.days);
     expect(paths(api, "/field-visits/summary")).toHaveLength(before.visits);
     expect(paths(api, "/dashboard/services")).toHaveLength(before.services);
+  });
+
+  describe("each section says which dates it shows", () => {
+    const card = (name: string) => screen.getByRole("heading", { level: 2, name }).closest("section")!;
+    const rangeOf = (name: string) => card(name).querySelector("[data-section-range]")?.textContent;
+    const label = (kind: "today" | "week" | "month") =>
+      rangeLabel(periodRange({ kind, from: "", to: "" }, todayIST()), "en");
+
+    it("opens the Anchal section on today's one date and Collection on the 1st to today", async () => {
+      route(api, { anchals: [anchalRow()] });
+      renderWithin(<Dashboard />);
+      await screen.findByRole("cell", { name: "Anchal 1" });
+
+      expect(rangeOf("Anchal-wise performance")).toBe(label("today"));
+      expect(rangeOf("Anchal-wise performance")).not.toContain("–");
+      expect(rangeOf("Collection")).toBe(label("month"));
+      expect(rangeOf("Collection")).toContain(" – ");
+      for (const name of ["Field visits", "Where the visits were", "Service-wise progress"])
+        expect(rangeOf(name)).toBe(label("today"));
+      expect(rangeOf("Received and disposed")).toBe(label("month"));
+    });
+
+    it("changes only the range of the section whose period was chosen", async () => {
+      route(api, { anchals: [anchalRow()] });
+      renderWithin(<Dashboard />);
+      await screen.findByRole("cell", { name: "Anchal 1" });
+      const names = ["Anchal-wise performance", "Field visits", "Where the visits were", "Service-wise progress", "Collection", "Received and disposed"];
+      const before = names.map(rangeOf);
+
+      await userEvent.setup().click(within(card("Field visits")).getByRole("button", { name: "Past 7 days" }));
+
+      await waitFor(() => expect(rangeOf("Field visits")).toBe(label("week")));
+      expect(names.map(rangeOf)).toEqual(before.map((r, i) => (names[i] === "Field visits" ? label("week") : r)));
+    });
   });
 });

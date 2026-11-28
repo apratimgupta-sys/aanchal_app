@@ -27,6 +27,7 @@ export default function CollectionSection() {
   return (
     <SectionCard
       id="collection"
+      range={range}
       title={t("Collection", "संग्रह")}
       subtitle={t(
         "Amount collected per day: fees on applications and the collections together.",

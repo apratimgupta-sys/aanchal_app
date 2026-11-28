@@ -47,6 +47,7 @@ describe("the where-the-visits-were section", () => {
     expect(ward(3).textContent).toContain("Ward 3, 1 visit");
     expect(ward(24).textContent).toContain("Ward 24, 3 visits");
     expect(ward(24).hasAttribute("aria-label")).toBe(false);
+    expect(ward(3).querySelector(".sr-only")!.textContent).toBe("Ward 3, 1 visit");
     expect(ward(24).querySelector(".sr-only")!.textContent).toBe("Ward 24, 3 visits");
   });
 
@@ -96,6 +97,9 @@ describe("the where-the-visits-were section", () => {
     expect(document.body.textContent).toContain("सभी 53 वार्ड। इस अवधि में 49 वार्डों में कोई निरीक्षण नहीं हुआ।");
     expect(ward(24).textContent).toContain("वार्ड 24, 3 निरीक्षण");
     expect(ward(1).textContent).toContain("वार्ड 1, कोई निरीक्षण नहीं");
+    expect(ward(1).querySelector(".sr-only")!.textContent).toBe("वार्ड 1, कोई निरीक्षण नहीं");
+    expect(ward(3).querySelector(".sr-only")!.textContent).toBe("वार्ड 3, 1 निरीक्षण");
+    expect(ward(24).querySelector(".sr-only")!.textContent).toBe("वार्ड 24, 3 निरीक्षण");
     expect(document.querySelector("[data-ward-legend]")!.textContent).toContain("3 या अधिक");
   });
 });

@@ -9,6 +9,7 @@ import PeriodPicker from "./PeriodPicker";
 import { ServiceFilter } from "./Filters";
 import SectionCard from "./SectionCard";
 import { useSection } from "./useSection";
+import { formatCount } from "../../../domain/visit-cards";
 import { currency, percent, usableStamp } from "./format";
 
 export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) => void }) {
@@ -16,7 +17,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
   const scrollRegion = useScrollRegion();
   const [period, setPeriod] = useState<PeriodValue>({ kind: "today", from: "", to: "" });
   const [serviceId, setServiceId] = useState<number | undefined>(undefined);
-  const { data, error } = useSection("anchals", period, { serviceId }, getAnchalRows);
+  const { data, range, error } = useSection("anchals", period, { serviceId }, getAnchalRows);
   const rows = data?.rows ?? [];
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
   return (
     <SectionCard
       id="anchals"
+      range={range}
       title={t("Anchal-wise performance", "अंचलवार प्रदर्शन")}
       subtitle={t(
         "What each Anchal received, disposed and collected",
@@ -103,9 +105,9 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
               <Td label={hAnchal} className={cardTitle}>
                 {hAnchal} {r.officeId}
               </Td>
-              <Td label={hReceived} className={figure}>{queueCell(r.received)}</Td>
-              <Td label={hDisposed} className={figure}>{queueCell(r.completed)}</Td>
-              <Td label={hPending} className={figure}>{queueCell(r.pending)}</Td>
+              <Td label={hReceived} className={figure}>{queueCell(formatCount(r.received))}</Td>
+              <Td label={hDisposed} className={figure}>{queueCell(formatCount(r.completed))}</Td>
+              <Td label={hPending} className={figure}>{queueCell(formatCount(r.pending))}</Td>
               <Td label={hDisposal} className={figure}>{queueCell(percent(r.disposalPct))}</Td>
               <Td label={hCollected} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(r.amountPaise))}</Td>
             </tr>
@@ -114,9 +116,9 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
         <tfoot role="rowgroup">
           <tr role="row">
             <Td label={hAnchal} className={cardTitle}>{t("TOTAL", "कुल")}</Td>
-            <Td label={hReceived} className={figure}>{queueCell(totals.received)}</Td>
-            <Td label={hDisposed} className={figure}>{queueCell(totals.completed)}</Td>
-            <Td label={hPending} className={figure}>{queueCell(totals.pending)}</Td>
+            <Td label={hReceived} className={figure}>{queueCell(formatCount(totals.received))}</Td>
+            <Td label={hDisposed} className={figure}>{queueCell(formatCount(totals.completed))}</Td>
+            <Td label={hPending} className={figure}>{queueCell(formatCount(totals.pending))}</Td>
             <Td label={hDisposal} className={figure}>{queueCell(percent(disposal))}</Td>
             <Td label={hCollected} className={`${figure} lg:whitespace-nowrap`}>{amountCell(currency(totals.amountPaise))}</Td>
           </tr>

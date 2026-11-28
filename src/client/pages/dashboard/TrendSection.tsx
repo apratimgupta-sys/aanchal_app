@@ -24,6 +24,7 @@ export default function TrendSection() {
   return (
     <SectionCard
       id="trend"
+      range={range}
       title={t("Received and disposed", "प्राप्त और निस्तारित")}
       subtitle={t("Applications per day", "प्रतिदिन आवेदन")}
       filters={

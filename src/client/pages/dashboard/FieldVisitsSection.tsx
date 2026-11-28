@@ -17,7 +17,7 @@ export default function FieldVisitsSection() {
   const lang = useContext(Language);
   const [period, setPeriod] = useState<PeriodValue>({ kind: "today", from: "", to: "" });
   const [officeId, setOfficeId] = useState<number | undefined>(undefined);
-  const { data, error } = useSection("visits", period, { officeId }, getVisitSummary);
+  const { data, range, error } = useSection("visits", period, { officeId }, getVisitSummary);
   const nameOf = (id: number) => {
     const s = services.find((x) => x.id === id);
     return s ? (lang === "hi" ? s.name : s.en) : String(id);
@@ -26,6 +26,7 @@ export default function FieldVisitsSection() {
   return (
     <SectionCard
       id="visits"
+      range={range}
       title={t("Field visits", "क्षेत्रीय निरीक्षण")}
       filters={
         <>
@@ -45,7 +46,7 @@ export default function FieldVisitsSection() {
           <p data-visit-count className={`${leadingBody} text-muted-foreground`}>
             {t(
               `${data.visits} ${data.visits === 1 ? "visit" : "visits"} by ${data.officers} ${data.officers === 1 ? "officer" : "officers"}. Each service counts its own thing, so there is no single total.`,
-              `${data.officers} अधिकारियों द्वारा ${data.visits} निरीक्षण। हर सेवा अपनी ही चीज़ गिनती है, इसलिए कोई एक योग नहीं है।`,
+              `${data.officers} ${data.officers === 1 ? "अधिकारी" : "अधिकारियों"} द्वारा ${data.visits} निरीक्षण। हर सेवा अपनी ही चीज़ गिनती है, इसलिए कोई एक योग नहीं है।`,
             )}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
