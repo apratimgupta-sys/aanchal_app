@@ -123,11 +123,12 @@ describe("which services the daily entry collects", () => {
   });
 
   // A literal list of the eight is behaviourally correct today and drifts the day
-  // a service changes shape, so no behavioural test can catch it. The server has
-  // the same scan over its own predicate.
+  // a service changes shape, so no behavioural test can catch it. The whole of src
+  // is scanned for one in derive-dont-list.test.ts; this pins that the predicate
+  // itself is the shape test, to the function's closing brace, not its first `}`.
   it("derives the rule from the shape and spells out no service id", () => {
     const source = readFileSync(new URL("../../src/domain/service-kind.ts", import.meta.url), "utf8");
-    const body = source.match(/export function dailyEntryCollects\([^)]*\)[^{]*\{([^}]*)\}/)?.[1];
+    const body = source.match(/export function dailyEntryCollects\([^)]*\)[^{]*\{([\s\S]*?)\n\}/)?.[1];
     expect(body, "dailyEntryCollects not found").toBeDefined();
     expect(body).toContain("formShape(");
     expect(body).not.toMatch(/\d/);
