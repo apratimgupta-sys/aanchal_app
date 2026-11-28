@@ -1,4 +1,5 @@
 import services from "../shared/services.json" with { type: "json" };
+import withdrawn from "../shared/daily-entry-withdrawn.json" with { type: "json" };
 
 // What a service is actually counting, taken from the Service Master's
 // Primary Monitoring Unit column rather than a hand-kept list of ids.
@@ -79,15 +80,22 @@ export function movesPendingBalance(serviceId: number): boolean {
   return shape === "counter" || shape === "counterRevenue";
 }
 
-// Whether the daily entry collects this service at all. The eight field-work
-// services are reported by field officers as visits, so a clerk is not asked for
-// them; everything else is. Derived from the shape, never from a list of ids.
-// Mirrors MonitoringRules.DailyEntryCollects on the server:
-// `!IsFieldWork(id)`. The shape stays and the services stay in the master:
-// visits reference them by id and entries already filed against them must stay
-// readable, so this narrows what the entry form offers and nothing else.
+// Services taken off the daily entry by the client's decision rather than by
+// shape: six hidden (they may return) and one removed. There is nothing to
+// derive them from, so they are data, kept in one file and never spelled out in
+// code. Mirrors MonitoringRules.HiddenFromDailyEntry / RemovedFromDailyEntry on
+// the server; both sides are asserted against "dailyEntryWithdrawn" in
+// tests/domain/shape-twin.fixture.json.
+const WITHDRAWN: ReadonlySet<number> = new Set<number>([...withdrawn.hidden, ...withdrawn.removed]);
+
+// Whether the daily entry collects this service at all. The field-work services
+// are reported by field officers as visits (derived from the shape, never from
+// a list of ids), and the withdrawn services above are off the entry by
+// decision. Mirrors MonitoringRules.DailyEntryCollects on the server. Every
+// service stays in the master and keeps its shape, so entries already filed
+// stay readable; this narrows what the entry form offers and nothing else.
 export function dailyEntryCollects(serviceId: number): boolean {
-  return formShape(serviceId) !== "fieldwork";
+  return formShape(serviceId) !== "fieldwork" && !WITHDRAWN.has(serviceId);
 }
 
 // What the daily form actually asks a service for, by shape: two numbers

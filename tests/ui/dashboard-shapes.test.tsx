@@ -339,14 +339,14 @@ describe("commissioner dashboard after the form shapes", () => {
     it("counts counter and counterRevenue services under pending, revenue and counterRevenue under collection", async () => {
       mockApi([row()]);
       await renderDashboard();
-      expect(tileOf("Total pending").note).toBe("across 14 services with a pending balance");
+      expect(tileOf("Total pending").note).toBe("across 7 services with a pending balance");
       expect(tileOf("Total collection").note).toBe("across 7 services that collect an amount");
     });
 
     it("says it in Hindi with the plural the count needs", async () => {
       mockApi([row()]);
       await renderDashboard("hi");
-      expect(tileOf("कुल लंबित").note).toBe("लंबित शेष वाली 14 सेवाओं में");
+      expect(tileOf("कुल लंबित").note).toBe("लंबित शेष वाली 7 सेवाओं में");
       expect(tileOf("कुल संग्रह").note).toBe("राशि संग्रहित करने वाली 7 सेवाओं में");
     });
 
@@ -369,41 +369,41 @@ describe("the dashboard once the daily entry no longer collects field work", () 
       .filter((v) => v !== "")
       .map(Number);
 
-  it("offers the seventeen the daily entry collects, in the service master's order, and none of the eight", async () => {
+  it("offers the ten the daily entry collects, in the service master's order, and none of the eight", async () => {
     mockApi([row()]);
     await renderDashboard();
     // Compared with a hand-written list (service-position.ts), never with the
     // implementation's own predicate, so a filter and a predicate that drifted
     // together would still be caught.
     expect(optionIds()).toEqual([...OFFERED_IDS].sort((a, b) => a - b));
-    expect(optionIds()).toHaveLength(17);
+    expect(optionIds()).toHaveLength(10);
     for (const id of FIELD_WORK_IDS) expect(optionIds(), `service ${id}`).not.toContain(id);
   });
 
   it("names the count it offers, in both languages", async () => {
     mockApi([row()]);
     await renderDashboard();
-    expect(within(serviceSelect()).getByRole("option", { name: "All 17 services" })).toBeTruthy();
+    expect(within(serviceSelect()).getByRole("option", { name: "All 10 services" })).toBeTruthy();
     expect(screen.queryByText("All 25 services")).toBeNull();
     cleanup();
     mockApi([row()]);
     await renderDashboard("hi");
     const hi = screen.getByLabelText("सेवा", { exact: true }) as HTMLSelectElement;
-    expect(within(hi).getByRole("option", { name: "सभी 17 सेवाएँ" })).toBeTruthy();
+    expect(within(hi).getByRole("option", { name: "सभी 10 सेवाएँ" })).toBeTruthy();
     expect(within(hi).queryByRole("option", { name: "सभी 25 सेवाएँ" })).toBeNull();
   });
 
   it("shows the server's filed count as it comes, over a range that spans the cutover", async () => {
     // Before the cutover Anchal 1 filed field-work entries as well; after it,
     // none. The server counts only the services the entry collects, so over four
-    // days (17 a day = 68) an office that filed everything reads 68 / 68, and an
-    // office with three services missing reads 65 / 68. The page repeats those
+    // days (10 a day = 40) an office that filed everything reads 40 / 40, and an
+    // office with three services missing reads 37 / 40. The page repeats those
     // figures: it neither recomputes them nor lets the stored workDone (a sum
     // across the cutover that mixes the two regimes) onto the screen.
     mockApi([
-      row({ officeId: 1, submitted: 68, expected: 68, workDone: 31 }),
-      row({ officeId: 2, submitted: 65, expected: 68, workDone: 0 }),
-      row({ officeId: 3, submitted: 0, expected: 68, workDone: 0 }),
+      row({ officeId: 1, submitted: 40, expected: 40, workDone: 31 }),
+      row({ officeId: 2, submitted: 37, expected: 40, workDone: 0 }),
+      row({ officeId: 3, submitted: 0, expected: 40, workDone: 0 }),
     ]);
     await renderDashboard();
     const user = userEvent.setup();
@@ -412,12 +412,12 @@ describe("the dashboard once the daily entry no longer collects field work", () 
     await waitFor(() => expect(api.mock.calls.some((c) => String(c[0]).includes("from=2026-01-01"))).toBe(true));
     const filed = screen.getByRole("heading", { name: "Filing status" }).closest("section")!;
     const item = (n: number) => within(filed).getByText(`Anchal ${n}`).closest("li")!;
-    await waitFor(() => expect(item(1).textContent).toContain("68 / 68"));
+    await waitFor(() => expect(item(1).textContent).toContain("40 / 40"));
     expect(item(1).textContent).toContain("Filed");
-    expect(item(2).textContent).toContain("65 / 68");
+    expect(item(2).textContent).toContain("37 / 40");
     expect(item(2).textContent).toContain("Partly filed");
     expect(item(3).textContent).toContain("Not filed");
-    expect(screen.getByText(/133 \/ 204/).closest("[data-report-count]")).not.toBeNull();
+    expect(screen.getByText(/77 \/ 120/).closest("[data-report-count]")).not.toBeNull();
     // 31 is Anchal 1's pre-cutover field work. Nowhere on the page.
     expect(document.body.textContent).not.toMatch(/\b31\b/);
     expect(screen.queryByText("Work done")).toBeNull();
@@ -437,24 +437,24 @@ describe("the dashboard once the daily entry no longer collects field work", () 
   });
 
   it("reads an office whose only unfiled services were field work as fully filed", async () => {
-    // Anchal 1 filed all seventeen collected services and none of the eight. With
-    // a denominator of 25 that read 17 / 25, "Partly filed"; the server now
-    // expects 17, so the row arrives as 17 / 17.
-    mockApi([row({ officeId: 1, submitted: 17, expected: 17, workDone: 0 })]);
+    // Anchal 1 filed all ten collected services and none of the eight. With
+    // a denominator of 25 that read 10 / 25, "Partly filed"; the server now
+    // expects 10, so the row arrives as 10 / 10.
+    mockApi([row({ officeId: 1, submitted: 10, expected: 10, workDone: 0 })]);
     await renderDashboard();
     const filed = screen.getByRole("heading", { name: "Filed today" }).closest("section")!;
     const item = within(filed).getByText("Anchal 1").closest("li")!;
-    expect(item.textContent).toContain("17 / 17");
+    expect(item.textContent).toContain("10 / 10");
     expect(item.textContent).toContain("Filed");
     expect(item.textContent).not.toContain("Partly filed");
     expect(item.textContent).not.toContain("Not filed");
-    expect(document.querySelector("[data-report-count]")!.textContent).toContain("17 / 17");
+    expect(document.querySelector("[data-report-count]")!.textContent).toContain("10 / 10");
     cleanup();
-    mockApi([row({ officeId: 1, submitted: 17, expected: 17, workDone: 0 })]);
+    mockApi([row({ officeId: 1, submitted: 10, expected: 10, workDone: 0 })]);
     await renderDashboard("hi");
     const filedHi = screen.getByRole("heading", { name: "आज दर्ज" }).closest("section")!;
     const itemHi = within(filedHi).getByText("अंचल 1").closest("li")!;
-    expect(itemHi.textContent).toContain("17 / 17");
+    expect(itemHi.textContent).toContain("10 / 10");
     expect(itemHi.textContent).not.toContain("आंशिक दर्ज");
   });
 });

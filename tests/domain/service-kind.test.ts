@@ -98,9 +98,20 @@ describe("what kind of work a service is", () => {
 // sets are written out here on purpose: they are the oracle the derivation is
 // held against, not something the derivation may be copied from.
 describe("which services the daily entry collects", () => {
-  it("collects the seventeen that are not field work", () => {
+  it("collects the ten left on the daily entry", () => {
     const found = services.map((s) => s.id).filter(dailyEntryCollects);
-    expect(found).toEqual([1, 2, 3, 4, 5, 6, 7, 11, 12, 18, 19, 20, 21, 22, 23, 24, 25]);
+    expect(found).toEqual([1, 2, 3, 4, 5, 6, 7, 11, 12, 24]);
+  });
+
+  it("does not collect the six hidden services or the removed one", () => {
+    for (const id of [18, 19, 20, 21, 22, 23, 25]) expect(dailyEntryCollects(id), `service ${id}`).toBe(false);
+  });
+
+  it("leaves a withdrawn service its counter shape, so a filed entry stays readable", () => {
+    for (const id of [18, 19, 20, 21, 22, 23, 25]) {
+      expect(formShape(id)).toBe("counter");
+      expect(collectedFields(id)).toEqual(["received", "completed"]);
+    }
   });
 
   it("does not collect the eight that are reported as visits", () => {

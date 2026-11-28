@@ -13,6 +13,7 @@ import { fieldsFor } from "../../src/domain/field-visit-fields";
 import { collectedFields, formShape, movesPendingBalance } from "../../src/domain/service-kind";
 import fixture from "./shape-twin.fixture.json";
 import services from "../../src/shared/services.json";
+import withdrawn from "../../src/shared/daily-entry-withdrawn.json";
 import bounds from "../../src/shared/field-visit-bounds.json";
 
 // The shape tables are a hand-maintained twin of MonitoringRules in the backend
@@ -28,6 +29,10 @@ const entries = Object.entries(fixture.shapes) as [
 ][];
 
 describe("the shape tables against the golden twin table", () => {
+  it("holds the services withdrawn from the daily entry exactly as daily-entry-withdrawn.json does", () => {
+    expect(withdrawn).toEqual(fixture.dailyEntryWithdrawn);
+  });
+
   it("covers the four counterRevenue ids", () => {
     expect(entries.filter(([, e]) => e.shape === "counterRevenue").map(([id]) => Number(id)).sort()).toEqual([1, 3, 4, 7]);
   });

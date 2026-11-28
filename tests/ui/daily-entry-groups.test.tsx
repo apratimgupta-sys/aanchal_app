@@ -7,7 +7,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { Language } from "../../src/client/i18n";
 import services from "../../src/shared/services.json";
-import { FIELD_WORK_IDS, OFFERED_IDS } from "./service-position";
+import { FIELD_WORK_IDS, OFFERED_IDS, WITHDRAWN_IDS } from "./service-position";
 import DailyEntry from "../../src/client/pages/DailyEntry";
 
 const api = vi.hoisted(() => vi.fn());
@@ -45,14 +45,14 @@ const rows = () => within(list()).getAllByRole("button").filter((b) => !b.hasAtt
 beforeEach(() => cleanup());
 
 describe("service numbering", () => {
-  it("numbers the list 01 to 17 in the order it is shown, with no gap", async () => {
+  it("numbers the list 01 to 10 in the order it is shown, with no gap", async () => {
     await renderForm();
     expect(rows().map((b) => b.textContent!.slice(0, 2))).toEqual(
-      Array.from({ length: 17 }, (_, i) => String(i + 1).padStart(2, "0")),
+      Array.from({ length: 10 }, (_, i) => String(i + 1).padStart(2, "0")),
     );
   });
 
-  it("offers exactly the seventeen services, in their relative order", async () => {
+  it("offers exactly the ten services, in their relative order", async () => {
     await renderForm();
     const name = (id: number) => services.find((s) => s.id === id)!.en;
     // Each row reads "<number><name><mark>"; the name is what identifies it.
@@ -70,15 +70,24 @@ describe("service numbering", () => {
     }
   });
 
-  it("states the register's size as 17", async () => {
+  it("offers none of the hidden or removed services", async () => {
     await renderForm();
-    expect(screen.getByText("SERVICE REGISTER").textContent).toMatch(/17$/);
+    const shown = rows().map((b) => b.textContent!);
+    for (const id of WITHDRAWN_IDS) {
+      const name = services.find((s) => s.id === id)!.en;
+      expect(shown.some((t) => t.includes(name)), `service ${id}`).toBe(false);
+    }
   });
 
-  it("shows service 2 as 15, with the same number on the form, and still files it as service 2", async () => {
+  it("states the register's size as 10", async () => {
+    await renderForm();
+    expect(screen.getByText("SERVICE REGISTER").textContent).toMatch(/10$/);
+  });
+
+  it("shows service 2 as 08, with the same number on the form, and still files it as service 2", async () => {
     const user = await renderForm();
-    await user.click(screen.getByRole("button", { name: /^15(?!\d)/ }));
-    expect(screen.getByText(/^SERVICE 15 ·/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^08(?!\d)/ }));
+    expect(screen.getByText(/^SERVICE 08 ·/)).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Holding tax payment" })).toBeTruthy();
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
     await user.type(screen.getByLabelText(/^payments/i), "1");
@@ -117,11 +126,11 @@ describe("collapsible groups", () => {
     h.focus();
     await user.keyboard("{Enter}");
     expect(h.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("button", { name: /^15(?!\d)/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^08(?!\d)/ })).toBeNull();
     expect(header("Counter work").getAttribute("aria-expanded")).toBe("true");
     await user.keyboard(" ");
     expect(h.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /^15(?!\d)/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^08(?!\d)/ })).toBeTruthy();
   });
 
   it("tabs through header, then its services, then the next header", async () => {
@@ -129,8 +138,8 @@ describe("collapsible groups", () => {
     header("Counter work").focus();
     await user.tab();
     expect((document.activeElement as HTMLElement).textContent).toMatch(/^01/);
-    for (let i = 0; i < 13; i++) await user.tab();
-    expect((document.activeElement as HTMLElement).textContent).toMatch(/^14/);
+    for (let i = 0; i < 6; i++) await user.tab();
+    expect((document.activeElement as HTMLElement).textContent).toMatch(/^07/);
     await user.tab();
     expect(document.activeElement).toBe(header("Collections"));
   });

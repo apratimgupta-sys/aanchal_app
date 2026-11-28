@@ -121,7 +121,7 @@ export default function Dashboard() {
   // figure spans. Counted by what they collect, not by shape: pending spans
   // counter and counterRevenue services, collection spans revenue and
   // counterRevenue services.
-  const serviceCount = (feeds: (id: number) => boolean) => services.filter((x) => feeds(x.id)).length;
+  const serviceCount = (feeds: (id: number) => boolean) => OFFERED.filter((x) => feeds(x.id)).length;
   // "Across N services" only says something when the figure really spans them;
   // pinned to one service the note falls back to what the figure is.
   const spans = (

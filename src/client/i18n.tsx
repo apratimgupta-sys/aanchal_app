@@ -128,6 +128,9 @@ const runtimeHindi: Record<string, string> = {
   // entry list used), daily entry = दैनिक प्रविष्टि (as in the deactivation notice).
   "Field work is reported by field officers, not on the daily entry":
     "क्षेत्रीय कार्य की रिपोर्ट क्षेत्रीय अधिकारी देते हैं, दैनिक प्रविष्टि में नहीं",
+  // MonitoringRules.ValidateEntry: a daily entry for a service hidden from, or
+  // removed from, the daily entry. Drafted, not settled; waits on RMC's reviewer.
+  "This service is not reported on the daily entry": "यह सेवा दैनिक प्रविष्टि में रिपोर्ट नहीं की जाती",
   // The other refusal on the same `serviceId` key (an id outside the master, or
   // an unreadable dashboard filter). Drafted, not settled; waits on RMC's reviewer.
   "Select a service": "सेवा चुनें",
