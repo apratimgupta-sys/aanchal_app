@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Language } from "../../src/client/i18n";
 import Dashboard from "../../src/client/pages/Dashboard";
+import { route } from "./dashboard-harness";
 
 const api = vi.hoisted(() => vi.fn());
 vi.mock("../../src/client/api", () => ({ api }));
@@ -11,10 +12,8 @@ vi.mock("../../src/client/api", () => ({ api }));
 const wsCtor = vi.fn();
 let client: QueryClient;
 
-function respond(payload: Record<string, unknown>) {
-  api.mockImplementation(async (path: string) =>
-    path.startsWith("/dashboard/entries") ? [] : { rows: [], ...payload },
-  );
+function respond(payload: { updatedAt?: string; retrievedAt?: string }) {
+  route(api, payload);
 }
 
 async function renderDashboard(lang: "en" | "hi" = "en") {
