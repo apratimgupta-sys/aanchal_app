@@ -861,11 +861,15 @@ export default function DailyEntry({
                 {/* Same predicate as the opening strip: a closing balance only
                     means something where work queues. */}
                 {movesPendingBalance(formServiceId) && (
-                  <div data-closing="" className="grid gap-1.5">
+                  <div data-closing="" className="grid gap-1.5 self-end">
                     <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>
                       {t("Closing pending", "अंतिम लंबित")}
                     </span>
-                    <strong className={cn(readout, "font-semibold")}>
+                    {/* self-end on the wrapper aligns the row on its controls, not on the tops
+                        of its labels. The padding and transparent border give the value the
+                        box height of the inputs beside it, so their centres match at both
+                        type sizes; it starts under its label rather than at the far end. */}
+                    <strong className={cn(readout, "justify-start border border-transparent py-[10px] font-semibold")}>
                       {Number.isFinite(close.service) ? close.service : "—"}
                     </strong>
                   </div>

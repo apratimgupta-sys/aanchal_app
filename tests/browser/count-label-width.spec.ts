@@ -62,4 +62,22 @@ for (const lang of ["en", "hi"] as const)
           expect(r.lines, r.text ?? "").toBeLessThanOrEqual(2);
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+        // The row aligns on its controls: the closing-pending value sits level with
+        // the boxes whatever number of lines the labels above them take, and under
+        // its own label rather than floating at the far end of it.
+        const closing = await page.evaluate(() => {
+          const value = document.querySelector("[data-closing] strong")!.getBoundingClientRect();
+          const name = document.querySelector("[data-closing] span")!.getBoundingClientRect();
+          const boxes = [...document.querySelectorAll<HTMLInputElement>("input[type=number]")].map((i) => {
+            const b = i.getBoundingClientRect();
+            return b.top + b.height / 2;
+          });
+          return { valueCentre: value.top + value.height / 2, boxCentres: boxes, valueLeft: value.left, nameLeft: name.left };
+        });
+        // Where the boxes wrap onto separate rows (phone width), the value shares a row
+        // with the nearest one only.
+        const nearest = Math.min(...closing.boxCentres.map((c) => Math.abs(closing.valueCentre - c)));
+        expect(nearest).toBeLessThanOrEqual(1);
+        expect(Math.abs(closing.valueLeft - closing.nameLeft)).toBeLessThanOrEqual(1);
       });
