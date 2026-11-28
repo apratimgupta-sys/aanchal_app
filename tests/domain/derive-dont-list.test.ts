@@ -80,7 +80,7 @@ describe("the scan itself", () => {
     ["in a different order", `const x = [17, 8, 14, 9, 13, 10, 16, 15];`],
     ["split over lines", `const x = [\n  8,\n  9,\n  10,\n];`],
     ["as a chain of comparisons", `const f = (id: number) => id === 8 || id === 9 || id === 10 || id === 13;`],
-    ["as the collected seventeen", `const OFFERED = [1, 2, 3, 4, 5, 6, 7, 11, 12, 18, 19, 20, 21, 22, 23, 24, 25];`],
+    ["as the seventeen formerly collected", `const OFFERED = [1, 2, 3, 4, 5, 6, 7, 11, 12, 18, 19, 20, 21, 22, 23, 24, 25];`],
     ["as a string", `const x = "8,9,10,13".split(",");`],
   ];
   it.each(caught)("reports a list %s", (_name, source) => {

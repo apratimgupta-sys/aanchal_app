@@ -620,7 +620,7 @@ describe("the labels the client asked for", () => {
     expect(labels()).toEqual(["Ward", "Received", "Disposed", "Remarks"]);
   });
 
-  it("every other counter service keeps Received and Disposed", async () => {
+  it("service 24 keeps Received and Disposed", async () => {
     for (const id of [24]) {
       await renderFor(id);
       expect(labels(), `service ${id}`).toEqual(["Ward", "Received", "Disposed", "Remarks"]);

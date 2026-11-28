@@ -287,10 +287,12 @@ for a hidden service is ignored by the dashboard, and if that service is later u
 will be as old as the day it was typed.
 
 A withdrawn service's opening *complaint* or *field* balance (as distinct from its service pending
-balance) is still counted in the dashboard's unpinned figures. Gating those the same way would also
-remove the eight field-work services' field balances from the Field pending figure, which is
-deliberate, so it was left alone. It only arises if someone typed such a balance on the
-opening-balances screen, which still lists all 25 services.
+balance) is still counted by the server in its unpinned figures. No screen in the portal shows either
+figure today, so nothing displays wrongly. The balances were left ungated because a single rule cannot
+separate a withdrawn service from the eight field-work services, whose field balances the server is right
+to keep. If a complaints-pending or field-pending figure is ever put back on a screen, it needs its own
+rule rather than this one. It only arises if someone typed such a balance on the opening-balances
+screen, which still lists all 25 services.
 
 The field visit form and the register's filter now offer only the eight field-work services, and the
 server refuses a new visit for anything else; visits already filed for other services stay listed.
