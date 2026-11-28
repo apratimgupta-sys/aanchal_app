@@ -2,6 +2,8 @@ import { useContext, useState } from "react";
 import { Language, useText } from "../../i18n";
 import type { PeriodValue } from "../../../domain/period";
 import { formatCount, visitCard } from "../../../domain/visit-cards";
+import wording from "../../../shared/visit-card-wording.json";
+import { reportedAsVisit } from "../../../domain/service-kind";
 import services from "../../../shared/services.json";
 import { getVisitSummary } from "../../dashboard-data";
 import PeriodPicker from "./PeriodPicker";
@@ -47,7 +49,7 @@ export default function FieldVisitsSection() {
             )}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {data.services.map((summary) => {
+            {data.services.filter((s) => reportedAsVisit(s.serviceId) && String(s.serviceId) in wording).map((summary) => {
               const card = visitCard(summary);
               return (
                 <article

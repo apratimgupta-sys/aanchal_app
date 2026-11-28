@@ -98,6 +98,15 @@ describe("the field visits section", () => {
     await waitFor(() => expect(paths(api, "/field-visits/summary").at(-1)).toBe(`/field-visits/summary?from=${today}&to=${today}&officeId=5`));
   });
 
+  it("ignores a service that is not field work instead of failing", async () => {
+    const stray = Math.max(...FIELD_WORK_IDS) + 1000;
+    route(api, { summary: visitSummary({ visits: 21, officers: 6, services: [...busy.services, visitService(stray, { visits: 1 })] }) });
+    renderWithin(<FieldVisitsSection />);
+
+    await waitFor(() => expect(cards()).toHaveLength(8));
+    expect(card(stray)).toBeNull();
+  });
+
   it("says it in Hindi", async () => {
     renderWithin(<FieldVisitsSection />, "hi");
     await waitFor(() => expect(cards()).toHaveLength(8));

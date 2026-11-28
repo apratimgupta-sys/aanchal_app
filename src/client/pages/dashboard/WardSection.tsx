@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useText } from "../../i18n";
 import type { PeriodValue } from "../../../domain/period";
+import { formatCount } from "../../../domain/visit-cards";
 import { WARD_MAX, WARD_MIN } from "../../../domain/visit";
 import { getVisitSummary } from "../../dashboard-data";
 import PeriodPicker from "./PeriodPicker";
@@ -64,13 +65,22 @@ export default function WardSection() {
               <li
                 key={n}
                 data-ward={n}
-                aria-label={t(
-                  `Ward ${n}: ${visits === 0 ? "no visits" : visits === 1 ? "1 visit" : `${visits} visits`}`,
-                  `वार्ड ${n}: ${visits === 0 ? "कोई निरीक्षण नहीं" : `${visits} निरीक्षण`}`,
-                )}
-                className={`grid h-11 place-items-center rounded-md font-mono text-[13px] tabular-nums ${shade(visits)}`}
+                className={`grid h-11 content-center justify-items-center rounded-md font-mono tabular-nums ${shade(visits)}`}
               >
-                {n}
+                <span className="sr-only">
+                  {t(
+                    `Ward ${n}, ${visits === 0 ? "no visits" : visits === 1 ? "1 visit" : `${visits} visits`}`,
+                    `वार्ड ${n}, ${visits === 0 ? "कोई निरीक्षण नहीं" : `${visits} निरीक्षण`}`,
+                  )}
+                </span>
+                <span aria-hidden="true" data-ward-number className="text-[13px] leading-[1] [html[lang=hi]_&]:leading-[1]">
+                  {n}
+                </span>
+                {visits > 0 && (
+                  <span aria-hidden="true" data-ward-count className="mt-0.5 text-[11px] leading-[1] [html[lang=hi]_&]:leading-[1]">
+                    {formatCount(visits)}
+                  </span>
+                )}
               </li>
             );
           })}

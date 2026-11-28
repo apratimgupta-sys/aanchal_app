@@ -24,7 +24,7 @@ describe("the where-the-visits-were section", () => {
     await waitFor(() => expect(ward(24).className).toContain("bg-ward-3"));
 
     expect(screen.getByRole("heading", { level: 2, name: "Where the visits were" })).toBeTruthy();
-    expect(wards().map((w) => w.textContent!.trim())).toEqual(Array.from({ length: 53 }, (_, i) => String(i + 1)));
+    expect(wards().map((w) => w.querySelector("[data-ward-number]")!.textContent!.trim())).toEqual(Array.from({ length: 53 }, (_, i) => String(i + 1)));
     expect(document.body.textContent).toContain("All 53 wards. 49 had no visit in this period.");
   });
 
@@ -43,9 +43,21 @@ describe("the where-the-visits-were section", () => {
     renderWithin(<WardSection />);
     await waitFor(() => expect(ward(24).className).toContain("bg-ward-3"));
 
-    expect(ward(1).getAttribute("aria-label")).toBe("Ward 1: no visits");
-    expect(ward(3).getAttribute("aria-label")).toBe("Ward 3: 1 visit");
-    expect(ward(24).getAttribute("aria-label")).toBe("Ward 24: 3 visits");
+    expect(ward(1).textContent).toContain("Ward 1, no visits");
+    expect(ward(3).textContent).toContain("Ward 3, 1 visit");
+    expect(ward(24).textContent).toContain("Ward 24, 3 visits");
+    expect(ward(24).hasAttribute("aria-label")).toBe(false);
+    expect(ward(24).querySelector(".sr-only")!.textContent).toBe("Ward 24, 3 visits");
+  });
+
+  it("prints a visited ward's count under its number, and nothing for an unvisited one", async () => {
+    renderWithin(<WardSection />);
+    await waitFor(() => expect(ward(24).className).toContain("bg-ward-3"));
+
+    expect(ward(24).querySelector("[data-ward-count]")!.textContent).toBe("3");
+    expect(ward(3).querySelector("[data-ward-count]")!.textContent).toBe("1");
+    expect(ward(1).querySelector("[data-ward-count]")).toBeNull();
+    expect(ward(24).querySelector("[data-ward-count]")!.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("has a key for the four steps", async () => {
@@ -82,8 +94,8 @@ describe("the where-the-visits-were section", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "निरीक्षण कहाँ हुए" })).toBeTruthy();
     expect(document.body.textContent).toContain("सभी 53 वार्ड। इस अवधि में 49 वार्डों में कोई निरीक्षण नहीं हुआ।");
-    expect(ward(24).getAttribute("aria-label")).toBe("वार्ड 24: 3 निरीक्षण");
-    expect(ward(1).getAttribute("aria-label")).toBe("वार्ड 1: कोई निरीक्षण नहीं");
+    expect(ward(24).textContent).toContain("वार्ड 24, 3 निरीक्षण");
+    expect(ward(1).textContent).toContain("वार्ड 1, कोई निरीक्षण नहीं");
     expect(document.querySelector("[data-ward-legend]")!.textContent).toContain("3 या अधिक");
   });
 });
