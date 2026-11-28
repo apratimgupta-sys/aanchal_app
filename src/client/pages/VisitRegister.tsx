@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import services from "../../shared/services.json";
+import { reportedAsVisit } from "../../domain/service-kind";
 import type { FieldVisitView } from "../../shared/types";
 import { WARD_MAX, WARD_MIN } from "../../domain/visit";
 import { listVisits, voidVisit, type VisitFilters } from "../field-visits";
@@ -11,6 +12,10 @@ import { Language, runtimeText, useText } from "../i18n";
 import VisitLocation from "../components/VisitLocation";
 import VisitDetails from "../components/VisitDetails";
 import { Button, Field, FieldError, Notice, Panel, Table, Td, Th, cardStacked, cardTable, cardTableWrap, cardTitle, confirmBar, leadingBody, leadingHeading, useScrollRegion } from "../ui";
+
+// Only field work is filed as a visit. In list order; the number shown is the
+// place in this list, not the service id, which is what is stored and sent.
+const VISIT_SERVICES = services.filter((s) => reportedAsVisit(s.id));
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
@@ -148,9 +153,9 @@ export default function VisitRegister() {
             onChange={(e) => setFilter({ serviceId: e.target.value === "" ? undefined : Number(e.target.value) })}
           >
             <option value="">{text("All activities", "सभी गतिविधियाँ")}</option>
-            {services.map((service) => (
+            {VISIT_SERVICES.map((service, i) => (
               <option key={service.id} value={service.id}>
-                {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
+                {`${String(i + 1).padStart(2, "0")} · ${text(service.en, service.name)}`}
               </option>
             ))}
           </select>

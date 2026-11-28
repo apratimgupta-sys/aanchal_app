@@ -98,6 +98,13 @@ export function dailyEntryCollects(serviceId: number): boolean {
   return formShape(serviceId) !== "fieldwork" && !WITHDRAWN.has(serviceId);
 }
 
+// Whether a service is reported as a field visit. The mirror image of the
+// daily entry: field work is filed by officers as visits and nothing else is.
+// Derived from the shape. Mirrors MonitoringRules.IsFieldWork on the server.
+export function reportedAsVisit(serviceId: number): boolean {
+  return formShape(serviceId) === "fieldwork";
+}
+
 // What the daily form actually asks a service for, by shape: two numbers
 // instead of nine. Everything else in the record is retired — kept for the
 // entries already filed with it, collected from nobody.

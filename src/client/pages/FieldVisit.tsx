@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Camera, MapPin } from "lucide-react";
 import services from "../../shared/services.json";
+import { reportedAsVisit } from "../../domain/service-kind";
 import bounds from "../../shared/field-visit-bounds.json";
 import type { FieldVisitInput, GpsReading, OfficerProfile } from "../../shared/types";
 import { validateVisitInput, WARD_MAX, WARD_MIN } from "../../domain/visit";
@@ -20,6 +21,10 @@ import { mapUrl } from "../components/VisitLocation";
 import { Button, Field, FieldError, Notice, Panel, focusRing, leadingBody, leadingHeading, leadingHelp } from "../ui";
 import { mutationIntent, type MutationIntent } from "../mutation";
 import { useContext } from "react";
+
+// Only field work is filed as a visit. In list order; the number shown is the
+// place in this list, not the service id, which is what is stored and sent.
+const VISIT_SERVICES = services.filter((s) => reportedAsVisit(s.id));
 
 const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
@@ -423,9 +428,9 @@ export default function FieldVisit({
             required
           >
             <option value="">{text("Select an activity", "गतिविधि चुनें")}</option>
-            {services.map((service) => (
+            {VISIT_SERVICES.map((service, i) => (
               <option key={service.id} value={service.id}>
-                {`${String(service.id).padStart(2, "0")} · ${text(service.en, service.name)}`}
+                {`${String(i + 1).padStart(2, "0")} · ${text(service.en, service.name)}`}
               </option>
             ))}
           </select>

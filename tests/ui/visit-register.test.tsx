@@ -55,6 +55,20 @@ beforeEach(() => {
 });
 
 describe("VisitRegister", () => {
+  it("offers only the eight field-work services in the activity filter, numbered 01 to 08", async () => {
+    listVisits.mockResolvedValue({ rows: [], total: 0 });
+    renderRegister();
+    const options = within(await screen.findByLabelText(/activity/i)).getAllByRole("option").slice(1);
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["8", "9", "10", "13", "14", "15", "16", "17"]);
+    expect(options.map((o) => o.textContent!.slice(0, 2))).toEqual(["01", "02", "03", "04", "05", "06", "07", "08"]);
+  });
+
+  it("still lists a visit filed for a service the form no longer offers", async () => {
+    listVisits.mockResolvedValue({ rows: [visit({ serviceId: 1 })], total: 1 });
+    renderRegister();
+    expect(await screen.findByText("New Holding Application Reporting (SAF)")).toBeTruthy();
+  });
+
   it("shows the officer, place and activity of each visit", async () => {
     listVisits.mockResolvedValue({ rows: [visit()], total: 1 });
     renderRegister();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { Language } from "../../src/client/i18n";
@@ -349,12 +349,11 @@ describe("FieldVisit — each service's own details", () => {
     expect(screen.getByLabelText(/^ward/i).compareDocumentPosition(labour) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("renders no extra field for a service with none", async () => {
-    const user = userEvent.setup();
+  it("offers the eight field-work services and nothing else, numbered 01 to 08", () => {
     renderForm();
-    const before = controls();
-    await pick(user, 1);
-    expect(controls()).toBe(before);
+    const options = within(screen.getByLabelText(/^activity/i)).getAllByRole("option").slice(1);
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["8", "9", "10", "13", "14", "15", "16", "17"]);
+    expect(options.map((o) => o.textContent!.slice(0, 2))).toEqual(["01", "02", "03", "04", "05", "06", "07", "08"]);
   });
 
   it("makes every details field optional", async () => {
@@ -385,12 +384,8 @@ describe("FieldVisit — each service's own details", () => {
     expect(box.required).toBe(true);
   });
 
-  it("keeps the plain labels before an activity is chosen, and a service with no table entry", async () => {
-    const user = userEvent.setup();
+  it("keeps the plain labels before an activity is chosen", () => {
     renderForm();
-    expect(screen.getByText("Visit date")).toBeTruthy();
-    expect(screen.getByLabelText(/issue \/ action/i)).toBeTruthy();
-    await pick(user, 1);
     expect(screen.getByText("Visit date")).toBeTruthy();
     expect(screen.getByLabelText(/issue \/ action/i)).toBeTruthy();
   });
@@ -437,7 +432,7 @@ describe("FieldVisit — each service's own details", () => {
     createVisit.mockResolvedValue({ id: "v1" });
     renderForm();
     await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
-    await pick(user, 1);
+    await pick(user, 17);
     await user.type(screen.getByLabelText(/issue|description/i), "Counter checked; queue was short.");
     await user.click(screen.getByRole("button", { name: /capture location/i }));
     await user.click(await screen.findByRole("button", { name: /submit/i }));

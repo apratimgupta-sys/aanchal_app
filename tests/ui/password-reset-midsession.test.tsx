@@ -72,6 +72,7 @@ describe("the Hindi for server messages", () => {
     // MonitoringRules.ValidateEntry, Task 1 of the field-work change.
     "Field work is reported by field officers, not on the daily entry",
     "This service is not reported on the daily entry",
+    "Only field-work activities are recorded as visits",
     // The other refusal on the same `serviceId` key.
     "Select a service",
     // These two are the server's wording, character for character. Their keys once

@@ -134,6 +134,9 @@ const runtimeHindi: Record<string, string> = {
   // The other refusal on the same `serviceId` key (an id outside the master, or
   // an unreadable dashboard filter). Drafted, not settled; waits on RMC's reviewer.
   "Select a service": "सेवा चुनें",
+  // MonitoringFieldVisitService.Validate: a new visit for a service that is not
+  // field work. Drafted, not settled; waits on RMC's reviewer.
+  "Only field-work activities are recorded as visits": "केवल क्षेत्रीय कार्य की गतिविधियाँ निरीक्षण के रूप में दर्ज होती हैं",
 };
 export function runtimeText(text: string, lang: Lang) {
   if (lang === "en") return text;

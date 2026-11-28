@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import services from "../../src/shared/services.json";
-import { collectedFields, collects, formShape, dailyEntryCollects, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
+import { collectedFields, collects, formShape, dailyEntryCollects, reportedAsVisit, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
 
 describe("what kind of work a service is", () => {
+  it("reports exactly the eight field-work services as visits", () => {
+    expect(services.map((s) => s.id).filter(reportedAsVisit)).toEqual([8, 9, 10, 13, 14, 15, 16, 17]);
+  });
+
   // From the Service Master's Primary Monitoring Unit column, not hand-listed:
   // 8 door-to-door vehicle, 9 fogging, 10 street dog, 13 street lighting,
   // 14 road and drain, 15 grass cutting, 16 tree pruning, 17 water bodies.
