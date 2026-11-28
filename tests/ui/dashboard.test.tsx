@@ -143,11 +143,13 @@ describe("Dashboard source", () => {
     expect(src).not.toMatch(/\b8,\s*9,\s*10\b/);
   });
   it("lays three tiles out in three columns, not four with a hole in the fourth", () => {
-    // Measured at 1600px: the grid was xl:grid-cols-4 for four tiles; with three it
-    // left a 372px gap. jsdom does no layout, so the class is what can be pinned.
+    // Measured: xl:grid-cols-4 left a 372px gap at 1600px with three tiles, and
+    // sm:grid-cols-2 left a lone tile beside a 346px hole at 768px. One column
+    // below md and three from md up leaves neither. jsdom does no layout, so the
+    // classes are what can be pinned.
     const grid = src.match(/data-metrics="" className="([^"]*)"/)?.[1] ?? "";
-    expect(grid).toMatch(/lg:grid-cols-3/);
-    expect(grid).not.toMatch(/grid-cols-4/);
+    expect(grid).toMatch(/(?<![\w:-])md:grid-cols-3/);
+    expect(grid).not.toMatch(/grid-cols-[24]/);
   });
   it("uses no class name from the old stylesheets", () => {
     expect(src).not.toMatch(/ux4g-|className="[^"]*(?<![\w:-])(panel|metric|metrics|table-wrap|monitoring-table|details-panel|details-trigger|section-heading|page-heading|status-tag|report-count|review-cell|nowrap|eyebrow)(?![\w-])/);

@@ -361,7 +361,7 @@ export default function Dashboard() {
         </ul>
       </Panel>
 
-      <div data-metrics="" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:gap-4">
+      <div data-metrics="" className="grid gap-3 md:grid-cols-3 xl:gap-4">
         {metrics.map(([label, value, note]) => (
           <Panel key={label} data-metric="" className="grid content-start gap-1 p-4 sm:p-4">
             <span className={`text-[11px] font-medium ${leadingBody} text-muted-foreground`}>{label}</span>
