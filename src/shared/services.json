@@ -10,8 +10,8 @@
   },
   {
     "id": 2,
-    "name": "Holding Tax का भुगतान",
-    "en": "Holding tax payment",
+    "name": "होल्डिंग टैक्स भुगतान की रिपोर्टिंग",
+    "en": "Holding Tax Payment Reporting",
     "category": "Revenue",
     "unit": "Transactions / ₹",
     "evidence": "Receipt / online transaction report",
@@ -37,8 +37,8 @@
   },
   {
     "id": 5,
-    "name": "Water User Charge का भुगतान",
-    "en": "Water user charge payment",
+    "name": "जल उपयोगकर्ता शुल्क भुगतान की रिपोर्टिंग",
+    "en": "Water User Charge Payment Reporting",
     "category": "Revenue",
     "unit": "Transactions / ₹",
     "evidence": "Receipt / online transaction report",
@@ -46,8 +46,8 @@
   },
   {
     "id": 6,
-    "name": "Waste User Charge का भुगतान",
-    "en": "Waste user charge payment",
+    "name": "कचरा उपयोगकर्ता शुल्क भुगतान की रिपोर्टिंग",
+    "en": "Waste User Charge Payment Reporting",
     "category": "Revenue",
     "unit": "Transactions / ₹",
     "evidence": "Receipt / online transaction report",

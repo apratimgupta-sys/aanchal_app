@@ -89,9 +89,9 @@ describe("service numbering", () => {
     const user = await renderForm();
     await user.click(screen.getByRole("button", { name: /^08(?!\d)/ }));
     expect(screen.getByText(/^SERVICE 08 ·/)).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2, name: "Holding tax payment" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Holding Tax Payment Reporting" })).toBeTruthy();
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^payments/i), "1");
+    await user.type(screen.getByLabelText(/^number of payments/i), "1");
     await user.type(screen.getByLabelText(/^amount collected/i), "10");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
     await waitFor(() => expect(api.mock.calls.some((c) => c[1] === "POST")).toBe(true));

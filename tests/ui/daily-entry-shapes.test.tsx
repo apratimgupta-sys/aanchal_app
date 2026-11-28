@@ -127,7 +127,7 @@ describe("the counter, revenue and field-work shapes", () => {
     await renderFor(2);
     expect(labels()).toEqual([
       "Ward",
-      "Payments",
+      "Number of Payments",
       "Amount Collected (₹)",
       "Remarks",
     ]);
@@ -191,7 +191,7 @@ describe("what goes over the wire", () => {
   it("sends the revenue shape's payments and amount with no disposal", async () => {
     const user = await renderFor(2);
     await user.selectOptions(screen.getByRole("combobox", { name: /^ward\b/i }), "Ward 24");
-    await user.type(screen.getByLabelText(/^payments\b/i), "9");
+    await user.type(screen.getByLabelText(/^number of payments\b/i), "9");
     await user.clear(screen.getByLabelText(/^amount collected/i));
     await user.type(screen.getByLabelText(/^amount collected/i), "150.50");
     await submitEntry(user);
@@ -262,7 +262,7 @@ describe("correcting an entry filed before the change", () => {
   // Payments below the stored completed of 5.
   it.each([
     [11, /^disposed\b/i, "3", { completed: 3, received: 7 }],
-    [2, /^payments\b/i, "3", { received: 3, completed: 5 }],
+    [2, /^number of payments\b/i, "3", { received: 3, completed: 5 }],
   ] as const)(
     "lowers the visible figure on service %i without a dead end",
     async (serviceId, label, typed, expected) => {

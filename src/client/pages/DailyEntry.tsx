@@ -96,7 +96,7 @@ function numericFields(serviceId: number): NumericField[] {
     if (key === "received") {
       // Received on its own is a payment count: a payment completes nothing, so
       // there is no disposal figure beside it.
-      if (!hasQueue) return { key, en: "Payments", hi: "भुगतान" };
+      if (!hasQueue) return { key, en: "Number of Payments", hi: "भुगतानों की संख्या" };
       const [qen, qhi] = QUEUE_LABELS[serviceId]?.[0] ?? ["Received", "प्राप्त"];
       return { key, en: qen, hi: qhi };
     }

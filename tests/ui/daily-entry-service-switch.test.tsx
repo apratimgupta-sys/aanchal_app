@@ -140,7 +140,7 @@ describe("switching service with an unsaved draft", () => {
     expect(screen.queryByRole("spinbutton", { name: "Received" })).toBeNull();
 
     await user.selectOptions(ward(), "Ward 9");
-    await user.type(number("Payments"), "4");
+    await user.type(number("Number of Payments"), "4");
     await user.type(screen.getByLabelText(/^amount collected/i), "10");
     await user.click(screen.getByRole("button", { name: /submit entry/i }));
 
