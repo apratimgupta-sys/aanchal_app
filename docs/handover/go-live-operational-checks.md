@@ -253,7 +253,7 @@ fed by the clerk's figure, so after the cutover they would have read zero — wh
 moved elsewhere", it says "no work was done". Per-service reporting from the visits themselves is
 deliberately deferred until officers are filing real data.
 
-The service filter and the reports count both drop from 25 to **17**, for the same reason.
+The service filter and the reports count both drop for the same reason. With the services taken off the daily entry by decision (next section) they now stand at **10**.
 
 ### What does not change
 
@@ -263,6 +263,38 @@ whoever can query the database or the API (`/office/history` and `/office/entrie
 through the portal: no screen shows it, the clerk's register has no row for those services, and
 nothing in the frontend reads the audit trail. Such an entry can no longer be **corrected** by a clerk: the figure now belongs to
 officers, so the server refuses the correction rather than leaving two writable sources.
+
+## Services taken off the daily entry by decision
+
+Six services are hidden from the clerk's daily entry: Pradhan Mantri Awas Yojana, SSG Group, Vendor
+licence, PM SVANidhi licence, Revolving fund and Self employment programme. A seventh, Community hall
+booking, is removed from it. The daily entry now lists **ten** services.
+
+Hidden and removed behave the same in the product today: the service is not offered, the server
+refuses a daily entry for it, and it is left out of the dashboard's filter, counts and totals. A
+hidden service can be brought back by deleting its id from three places together:
+`src/shared/daily-entry-withdrawn.json` (frontend), the `HiddenFromDailyEntry` set in
+`MonitoringRules.cs` (backend), and `dailyEntryWithdrawn` in the golden fixture in both repos.
+
+Entries already filed for these services are kept in the database but cannot be corrected through
+the portal.
+
+**Known gap:** the opening-balances screen still asks for all 25 services. A balance entered there
+for a hidden service is ignored by the dashboard, and if that service is later un-hidden the balance
+will be as old as the day it was typed.
+
+A withdrawn service's opening *complaint* or *field* balance (as distinct from its service pending
+balance) is still counted in the dashboard's unpinned figures. Gating those the same way would also
+remove the eight field-work services' field balances from the Field pending figure, which is
+deliberate, so it was left alone. It only arises if someone typed such a balance on the
+opening-balances screen, which still lists all 25 services.
+
+The field visit form and the register's filter now offer only the eight field-work services, and the
+server refuses a new visit for anything else; visits already filed for other services stay listed.
+
+**Deploy order: backend first.** If the frontend ships first, clerks lose the seven services while
+the old backend still expects 17 reports a day, so every office reads as partly filed until the
+backend follows.
 
 ## Known gaps that are not checks
 

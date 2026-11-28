@@ -47,7 +47,7 @@ const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
 //   1  counter, the plain case — a non-zero opening pending the register must show
 //   7  counter, the pre-cutover correction case
 //  12  counter, though its monitoring kind is grievance; must still move
-//  20  counter, the "nothing to report" case — must not move
+//  24  counter, the "nothing to report" case — must not move
 //   2  revenue    — non-zero on purpose: it must still be frozen
 //   5  revenue    — a second one, so collection is proved to accumulate
 //   8  field work — non-zero on purpose. Opening balances still cover all 25
@@ -55,23 +55,23 @@ const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
 //      form reports against now, and the dashboard's pending total (32 below)
 //      must not pick it up. Nothing is filed against it.
 // Every other service opens at zero so the dashboard arithmetic below is exact.
-const OPENING: Record<number, number> = { 1: 7, 2: 11, 5: 9, 7: 3, 8: 13, 12: 5, 20: 4 };
+const OPENING: Record<number, number> = { 1: 7, 2: 11, 5: 9, 7: 3, 8: 13, 12: 5, 24: 4 };
 
 // The figures filed, and the totals they must produce on the dashboard. The
 // three tile figures are kept mutually distinct so a tile reading the wrong
 // total cannot pass by accident.
 const FILED = {
-  counterPending: 32, // 12 (s1) + 7 (s7) + 9 (s12) + 4 (s20)
+  counterPending: 32, // 12 (s1) + 7 (s7) + 9 (s12) + 4 (s24)
   counterReceived: 23, // 9 + 8 + 6 + 0
   counterCompleted: 10, // 4 + 4 + 2 + 0
   // 125050 (s2) + 30025 (s5) + 15000 (s6, after its correction) + 25075 (s1,
   // a queue service that also takes a fee: collection spans it too)
   collection: "₹1,951.50",
   collectionPaise: 195150,
-  // s1 s2 s5 s6 s7 s12 s20. The daily entry collects 17 services, so an office
-  // that filed all of them reads 17 / 17 and one that filed these reads 7 / 17.
+  // s1 s2 s5 s6 s7 s12 s24. The daily entry collects 10 services, so an office
+  // that filed all of them reads 10 / 10 and one that filed these reads 7 / 10.
   entries: 7,
-  expected: 17,
+  expected: 10,
 };
 
 type ApiResponse<T> = { status: number; body: T };
@@ -400,13 +400,13 @@ test.describe("the daily form shapes against a real backend", () => {
     await expect(office.locator("[data-closing]")).toHaveCount(0);
     await expectFormFields(office, [
       ...DATE_AND_WARD,
-      "Payments",
+      "Number of Payments",
       "Amount Collected (₹)",
       "Remarks",
     ]);
 
     await selectField(office, "Ward").selectOption("Ward 11");
-    await numberField(office, "Payments").fill("12");
+    await numberField(office, "Number of Payments").fill("12");
     await textField(office, "Amount Collected (₹)").fill("1250.50");
     await submitEntry(office);
 
@@ -425,12 +425,12 @@ test.describe("the daily form shapes against a real backend", () => {
     await expect(office.locator("[data-opening]")).toHaveCount(0);
     await expectFormFields(office, [
       ...DATE_AND_WARD,
-      "Payments",
+      "Number of Payments",
       "Amount Collected (₹)",
       "Remarks",
     ]);
     await selectField(office, "Ward").selectOption("Ward 13");
-    await numberField(office, "Payments").fill("7");
+    await numberField(office, "Number of Payments").fill("7");
     await textField(office, "Amount Collected (₹)").fill("300.25");
     await submitEntry(office);
 
@@ -448,14 +448,14 @@ test.describe("the daily form shapes against a real backend", () => {
     expect(first.closing.service, "service 2 closing, after service 5 filed").toBe(11);
   });
 
-  test("the list offers seventeen services and no field work, and the server refuses it", async () => {
-    // Field work is reported by officers as visits. The list holds the 17 the
-    // entry collects, numbered 01 to 17, under two groups, and no Field work group.
+  test("the list offers ten services and no field work, and the server refuses it", async () => {
+    // Field work is reported by officers as visits. The list holds the 10 the
+    // entry collects, numbered 01 to 10, under two groups, and no Field work group.
     const list = office.getByRole("list", { name: "Municipal services" });
     const rows = list.locator("button:not([aria-expanded])");
     await expect(rows).toHaveCount(OFFERED_IDS.length);
     await expect(rows.first()).toHaveText(/^01/);
-    await expect(rows.last()).toHaveText(/^17/);
+    await expect(rows.last()).toHaveText(/^10/);
     await expect(list.locator("button[aria-expanded]")).toHaveCount(2);
     await expect(list.getByText(/field work/i)).toHaveCount(0);
 
@@ -499,10 +499,46 @@ test.describe("the daily form shapes against a real backend", () => {
     expect(stored.status).toBe(200);
     for (const serviceId of FIELD_WORK_IDS)
       expect(stored.body.entries.some((e) => e.serviceId === serviceId), `service ${serviceId} stored`).toBe(false);
+
+    // A service withdrawn from the daily entry by decision is refused the same
+    // way: 20 is hidden, 25 is removed. Each is refused on the service alone,
+    // with the message that names the service and not field work.
+    for (const serviceId of [20, 25]) {
+      const withdrawn = await callApi<{ fieldErrors?: Record<string, string> }>(
+        office,
+        "/office/entries",
+        "POST",
+        {
+          requestId: `withdrawn-${serviceId}-${Date.now()}`,
+          expectedVersion: null,
+          mode: "today",
+          reason: null,
+          input: {
+            serviceId,
+            serviceDate: today,
+            ward: "Ward 11",
+            received: 0,
+            completed: 4,
+            slaWithinTime: 0,
+            amountPaise: 0,
+            complaintsReceived: 0,
+            complaintsResolved: 0,
+            fieldReceived: 0,
+            fieldCompleted: 0,
+            avgDisposalDays: null,
+            remarks: "",
+            nothingToReport: false,
+          },
+        },
+      );
+      expect(withdrawn.status, `a daily entry for service ${serviceId}`).toBe(422);
+      expect(Object.keys(withdrawn.body.fieldErrors ?? {}), `service ${serviceId}`).toEqual(["serviceId"]);
+      expect(withdrawn.body.fieldErrors?.serviceId).toBe("This service is not reported on the daily entry");
+    }
   });
 
   test("nothing to report is a flag, and the server refuses it beside a figure", async () => {
-    await selectService(office, 20);
+    await selectService(office, 24);
     await expect(office.locator("[data-opening] strong")).toHaveText("4");
 
     await selectField(office, "Ward").selectOption("Ward 11");
@@ -510,7 +546,7 @@ test.describe("the daily form shapes against a real backend", () => {
     await numberField(office, "Disposed").fill("0");
     await submitEntry(office);
 
-    const entry = await storedEntry(office, 20, today);
+    const entry = await storedEntry(office, 24, today);
     expect(entry.nothingToReport, "typed zeros are not the flag").toBe(false);
     expect(entry.received).toBe(0);
     expect(entry.completed).toBe(0);
@@ -529,7 +565,7 @@ test.describe("the daily form shapes against a real backend", () => {
         mode: "today",
         reason: null,
         input: {
-          serviceId: 25,
+          serviceId: 11,
           serviceDate: today,
           ward: "Ward 11",
           received: 2,
@@ -655,13 +691,13 @@ test.describe("the daily form shapes against a real backend", () => {
       avgDisposalDays: 1.5,
     });
 
-    // The revenue form has no disposal box, so lowering Payments below the
+    // The revenue form has no disposal box, so lowering Number of Payments below the
     // stored `completed` cannot be acted on and must not be rejected on it.
     await correct(
       office,
       6,
       async () => {
-        await numberField(office, "Payments").fill("3");
+        await numberField(office, "Number of Payments").fill("3");
         await textField(office, "Amount Collected (₹)").fill("150.00");
       },
       "Three of the nine payments were counted twice.",
@@ -691,7 +727,7 @@ test.describe("the daily form shapes against a real backend", () => {
     await expect(commissioner.locator("[data-metrics] [data-metric]")).toHaveCount(3);
     await expect(
       commissioner.locator("[data-report-count]"),
-      "one report per service filed, out of the seventeen the entry collects",
+      "one report per service filed, out of the ten the entry collects",
     ).toHaveText(`${FILED.entries} / ${FILED.expected} reports`);
 
     // Field work is reported as visits, so the clerk's figure would read zero:
@@ -710,13 +746,13 @@ test.describe("the daily form shapes against a real backend", () => {
       "Disposal %",
       "Amount Collected (₹)",
     ]);
-    // The filter offers the 17 the entry collects, and none of the eight.
+    // The filter offers the 10 the entry collects, and none of the eight.
     const offered = await commissioner
       .getByLabel("Service", { exact: true })
       .locator("option")
       .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean).map(Number));
     expect(offered).toEqual([...OFFERED_IDS].sort((a, b) => a - b));
-    await expect(commissioner.getByRole("option", { name: "All 17 services" })).toHaveCount(1);
+    await expect(commissioner.getByRole("option", { name: "All 10 services" })).toHaveCount(1);
 
     const rows = await callApi<{ rows: Record<string, unknown>[] }>(
       commissioner,
@@ -724,9 +760,9 @@ test.describe("the daily form shapes against a real backend", () => {
     );
     expect(rows.status).toBe(200);
     const row = rows.body.rows[0];
-    // The seven it filed, out of the seventeen due; field work is in neither number.
+    // The seven it filed, out of the ten due; field work is in neither number.
     expect(row.submitted, "filed count over the collected services").toBe(FILED.entries);
-    expect(row.expected, "the denominator is the seventeen the entry collects").toBe(FILED.expected);
+    expect(row.expected, "the denominator is the ten the entry collects").toBe(FILED.expected);
 
     // The three tiles the form stopped feeding are gone, not zeroed.
     for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending"])
