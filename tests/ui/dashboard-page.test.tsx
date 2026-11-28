@@ -17,7 +17,7 @@ describe("the Commissioner's dashboard page", () => {
   it("has one page heading and opens with the Anchal-wise performance section", async () => {
     route(api, { anchals: [anchalRow()] });
     renderWithin(<Dashboard />);
-    await screen.findByText("Anchal 1");
+    await screen.findByRole("cell", { name: "Anchal 1" });
 
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Office monitoring dashboard"]);
     expect(screen.getAllByRole("heading", { level: 2 })[0].textContent).toBe("Anchal-wise performance");
@@ -27,7 +27,7 @@ describe("the Commissioner's dashboard page", () => {
   it("has no filing status, no tiles and no page-wide filter", async () => {
     route(api, { anchals: [anchalRow()] });
     renderWithin(<Dashboard />);
-    await screen.findByText("Anchal 1");
+    await screen.findByRole("cell", { name: "Anchal 1" });
 
     expect(document.body.textContent).not.toMatch(/Filed today|Filing status|Total pending|Total collection|reports/);
     expect(document.querySelector("[data-metric]")).toBeNull();
@@ -37,7 +37,7 @@ describe("the Commissioner's dashboard page", () => {
   it("refreshes every section from the one Refresh button", async () => {
     route(api, { anchals: [anchalRow()] });
     const client = renderWithin(<Dashboard />);
-    await screen.findByText("Anchal 1");
+    await screen.findByRole("cell", { name: "Anchal 1" });
     const spy = vi.spyOn(client, "invalidateQueries");
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Refresh" }));

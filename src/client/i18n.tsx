@@ -87,6 +87,9 @@ const runtimeHindi: Record<string, string> = {
     "सेवा तिथि इस रिपोर्टिंग मार्ग के अंतर्गत नहीं है",
   "Date precedes reporting start date": "तिथि रिपोर्टिंग प्रारंभ से पहले है",
   "Invalid reporting filters": "रिपोर्टिंग फ़िल्टर गलत हैं",
+  // MonitoringService.GetDashboardDaysAsync: a per-day series longer than the
+  // charts can show. Drafted, not settled; waits on RMC's reviewer.
+  "Choose a period of 92 days or fewer": "92 दिन या उससे कम की अवधि चुनें",
   "Unable to complete request. Please retry.":
     "अनुरोध पूरा नहीं हुआ। कृपया पुनः प्रयास करें।",
   "Configure opening balances before reporting":

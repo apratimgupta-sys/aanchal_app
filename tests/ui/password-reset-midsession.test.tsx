@@ -80,6 +80,7 @@ describe("the Hindi for server messages", () => {
     // Hindi never applied and nothing said so.
     "Date is outside this reporting route",
     "Too many attempts. Try again later.",
+    "Choose a period of 92 days or fewer",
   ])("has a Hindi key for %s", (message) => {
     const hindi = runtimeText(message, "hi");
     expect(hindi).not.toBe(message);
