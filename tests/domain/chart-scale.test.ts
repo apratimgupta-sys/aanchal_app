@@ -51,3 +51,39 @@ describe("which days are named on the axis", () => {
     }
   });
 });
+
+import { spreadLabels, tiles, tipLeft, tipWidth } from "../../src/client/pages/dashboard/charts/scale";
+
+describe("hover areas", () => {
+  it("tile the plot from edge to edge", () => {
+    expect(tiles([10, 60, 110], 0, 120)).toEqual([{ x: 0, width: 35 }, { x: 35, width: 50 }, { x: 85, width: 35 }]);
+    expect(tiles([60], 10, 110)).toEqual([{ x: 10, width: 100 }]);
+    expect(tiles([], 10, 110)).toEqual([]);
+  });
+});
+
+describe("labels that keep apart", () => {
+  it("leaves labels that have room alone", () => {
+    expect(spreadLabels([20, 100], 14, 0, 200)).toEqual([20, 100]);
+  });
+  it("moves close labels apart about their midpoint, keeping the order given", () => {
+    expect(spreadLabels([102, 100], 14, 0, 200)).toEqual([108, 94]);
+  });
+  it("keeps them inside the limits", () => {
+    expect(spreadLabels([2, 4], 14, 0, 200)).toEqual([0, 14]);
+    expect(spreadLabels([198, 199], 14, 0, 200)).toEqual([186, 200]);
+  });
+});
+
+describe("a tooltip box", () => {
+  it("is sized from its longest line, within 120 and 320", () => {
+    expect(tipWidth(["a"])).toBe(120);
+    expect(tipWidth(["x".repeat(30)])).toBe(234);
+    expect(tipWidth(["x".repeat(100)])).toBe(320);
+  });
+  it("steps to the side of its mark away from the nearer edge, inside the plot", () => {
+    expect(tipLeft(56, 150, 56, 1110)).toBe(68);
+    expect(tipLeft(1110, 150, 56, 1110)).toBe(948);
+    expect(tipLeft(600, 150, 56, 1110)).toBe(438);
+  });
+});

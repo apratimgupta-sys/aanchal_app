@@ -125,3 +125,80 @@ describe("the day chart", () => {
     expect(screen.getByRole("button", { name: "चार्ट के रूप में देखें" })).toBeTruthy();
   });
 });
+
+const num = (e: Element, a: string) => Number(e.getAttribute(a));
+const daysOf = (n: number): Day[] => month.slice(0, n);
+
+describe("the day chart's usability", () => {
+  it.each([["lines"], ["bars"]] as const)("tiles the plot with hover areas, no gap and no overlap (%s)", (kind) => {
+    for (const n of [2, 7, 28]) {
+      cleanup();
+      show({ kind, days: daysOf(n), series: kind === "bars" ? one : two });
+      const rects = all("[data-day]").sort((a, b) => num(a, "x") - num(b, "x"));
+      expect(rects).toHaveLength(n);
+      expect(num(rects[0], "x")).toBeCloseTo(56, 2);
+      for (let i = 1; i < n; i++) expect(Math.abs(num(rects[i], "x") - (num(rects[i - 1], "x") + num(rects[i - 1], "width")))).toBeLessThan(0.01);
+      const last = rects[n - 1];
+      expect(num(last, "x") + num(last, "width")).toBeCloseTo(1110, 2);
+    }
+  });
+
+  it("keeps end labels apart when the last values are close", () => {
+    show({ days: [{ date: "2026-11-27", values: [400, 400] }, { date: "2026-11-28", values: [418, 410] }] });
+    const [a, b] = all("[data-end-label]");
+
+    expect(Math.abs(num(a, "y") - num(b, "y"))).toBeGreaterThanOrEqual(14);
+  });
+
+  it("leaves end labels beside their dots when there is room", () => {
+    show();
+    const dots = all("circle");
+    all("[data-end-label]").forEach((label, i) => expect(Math.abs(num(label, "y") - num(dots[i], "cy"))).toBeLessThanOrEqual(6));
+  });
+
+  it("sizes the tooltip to its longest line", () => {
+    const format = (v: number) => "₹" + v.toLocaleString("en-IN") + ".00";
+    show({ kind: "bars", series: [{ label: "Collected", colour: 1 }], days: [{ date: "2026-11-28", values: [1482350] }], format });
+    fireEvent.mouseEnter(all("[data-day]")[0]);
+    const width = num(document.querySelector("[data-chart-tooltip] rect")!, "width");
+
+    expect(width).toBeGreaterThanOrEqual(`Collected ${format(1482350)}`.length * 7 + 24);
+    expect(width).toBeLessThanOrEqual(320);
+  });
+
+  it("keeps the tooltip off the day it describes and inside the plot", () => {
+    show();
+    const points = document.querySelectorAll("polyline[data-line]")[0].getAttribute("points")!.split(" ").map((p) => Number(p.split(",")[0]));
+    const days = all("[data-day]");
+    const box = () => document.querySelector("[data-chart-tooltip] rect")!;
+
+    fireEvent.mouseEnter(days[0]);
+    expect(num(box(), "x")).toBeGreaterThan(points[0]);
+    expect(num(box(), "x")).toBeGreaterThanOrEqual(56);
+    expect(num(box(), "x") + num(box(), "width")).toBeLessThanOrEqual(1110);
+    fireEvent.mouseLeave(days[0]);
+
+    fireEvent.mouseEnter(days[27]);
+    expect(num(box(), "x") + num(box(), "width")).toBeLessThan(points[27]);
+    expect(num(box(), "x")).toBeGreaterThanOrEqual(56);
+    expect(num(box(), "x") + num(box(), "width")).toBeLessThanOrEqual(1110);
+  });
+
+  it("keeps keyboard focus on the toggle", async () => {
+    show();
+    const user = userEvent.setup();
+    screen.getByRole("button", { name: "View as table" }).focus();
+
+    await user.click(screen.getByRole("button", { name: "View as table" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "View as chart" }));
+    await user.click(screen.getByRole("button", { name: "View as chart" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "View as table" }));
+  });
+
+  it("names the table view", async () => {
+    show();
+    await userEvent.setup().click(screen.getByRole("button", { name: "View as table" }));
+
+    expect(screen.getByRole("table").closest('[aria-label="Received and disposed per day"]')).not.toBeNull();
+  });
+});
