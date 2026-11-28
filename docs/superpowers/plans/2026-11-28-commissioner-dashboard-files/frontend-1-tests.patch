@@ -1,0 +1,296 @@
+diff --git a/tests/domain/chart-scale.test.ts b/tests/domain/chart-scale.test.ts
+new file mode 100644
+index 0000000..bc8d517
+--- /dev/null
++++ b/tests/domain/chart-scale.test.ts
+@@ -0,0 +1,53 @@
++import { describe, expect, it } from "vitest";
++import { axis, labelIndexes, xAt } from "../../src/client/pages/dashboard/charts/scale";
++
++describe("a chart's value axis", () => {
++  it.each([
++    [418, 500, [0, 100, 200, 300, 400, 500]],
++    [500, 500, [0, 100, 200, 300, 400, 500]],
++    [501, 1000, [0, 200, 400, 600, 800, 1000]],
++    [3, 5, [0, 1, 2, 3, 4, 5]],
++    [7, 10, [0, 2, 4, 6, 8, 10]],
++    [1_630_000, 2_500_000, [0, 500_000, 1_000_000, 1_500_000, 2_000_000, 2_500_000]],
++  ])("covers %d with a top of %d", (largest, max, ticks) => {
++    expect(axis(largest)).toEqual({ max, ticks });
++  });
++
++  it("still has an axis when there is nothing to plot", () => {
++    expect(axis(0)).toEqual({ max: 5, ticks: [0, 1, 2, 3, 4, 5] });
++  });
++
++  it("never tops out below the largest value", () => {
++    for (const largest of [1, 6, 11, 26, 49, 99, 101, 999, 12_345, 987_654]) expect(axis(largest).max).toBeGreaterThanOrEqual(largest);
++  });
++});
++
++describe("where a day sits across the chart", () => {
++  it("spreads the days from edge to edge", () => {
++    expect(xAt(0, 3, 10, 110)).toBe(10);
++    expect(xAt(1, 3, 10, 110)).toBe(60);
++    expect(xAt(2, 3, 10, 110)).toBe(110);
++  });
++
++  it("puts a single day in the middle", () => {
++    expect(xAt(0, 1, 10, 110)).toBe(60);
++  });
++});
++
++describe("which days are named on the axis", () => {
++  it("names every day when they fit", () => {
++    expect(labelIndexes(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
++  });
++
++  it("thins a month evenly and always names the last day", () => {
++    expect(labelIndexes(28)).toEqual([3, 7, 11, 15, 19, 23, 27]);
++  });
++
++  it("never names more than eight, whatever the length", () => {
++    for (const count of [9, 31, 60, 92]) {
++      const picked = labelIndexes(count);
++      expect(picked.length).toBeLessThanOrEqual(8);
++      expect(picked.at(-1)).toBe(count - 1);
++    }
++  });
++});
+diff --git a/tests/domain/daily-entry-order.test.ts b/tests/domain/daily-entry-order.test.ts
+new file mode 100644
+index 0000000..318da5c
+--- /dev/null
++++ b/tests/domain/daily-entry-order.test.ts
+@@ -0,0 +1,19 @@
++import { describe, expect, it } from "vitest";
++import { DAILY_SERVICES, displayNumber } from "../../src/domain/daily-entry-order";
++import { FIELD_WORK_IDS, OFFERED_IDS, WITHDRAWN_IDS, servicePosition } from "../ui/service-position";
++
++// The dashboard numbers services the way the entry form does. Both are held
++// against the oracle typed by hand in tests/ui/service-position.ts.
++describe("the daily entry's order, as the dashboard uses it", () => {
++  it("lists the ten in the entry form's order", () => {
++    expect(DAILY_SERVICES.map((s) => s.id)).toEqual(OFFERED_IDS);
++  });
++
++  it("numbers each as the entry form prints it", () => {
++    for (const id of OFFERED_IDS) expect(displayNumber(id), `service ${id}`).toBe(servicePosition(id));
++  });
++
++  it("has no number for a service that is not on the daily entry", () => {
++    for (const id of [...FIELD_WORK_IDS, ...WITHDRAWN_IDS]) expect(() => displayNumber(id), `service ${id}`).toThrow();
++  });
++});
+diff --git a/tests/domain/dashboard-data.test.ts b/tests/domain/dashboard-data.test.ts
+new file mode 100644
+index 0000000..95eb77c
+--- /dev/null
++++ b/tests/domain/dashboard-data.test.ts
+@@ -0,0 +1,42 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import { getAnchalRows, getDayRows, getServiceRows, getVisitSummary } from "../../src/client/dashboard-data";
++
++const api = vi.hoisted(() => vi.fn());
++vi.mock("../../src/client/api", async () => {
++  const actual = await vi.importActual<typeof import("../../src/client/api")>("../../src/client/api");
++  return { ...actual, api };
++});
++
++beforeEach(() => api.mockReset());
++
++describe("the dashboard's four reads", () => {
++  const period = { from: "2026-11-01", to: "2026-11-28" };
++
++  it("asks each route for the period alone when nothing else is chosen", async () => {
++    api.mockResolvedValue({ rows: [] });
++    await getAnchalRows(period);
++    await getServiceRows(period);
++    await getDayRows(period);
++    await getVisitSummary(period);
++    expect(api.mock.calls.map((c) => c[0])).toEqual([
++      "/dashboard?from=2026-11-01&to=2026-11-28",
++      "/dashboard/services?from=2026-11-01&to=2026-11-28",
++      "/dashboard/days?from=2026-11-01&to=2026-11-28",
++      "/field-visits/summary?from=2026-11-01&to=2026-11-28",
++    ]);
++  });
++
++  it("adds the Anchal and the service only when one is chosen", async () => {
++    api.mockResolvedValue({ rows: [] });
++    await getAnchalRows({ ...period, serviceId: 11 });
++    await getServiceRows({ ...period, officeId: 3 });
++    await getDayRows({ ...period, officeId: 3, serviceId: 2 });
++    await getVisitSummary({ ...period, officeId: 5 });
++    expect(api.mock.calls.map((c) => c[0])).toEqual([
++      "/dashboard?from=2026-11-01&to=2026-11-28&serviceId=11",
++      "/dashboard/services?from=2026-11-01&to=2026-11-28&officeId=3",
++      "/dashboard/days?from=2026-11-01&to=2026-11-28&officeId=3&serviceId=2",
++      "/field-visits/summary?from=2026-11-01&to=2026-11-28&officeId=5",
++    ]);
++  });
++});
+diff --git a/tests/domain/period.test.ts b/tests/domain/period.test.ts
+new file mode 100644
+index 0000000..c02b831
+--- /dev/null
++++ b/tests/domain/period.test.ts
+@@ -0,0 +1,52 @@
++import { describe, expect, it } from "vitest";
++import { addDays, daysInRange, periodRange } from "../../src/domain/period";
++
++const today = "2026-11-28";
++const value = (kind: "today" | "week" | "month" | "custom", from = "", to = "") => ({ kind, from, to });
++
++describe("what a dashboard period means", () => {
++  it("today is the one day", () => {
++    expect(periodRange(value("today"), today)).toEqual({ from: today, to: today });
++  });
++
++  it("the past 7 days are today and the six before it", () => {
++    expect(periodRange(value("week"), today)).toEqual({ from: "2026-11-22", to: today });
++    expect(periodRange(value("week"), "2026-03-03")).toEqual({ from: "2026-02-25", to: "2026-03-03" });
++  });
++
++  it("this month runs from the 1st to today, and is one day on the 1st", () => {
++    expect(periodRange(value("month"), today)).toEqual({ from: "2026-11-01", to: today });
++    expect(periodRange(value("month"), "2026-12-01")).toEqual({ from: "2026-12-01", to: "2026-12-01" });
++  });
++
++  it("a custom range is taken as given", () => {
++    expect(periodRange(value("custom", "2026-10-05", "2026-11-10"), today)).toEqual({ from: "2026-10-05", to: "2026-11-10" });
++  });
++
++  it.each([
++    ["no start", "", "2026-11-10"],
++    ["no end", "2026-11-01", ""],
++    ["the start after the end", "2026-11-11", "2026-11-10"],
++    ["the end after today", "2026-11-01", "2026-11-29"],
++    ["a malformed date", "1/11/2026", "2026-11-10"],
++  ])("a custom range with %s cannot be asked for", (_, from, to) => {
++    expect(periodRange(value("custom", from, to), today)).toBeNull();
++  });
++
++  it("the other periods ignore whatever custom dates were typed", () => {
++    expect(periodRange(value("today", "2026-01-01", "2026-01-02"), today)).toEqual({ from: today, to: today });
++  });
++});
++
++describe("date arithmetic on calendar days", () => {
++  it("steps across a month and a year", () => {
++    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
++    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
++  });
++
++  it("counts both ends of a range", () => {
++    expect(daysInRange(today, today)).toBe(1);
++    expect(daysInRange("2026-11-01", today)).toBe(28);
++    expect(daysInRange("2026-07-06", "2026-10-05")).toBe(92);
++  });
++});
+diff --git a/tests/domain/visit-cards.test.ts b/tests/domain/visit-cards.test.ts
+new file mode 100644
+index 0000000..d493788
+--- /dev/null
++++ b/tests/domain/visit-cards.test.ts
+@@ -0,0 +1,100 @@
++import { describe, expect, it } from "vitest";
++import wording from "../../src/shared/visit-card-wording.json";
++import services from "../../src/shared/services.json";
++import { fieldsFor } from "../../src/domain/field-visit-fields";
++import { reportedAsVisit } from "../../src/domain/service-kind";
++import { formatCount, visitCard } from "../../src/domain/visit-cards";
++import type { VisitServiceSummary } from "../../src/shared/types";
++
++const summary = (serviceId: number, over: Partial<VisitServiceSummary> = {}): VisitServiceSummary => ({
++  serviceId, visits: 0, wardsCovered: 0, numbers: [], choices: [], ...over,
++});
++
++describe("the wording of the visit cards against the visit forms", () => {
++  const fieldWork = services.filter((s) => reportedAsVisit(s.id)).map((s) => String(s.id));
++  type Words = { headline: { number?: string }; sub: { split?: string; number?: string } };
++
++  it("has a card for every field-work service and for nothing else", () => {
++    expect(Object.keys(wording).sort()).toEqual([...fieldWork].sort());
++  });
++
++  it("names only fields the service's form really has, of the right kind", () => {
++    for (const [id, words] of Object.entries(wording as Record<string, Words>)) {
++      const type = (key: string) => fieldsFor(Number(id)).find((f) => f.key === key)?.type;
++      if (words.headline.number) expect(type(words.headline.number), `${id} headline`).toBe("number");
++      if (words.sub.number) expect(type(words.sub.number), `${id} sub`).toBe("number");
++      if (words.sub.split) expect(type(words.sub.split), `${id} split`).toBe("select");
++    }
++  });
++});
++
++describe("what a visit card says", () => {
++  it("sums the service's number and splits it by the choice", () => {
++    const card = visitCard(summary(8, {
++      visits: 9, wardsCovered: 6,
++      numbers: [{ key: "quantityKg", sum: 4250, visits: 9 }],
++      choices: [{ key: "wasteType", options: [
++        { value: "wet", visits: 4, numbers: [{ key: "quantityKg", sum: 2100, visits: 4 }] },
++        { value: "dry", visits: 3, numbers: [{ key: "quantityKg", sum: 1400, visits: 3 }] },
++        { value: "mixed", visits: 2, numbers: [{ key: "quantityKg", sum: 750, visits: 2 }] },
++      ] }],
++    }));
++    expect(card.headline).toEqual({ value: 4250, en: "kg lifted", hi: "किग्रा उठाया" });
++    expect(card.sub.en).toBe("Wet 2,100 · Dry 1,400 · Mixed 750");
++    expect(card.sub.hi).toBe("गीला 2,100 · सूखा 1,400 · मिश्रित 750");
++    expect(card.missing).toBe(0);
++  });
++
++  it("counts visits per choice where the service has no number", () => {
++    const card = visitCard(summary(13, {
++      visits: 7, wardsCovered: 5,
++      choices: [{ key: "workType", options: [
++        { value: "repair", visits: 4, numbers: [] },
++        { value: "replace", visits: 2, numbers: [] },
++        { value: "shift", visits: 1, numbers: [] },
++      ] }],
++    }));
++    expect(card.headline).toEqual({ value: 7, en: "jobs", hi: "कार्य" });
++    expect(card.sub.en).toBe("Repair 4 · Replace 2 · Shift 1");
++  });
++
++  it("gives a second number as the line beneath", () => {
++    const card = visitCard(summary(10, {
++      visits: 4, numbers: [{ key: "dogsPicked", sum: 27, visits: 4 }, { key: "dogsNeutered", sum: 20, visits: 4 }],
++    }));
++    expect(card.headline.value).toBe(27);
++    expect(card.sub).toEqual({ en: "20 neutered", hi: "20 का बधियाकरण" });
++  });
++
++  it("names the wards covered, with the singular for one", () => {
++    expect(visitCard(summary(9, { visits: 6, wardsCovered: 5 })).sub).toEqual({ en: "in 5 wards", hi: "5 वार्ड में" });
++    expect(visitCard(summary(17, { visits: 1, wardsCovered: 1 })).sub.en).toBe("in 1 ward");
++    expect(visitCard(summary(9, { visits: 6, wardsCovered: 5 })).headline).toEqual({ value: 6, en: "routes covered", hi: "मार्ग कवर" });
++  });
++
++  it("says how many visits gave no figure, and never for a service that counts visits", () => {
++    expect(visitCard(summary(16, { visits: 5, numbers: [{ key: "treeCount", sum: 14, visits: 3 }] })).missing).toBe(2);
++    expect(visitCard(summary(16, { visits: 5 })).missing).toBe(5);
++    expect(visitCard(summary(9, { visits: 6 })).missing).toBe(0);
++  });
++
++  it("reads zero everywhere for a service with no visits, in the form's own option order", () => {
++    const card = visitCard(summary(14));
++    expect(card.headline.value).toBe(0);
++    expect(card.sub.en).toBe("Road 0 · Drain 0");
++    expect(card.missing).toBe(0);
++  });
++
++  it("refuses a service that has no card", () => {
++    expect(() => visitCard(summary(1))).toThrow();
++  });
++});
++
++describe("how a figure is printed", () => {
++  it("groups the Indian way and keeps one decimal of a measurement", () => {
++    expect(formatCount(125000)).toBe("1,25,000");
++    expect(formatCount(200.5)).toBe("200.5");
++    expect(formatCount(12.345)).toBe("12.3");
++    expect(formatCount(14)).toBe("14");
++  });
++});

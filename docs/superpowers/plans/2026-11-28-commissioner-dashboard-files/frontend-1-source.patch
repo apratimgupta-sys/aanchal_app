@@ -1,0 +1,321 @@
+diff --git a/src/client/dashboard-data.ts b/src/client/dashboard-data.ts
+new file mode 100644
+index 0000000..3667177
+--- /dev/null
++++ b/src/client/dashboard-data.ts
+@@ -0,0 +1,25 @@
++import { api } from "./api";
++import type { DayRow, MonitoringRow, ServiceRow, VisitSummary } from "../shared/types";
++
++// The Commissioner dashboard's four reads. Each section of the page makes one
++// of them with its own filters; the server does all the adding up.
++export type DashboardQuery = { from: string; to: string; officeId?: number; serviceId?: number };
++
++function search(query: DashboardQuery): string {
++  const params = new URLSearchParams({ from: query.from, to: query.to });
++  if (query.officeId !== undefined) params.set("officeId", String(query.officeId));
++  if (query.serviceId !== undefined) params.set("serviceId", String(query.serviceId));
++  return params.toString();
++}
++
++export type AnchalRows = { rows: MonitoringRow[]; updatedAt: string; retrievedAt?: string };
++
++export const getAnchalRows = (query: DashboardQuery) => api<AnchalRows>(`/dashboard?${search(query)}`);
++
++export const getServiceRows = (query: Omit<DashboardQuery, "serviceId">) =>
++  api<{ rows: ServiceRow[] }>(`/dashboard/services?${search(query)}`);
++
++export const getDayRows = (query: DashboardQuery) => api<{ rows: DayRow[] }>(`/dashboard/days?${search(query)}`);
++
++export const getVisitSummary = (query: Omit<DashboardQuery, "serviceId">) =>
++  api<VisitSummary>(`/field-visits/summary?${search(query)}`);
+diff --git a/src/client/pages/dashboard/charts/scale.ts b/src/client/pages/dashboard/charts/scale.ts
+new file mode 100644
+index 0000000..19950cd
+--- /dev/null
++++ b/src/client/pages/dashboard/charts/scale.ts
+@@ -0,0 +1,33 @@
++// The arithmetic behind the dashboard's two charts, kept apart from the drawing
++// so it can be tested without a browser.
++
++// A value axis from zero: five equal steps of 1, 2 or 5 times a power of ten,
++// the smallest such that the top is not below the largest value. An empty or
++// all-zero series still gets an axis (0 to 5), so the chart draws its frame.
++export function axis(largest: number): { max: number; ticks: number[] } {
++  const steps = 5;
++  let step = 1;
++  if (largest > steps) {
++    const power = 10 ** Math.floor(Math.log10(largest / steps));
++    step = [1, 2, 5, 10].map((m) => m * power).find((s) => s * steps >= largest)!;
++  }
++  return { max: step * steps, ticks: Array.from({ length: steps + 1 }, (_, i) => i * step) };
++}
++
++// Where the i-th of `count` evenly spaced marks sits between two edges. A single
++// mark sits in the middle.
++export function xAt(index: number, count: number, left: number, right: number): number {
++  if (count <= 1) return (left + right) / 2;
++  return left + (index * (right - left)) / (count - 1);
++}
++
++// Which marks get a label on the axis: all of them when they fit, otherwise
++// evenly spaced ones counted back from the last, so the latest day is always
++// named.
++export function labelIndexes(count: number, most = 8): number[] {
++  if (count <= most) return Array.from({ length: count }, (_, i) => i);
++  const step = Math.ceil((count - 1) / (most - 1));
++  const picked: number[] = [];
++  for (let i = count - 1; i >= 0; i -= step) picked.unshift(i);
++  return picked;
++}
+diff --git a/src/client/styles/theme.css b/src/client/styles/theme.css
+index 6552a37..b32cda4 100644
+--- a/src/client/styles/theme.css
++++ b/src/client/styles/theme.css
+@@ -24,6 +24,14 @@
+   --success-foreground: 0 0% 100%;
+   --warning: 36.4 100% 23.9%;  /* #7A4A00 */
+   --warning-foreground: 40 88.2% 93.3%;  /* #FDF3DF */
++  /* Charts. Two series colours and a three-step ramp for the ward grid (a ward
++     with no visit takes the card colour). Checked with the palette validator
++     against the card surface: lightness, chroma, colour-blind separation, contrast. */
++  --chart-1: 171.3 81.6% 29.8%;  /* #0E8A78 */
++  --chart-2: 33.3 90.2% 40%;  /* #C2700A */
++  --ward-1: 165.6 35.2% 86.1%;  /* #CFE8E2 */
++  --ward-2: 169.2 36.4% 58%;  /* #6DBBAD */
++  --ward-3: 172.4 79.8% 21.4%;  /* #0B6257 */
+   /* Radius. Tailwind derives lg = r, md = r - 2px, sm = r - 4px (tailwind.config.ts).
+      Design: cards 10px, controls 7px.
+        r = 10px -> lg 10px (cards exact), md 8px (+1), sm 6px (-1).
+@@ -52,4 +60,9 @@
+   --destructive: 0 70% 56%;
+   --success: 145 50% 52%;
+   --warning: 34 80% 58%;
++  --chart-1: 170.9 66.8% 36.7%;
++  --chart-2: 33.8 71.1% 46.1%;
++  --ward-1: 171.6 41% 20.6%;
++  --ward-2: 170.3 48.6% 35.1%;
++  --ward-3: 169.5 50.8% 62.5%;
+ }
+diff --git a/src/domain/daily-entry-order.ts b/src/domain/daily-entry-order.ts
+new file mode 100644
+index 0000000..3eb9115
+--- /dev/null
++++ b/src/domain/daily-entry-order.ts
+@@ -0,0 +1,28 @@
++import services from "../shared/services.json" with { type: "json" };
++import { dailyEntryCollects, formShape } from "./service-kind";
++
++// The services the daily entry collects, in the order the entry form lists
++// them: the services that keep a queue first, then the collections, each group
++// in service-master order. The dashboard lists and numbers services the same
++// way, so the Commissioner and the clerk mean the same thing by "service 08".
++//
++// TWIN: the entry form builds the same list for itself (GROUPS and
++// displayNumber in src/client/pages/DailyEntry.tsx). Both are held against the
++// hand-written oracle in tests/ui/service-position.ts.
++const afterTheQueues = (serviceId: number) => (formShape(serviceId) === "revenue" ? 1 : 0);
++
++export const DAILY_SERVICES = services
++  .filter((s) => dailyEntryCollects(s.id))
++  .map((service, index) => ({ service, index }))
++  .sort((a, b) => afterTheQueues(a.service.id) - afterTheQueues(b.service.id) || a.index - b.index)
++  .map((x) => x.service);
++
++const NUMBER = new Map<number, string>(DAILY_SERVICES.map((s, i) => [s.id, String(i + 1).padStart(2, "0")]));
++
++// The service's place in that list as the entry form prints it ("01" to "10").
++// Display only: the id is what is stored and sent.
++export function displayNumber(serviceId: number): string {
++  const number = NUMBER.get(serviceId);
++  if (number === undefined) throw new Error(`Service ${serviceId} is not on the daily entry`);
++  return number;
++}
+diff --git a/src/domain/period.ts b/src/domain/period.ts
+new file mode 100644
+index 0000000..0ee1fd0
+--- /dev/null
++++ b/src/domain/period.ts
+@@ -0,0 +1,37 @@
++// The periods a dashboard section can be set to, and the dates each one means.
++// Dates are Indian calendar days as "YYYY-MM-DD" strings; the arithmetic is done
++// in UTC on the date alone, so no clock or time zone can shift a day.
++export type PeriodKind = "today" | "week" | "month" | "custom";
++
++export type PeriodValue = { kind: PeriodKind; from: string; to: string };
++
++const DATE = /^\d{4}-\d{2}-\d{2}$/;
++
++export function addDays(date: string, days: number): string {
++  const d = new Date(`${date}T00:00:00Z`);
++  d.setUTCDate(d.getUTCDate() + days);
++  return d.toISOString().slice(0, 10);
++}
++
++// How many days a range covers, both ends included.
++export function daysInRange(from: string, to: string): number {
++  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
++}
++
++// The dates a period means today, or null when a custom range cannot be asked
++// for: a date missing or malformed, the start after the end, or the end after
++// today. "week" is today and the six days before it; "month" is the 1st to today.
++export function periodRange(value: PeriodValue, today: string): { from: string; to: string } | null {
++  switch (value.kind) {
++    case "today":
++      return { from: today, to: today };
++    case "week":
++      return { from: addDays(today, -6), to: today };
++    case "month":
++      return { from: `${today.slice(0, 8)}01`, to: today };
++    case "custom":
++      if (!DATE.test(value.from) || !DATE.test(value.to)) return null;
++      if (value.from > value.to || value.to > today) return null;
++      return { from: value.from, to: value.to };
++  }
++}
+diff --git a/src/domain/visit-cards.ts b/src/domain/visit-cards.ts
+new file mode 100644
+index 0000000..f9a3d2d
+--- /dev/null
++++ b/src/domain/visit-cards.ts
+@@ -0,0 +1,63 @@
++import wording from "../shared/visit-card-wording.json" with { type: "json" };
++import type { VisitServiceSummary } from "../shared/types";
++import { fieldsFor } from "./field-visit-fields";
++
++// What one field-work service's card on the Commissioner's dashboard says. The
++// server sends each service's sums and splits; which of them is the headline,
++// and what it is called, is wording, held in visit-card-wording.json.
++export type VisitCard = {
++  serviceId: number;
++  visits: number;
++  headline: { value: number; en: string; hi: string };
++  sub: { en: string; hi: string };
++  // Visits that gave no value for the headline number. Details are optional, so
++  // the card says so rather than letting the sum quietly understate.
++  missing: number;
++};
++
++type Headline = { number?: string; en: string; hi: string };
++type Sub = { split: string } | { number: string; en: string; hi: string } | { wards: true };
++type Wording = Record<string, { headline: Headline; sub: Sub }>;
++
++const WORDING = wording as Wording;
++
++// Whole numbers as they are, measurements to one decimal, Indian grouping.
++export function formatCount(value: number): string {
++  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 }).format(value);
++}
++
++export function visitCard(summary: VisitServiceSummary): VisitCard {
++  const words = WORDING[String(summary.serviceId)];
++  if (!words) throw new Error(`No card wording for service ${summary.serviceId}`);
++  const numberKey = words.headline.number;
++  const number = numberKey === undefined ? undefined : summary.numbers.find((n) => n.key === numberKey);
++  const headline = {
++    value: numberKey === undefined ? summary.visits : (number?.sum ?? 0),
++    en: words.headline.en,
++    hi: words.headline.hi,
++  };
++  const missing = numberKey === undefined ? 0 : summary.visits - (number?.visits ?? 0);
++  return { serviceId: summary.serviceId, visits: summary.visits, headline, sub: subLine(summary, words.sub, numberKey), missing };
++}
++
++function subLine(summary: VisitServiceSummary, sub: Sub, headlineNumber: string | undefined): { en: string; hi: string } {
++  if ("wards" in sub) {
++    const n = summary.wardsCovered;
++    return { en: `in ${n} ${n === 1 ? "ward" : "wards"}`, hi: `${n} वार्ड में` };
++  }
++  if ("number" in sub) {
++    const value = formatCount(summary.numbers.find((n) => n.key === sub.number)?.sum ?? 0);
++    return { en: `${value} ${sub.en}`, hi: `${value} ${sub.hi}` };
++  }
++  // A split: the headline number per choice where the service has one,
++  // otherwise visits per choice, in the form's own option order.
++  const field = fieldsFor(summary.serviceId).find((f) => f.key === sub.split);
++  const choice = summary.choices.find((c) => c.key === sub.split);
++  const parts = (field?.options ?? []).map((option) => {
++    const got = choice?.options.find((o) => o.value === option.value);
++    const value =
++      headlineNumber === undefined ? (got?.visits ?? 0) : (got?.numbers.find((n) => n.key === headlineNumber)?.sum ?? 0);
++    return { en: `${option.en} ${formatCount(value)}`, hi: `${option.hi} ${formatCount(value)}` };
++  });
++  return { en: parts.map((p) => p.en).join(" · "), hi: parts.map((p) => p.hi).join(" · ") };
++}
+diff --git a/src/shared/types.ts b/src/shared/types.ts
+index 2da7c99..5d67c8f 100644
+--- a/src/shared/types.ts
++++ b/src/shared/types.ts
+@@ -119,6 +119,35 @@ export type MonitoringRow = {
+   configured: boolean;
+   reviewReasons: string[];
+ };
++// The Commissioner dashboard's finer breakdowns, each rolled up by the server.
++// A service row carries the raw sums for one service; which of them mean
++// anything for its form shape is decided with the shape rules, not here.
++export type ServiceRow = {
++  serviceId: number;
++  received: number;
++  completed: number;
++  pending: number;
++  disposalPct: number | null;
++  amountPaise: number;
++};
++export type DayRow = { date: string; received: number; completed: number; amountPaise: number };
++// `sum` is over the visits that gave the number; `visits` is how many did.
++export type VisitNumberSummary = { key: string; sum: number; visits: number };
++export type VisitOptionSummary = { value: string; visits: number; numbers: VisitNumberSummary[] };
++export type VisitChoiceSummary = { key: string; options: VisitOptionSummary[] };
++export type VisitServiceSummary = {
++  serviceId: number;
++  visits: number;
++  wardsCovered: number;
++  numbers: VisitNumberSummary[];
++  choices: VisitChoiceSummary[];
++};
++export type VisitSummary = {
++  visits: number;
++  officers: number;
++  services: VisitServiceSummary[];
++  wards: { ward: number; visits: number }[];
++};
+ export type Audit = {
+   id: string;
+   officeId: number;
+diff --git a/src/shared/visit-card-wording.json b/src/shared/visit-card-wording.json
+new file mode 100644
+index 0000000..e507a02
+--- /dev/null
++++ b/src/shared/visit-card-wording.json
+@@ -0,0 +1,10 @@
++{
++  "8": { "headline": { "number": "quantityKg", "en": "kg lifted", "hi": "किग्रा उठाया" }, "sub": { "split": "wasteType" } },
++  "9": { "headline": { "en": "routes covered", "hi": "मार्ग कवर" }, "sub": { "wards": true } },
++  "10": { "headline": { "number": "dogsPicked", "en": "dogs picked", "hi": "कुत्ते पकड़े" }, "sub": { "number": "dogsNeutered", "en": "neutered", "hi": "का बधियाकरण" } },
++  "13": { "headline": { "en": "jobs", "hi": "कार्य" }, "sub": { "split": "workType" } },
++  "14": { "headline": { "number": "lengthMetres", "en": "metres", "hi": "मीटर" }, "sub": { "split": "structureType" } },
++  "15": { "headline": { "number": "areaCutSqMetres", "en": "sq metres cut", "hi": "वर्ग मीटर कटाई" }, "sub": { "wards": true } },
++  "16": { "headline": { "number": "treeCount", "en": "trees pruned", "hi": "पेड़ों की छंटाई" }, "sub": { "wards": true } },
++  "17": { "headline": { "en": "sites cleaned", "hi": "स्थल साफ किए" }, "sub": { "wards": true } }
++}
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index c87f8db..7bca6fb 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -58,6 +58,15 @@ export default {
+           DEFAULT: "hsl(var(--warning))",
+           foreground: "hsl(var(--warning-foreground))",
+         },
++        chart: {
++          1: "hsl(var(--chart-1))",
++          2: "hsl(var(--chart-2))",
++        },
++        ward: {
++          1: "hsl(var(--ward-1))",
++          2: "hsl(var(--ward-2))",
++          3: "hsl(var(--ward-3))",
++        },
+         card: {
+           DEFAULT: "hsl(var(--card))",
+           foreground: "hsl(var(--card-foreground))",

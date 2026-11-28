@@ -1,0 +1,151 @@
+diff --git a/src/Anchal.Api/Controllers/MonitoringDashboardController.cs b/src/Anchal.Api/Controllers/MonitoringDashboardController.cs
+index 946a006..4e3691a 100644
+--- a/src/Anchal.Api/Controllers/MonitoringDashboardController.cs
++++ b/src/Anchal.Api/Controllers/MonitoringDashboardController.cs
+@@ -10,5 +10,7 @@ namespace Anchal.Api.Controllers;
+ public sealed class MonitoringDashboardController(IMonitoringService service, MonitoringHttpAdapter adapter) : ControllerBase
+ {
+     [HttpGet] public async Task<IActionResult> Dashboard(CancellationToken ct) => await adapter.Read(Response, await service.GetDashboardAsync(User, await adapter.Filter(Request.Query, ct), ct), ct);
++    [HttpGet("services")] public async Task<IActionResult> Services(CancellationToken ct) => await adapter.Read(Response, await service.GetDashboardServicesAsync(User, await adapter.Filter(Request.Query, ct), ct), ct);
++    [HttpGet("days")] public async Task<IActionResult> Days(CancellationToken ct) => await adapter.Read(Response, await service.GetDashboardDaysAsync(User, await adapter.Filter(Request.Query, ct), ct), ct);
+     [HttpGet("entries")] public async Task<IActionResult> Entries(CancellationToken ct) => await adapter.Read(Response, await service.GetDashboardEntriesAsync(User, await adapter.Filter(Request.Query, ct), ct), ct);
+ }
+diff --git a/src/Anchal.Application/CommissionerMonitoring/DTOs/MonitoringDtos.cs b/src/Anchal.Application/CommissionerMonitoring/DTOs/MonitoringDtos.cs
+index 9064189..63c2280 100644
+--- a/src/Anchal.Application/CommissionerMonitoring/DTOs/MonitoringDtos.cs
++++ b/src/Anchal.Application/CommissionerMonitoring/DTOs/MonitoringDtos.cs
+@@ -67,3 +67,11 @@ public sealed record FieldVisitDto(Guid Id, DateOnly VisitDate, string VisitTime
+ public sealed record FieldVisitPageDto(IReadOnlyList<FieldVisitDto> Rows, int Total);
+ public sealed record FieldVisitFilter(DateOnly From, DateOnly To, int? OfficeId, int? Ward, int? ServiceId,
+     Guid? OfficerId, int Page);
++
++// The dashboard's finer breakdowns. Each is rolled up here so that the page never adds anything up itself.
++// A service row carries the raw sums for that service; which of them mean anything for its form shape is
++// the page's question, answered with the same shape rules the daily entry uses.
++public sealed record ServiceRowDto(int ServiceId, long Received, long Completed, long Pending, double? DisposalPct, long AmountPaise);
++public sealed record DashboardServicesDto(IReadOnlyList<ServiceRowDto> Rows);
++public sealed record DayRowDto(DateOnly Date, long Received, long Completed, long AmountPaise);
++public sealed record DashboardDaysDto(IReadOnlyList<DayRowDto> Rows);
+diff --git a/src/Anchal.Application/CommissionerMonitoring/Services/IMonitoringService.cs b/src/Anchal.Application/CommissionerMonitoring/Services/IMonitoringService.cs
+index 545ee26..7b93de0 100644
+--- a/src/Anchal.Application/CommissionerMonitoring/Services/IMonitoringService.cs
++++ b/src/Anchal.Application/CommissionerMonitoring/Services/IMonitoringService.cs
+@@ -13,5 +13,7 @@ public interface IMonitoringService
+     Task<MonitoringResult<EntryDto>> SaveEntryAsync(ClaimsPrincipal principal, SaveEntryCommand command, Guid? id = null, CancellationToken ct = default);
+     Task<MonitoringResult<MonitoringRead<DashboardDto>>> GetDashboardAsync(ClaimsPrincipal principal, PeriodFilter filter, CancellationToken ct = default);
+     Task<MonitoringResult<MonitoringRead<IReadOnlyList<EntryDto>>>> GetDashboardEntriesAsync(ClaimsPrincipal principal, PeriodFilter filter, CancellationToken ct = default);
++    Task<MonitoringResult<MonitoringRead<DashboardServicesDto>>> GetDashboardServicesAsync(ClaimsPrincipal principal, PeriodFilter filter, CancellationToken ct = default);
++    Task<MonitoringResult<MonitoringRead<DashboardDaysDto>>> GetDashboardDaysAsync(ClaimsPrincipal principal, PeriodFilter filter, CancellationToken ct = default);
+     Task<MonitoringResult<MonitoringRead<IReadOnlyList<AuditDto>>>> GetHistoryAsync(ClaimsPrincipal principal, CancellationToken ct = default);
+ }
+diff --git a/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.Breakdowns.cs b/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.Breakdowns.cs
+new file mode 100644
+index 0000000..e1b1e76
+--- /dev/null
++++ b/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.Breakdowns.cs
+@@ -0,0 +1,92 @@
++using System.Security.Claims;
++using Microsoft.EntityFrameworkCore;
++using Anchal.Application.CommissionerMonitoring.DTOs;
++using Anchal.Domain.CommissionerMonitoring;
++using static Anchal.Domain.CommissionerMonitoring.Rules.MonitoringRules;
++
++namespace Anchal.Application.CommissionerMonitoring.Services;
++
++/// The dashboard's finer breakdowns: the same entries GetDashboardAsync rolls up per Anchal, rolled up per
++/// service and per day instead. Every figure here must agree with that roll-up for the same filter;
++/// DashboardBreakdownTests holds the two against each other.
++public sealed partial class MonitoringService
++{
++    /// A per-day series longer than this is refused: a chart of more days than this cannot be read.
++    public const int DayRowsMaximum = 92;
++
++    public Task<MonitoringResult<MonitoringRead<DashboardServicesDto>>> GetDashboardServicesAsync(ClaimsPrincipal principal,
++        PeriodFilter filter, CancellationToken ct = default) => Run(async () =>
++    {
++        await Authorize(principal, ct, "commissioner");
++        await ValidateFilter(filter, ct);
++        var (audits, offices) = await LoadOfficeEntries(filter, ct);
++        // One row per service the daily entry collects, in id order. The sums are raw: received on a revenue
++        // service is its number of payments, and the page decides what each shape shows.
++        var rows = Enumerable.Range(1, ServiceCount).Where(DailyEntryCollects).Select(serviceId =>
++        {
++            long received = 0, completed = 0, pending = 0, amount = 0;
++            foreach (var (setup, entries) in offices)
++            {
++                var period = entries.Where(x => x.Input.ServiceId == serviceId &&
++                    x.Input.ServiceDate >= filter.From && x.Input.ServiceDate <= filter.To).ToArray();
++                received += period.Sum(x => x.Input.Received);
++                completed += period.Sum(x => x.Input.Completed);
++                amount += period.Sum(x => x.Input.AmountPaise);
++                if (MovesPendingBalance(serviceId)) pending += ClosingPending(setup, entries, serviceId, filter.To);
++            }
++            double? disposalPct = !MovesPendingBalance(serviceId) || received == 0 ? null : (double)completed / received * 100;
++            return new ServiceRowDto(serviceId, received, completed, pending, disposalPct, amount);
++        }).ToArray();
++        return Read(new DashboardServicesDto(rows), LastUpdated(audits));
++    });
++
++    public Task<MonitoringResult<MonitoringRead<DashboardDaysDto>>> GetDashboardDaysAsync(ClaimsPrincipal principal,
++        PeriodFilter filter, CancellationToken ct = default) => Run(async () =>
++    {
++        await Authorize(principal, ct, "commissioner");
++        await ValidateFilter(filter, ct);
++        var days = filter.To.DayNumber - filter.From.DayNumber + 1;
++        if (days > DayRowsMaximum) Fail(422, $"Choose a period of {DayRowsMaximum} days or fewer");
++        var (audits, offices) = await LoadOfficeEntries(filter, ct);
++        // The same rule GetDashboardAsync applies: unpinned, only what the daily entry collects; pinned, that
++        // service's own history. Received and disposed come from the services that keep a queue.
++        bool CountsInFigures(int serviceId) => filter.ServiceId.HasValue || DailyEntryCollects(serviceId);
++        var byDate = offices.SelectMany(x => Filter(x.Entries, filter)).Where(x => CountsInFigures(x.Input.ServiceId))
++            .ToLookup(x => x.Input.ServiceDate);
++        var rows = Enumerable.Range(0, days).Select(offset =>
++        {
++            var date = filter.From.AddDays(offset);
++            var queue = byDate[date].Where(x => MovesPendingBalance(x.Input.ServiceId)).ToArray();
++            return new DayRowDto(date, queue.Sum(x => x.Input.Received), queue.Sum(x => x.Input.Completed),
++                byDate[date].Sum(x => x.Input.AmountPaise));
++        }).ToArray();
++        return Read(new DashboardDaysDto(rows), LastUpdated(audits));
++    });
++
++    /// Every configured office the filter allows, with its entries carrying their derived balances. An office
++    /// with no initial balances has no entries and no balance, so it is left out.
++    private async Task<(List<MonitoringAuditEvent> Audits, List<(SetupDto Setup, IReadOnlyList<EntryDto> Entries)> Offices)>
++        LoadOfficeEntries(PeriodFilter filter, CancellationToken ct)
++    {
++        var audits = await LoadAudits(filter.OfficeId, ct);
++        var all = CurrentEntries(audits);
++        var offices = new List<(SetupDto, IReadOnlyList<EntryDto>)>();
++        foreach (var office in await ActiveOffices(filter).OrderBy(x => x.Code).ToListAsync(ct))
++        {
++            var setup = ToDto(await LoadSetup(office.Id, ct));
++            if (setup is null) continue;
++            offices.Add((setup, Views(setup, all.Where(x => x.OfficeId == office.Id).ToArray())));
++        }
++        return (audits, offices);
++    }
++
++    /// The pending balance of one service at the end of one day: the closing balance of its last entry on or
++    /// before that day, or its opening balance when it has none. The same expression GetDashboardAsync uses.
++    private static long ClosingPending(SetupDto setup, IReadOnlyList<EntryDto> entries, int serviceId, DateOnly on)
++    {
++        var balance = setup.Balances.FirstOrDefault(x => x.ServiceId == serviceId);
++        if (balance is null || on < setup.StartDate) return 0;
++        return (entries.Where(x => x.Input.ServiceId == serviceId && x.Input.ServiceDate <= on)
++            .OrderBy(x => x.Input.ServiceDate).LastOrDefault()?.Closing ?? balance.Opening).Service;
++    }
++}
+diff --git a/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.cs b/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.cs
+index 33b3c89..08f86bd 100644
+--- a/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.cs
++++ b/src/Anchal.Application/CommissionerMonitoring/Services/MonitoringService.cs
+@@ -17,7 +17,7 @@ namespace Anchal.Application.CommissionerMonitoring.Services;
+ /// Audit snapshots retain the Cloudflare metadata and mutation receipts absent from the count schema.
+ /// All writers must use MutateOfficeAsync so validation and projection updates are serialized.
+ /// </summary>
+-public sealed class MonitoringService(IMonitoringContext db, TimeProvider clock) : IMonitoringService
++public sealed partial class MonitoringService(IMonitoringContext db, TimeProvider clock) : IMonitoringService
+ {
+     /// Session roles that may read the service master. An allow-list: a role added to the system
+     /// is refused here until it is named.
