@@ -1,4 +1,5 @@
-// The gate for the daily-form service shapes: the real backend, a real
+// The gate for the daily-form service shapes (three of them now: field work is
+// reported by officers as visits, not on this form): the real backend, a real
 // Postgres, no route stubs. Twice in this project a green unit suite sat on top
 // of a broken path, because the tests exercised the layer that changed rather
 // than the path an office walks. This walks it.
@@ -28,7 +29,7 @@
 // applies the migrations and re-provisions the seven accounts; it writes no
 // opening balances, because that screen is what this spec walks.
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
-import { servicePosition } from "../ui/service-position";
+import { FIELD_WORK_IDS, OFFERED_IDS, servicePosition } from "../ui/service-position";
 
 const live = process.env.RMC_LIVE_BACKEND === "1";
 const officeUser = process.env.RMC_OFFICER_USERNAME ?? "anchal1";
@@ -49,23 +50,28 @@ const evidenceDir = process.env.RMC_EVIDENCE_DIR ?? "/home/claude/live";
 //  20  counter, the "nothing to report" case — must not move
 //   2  revenue    — non-zero on purpose: it must still be frozen
 //   5  revenue    — a second one, so collection is proved to accumulate
-//   8  field work — non-zero on purpose: it must still be frozen
+//   8  field work — non-zero on purpose. Opening balances still cover all 25
+//      services, so the grid must still take one; it is a field-work service no
+//      form reports against now, and the dashboard's pending total (32 below)
+//      must not pick it up. Nothing is filed against it.
 // Every other service opens at zero so the dashboard arithmetic below is exact.
 const OPENING: Record<number, number> = { 1: 7, 2: 11, 5: 9, 7: 3, 8: 13, 12: 5, 20: 4 };
 
 // The figures filed, and the totals they must produce on the dashboard. The
-// four tile figures are kept mutually distinct so a tile reading the wrong
+// three tile figures are kept mutually distinct so a tile reading the wrong
 // total cannot pass by accident.
 const FILED = {
   counterPending: 32, // 12 (s1) + 7 (s7) + 9 (s12) + 4 (s20)
   counterReceived: 23, // 9 + 8 + 6 + 0
   counterCompleted: 10, // 4 + 4 + 2 + 0
-  workDone: 12, // 6 trips (s8) + 5 routes (s9) + 1 animal (s10) — field work only
   // 125050 (s2) + 30025 (s5) + 15000 (s6, after its correction) + 25075 (s1,
   // a queue service that also takes a fee: collection spans it too)
   collection: "₹1,951.50",
   collectionPaise: 195150,
-  entries: 10, // s1 s2 s5 s6 s7 s8 s9 s10 s12 s20
+  // s1 s2 s5 s6 s7 s12 s20. The daily entry collects 17 services, so an office
+  // that filed all of them reads 17 / 17 and one that filed these reads 7 / 17.
+  entries: 7,
+  expected: 17,
 };
 
 type ApiResponse<T> = { status: number; body: T };
@@ -257,7 +263,7 @@ async function submitEntry(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("all four daily form shapes against a real backend", () => {
+test.describe("the daily form shapes against a real backend", () => {
   test.skip(!live, "RMC_LIVE_BACKEND is not set");
 
   let officeContext: BrowserContext;
@@ -276,7 +282,7 @@ test.describe("all four daily form shapes against a real backend", () => {
     // render a Sign out button, so signing one page in and out repeatedly is
     // both slower and ambiguous.
     officeContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    // Wide enough for the four-tile row the stylesheet asks for above 1439px.
+    // Wide enough for the three-tile row the stylesheet asks for from 1024px.
     commissionerContext = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
     office = await officeContext.newPage();
     commissioner = await commissionerContext.newPage();
@@ -442,34 +448,57 @@ test.describe("all four daily form shapes against a real backend", () => {
     expect(first.closing.service, "service 2 closing, after service 5 filed").toBe(11);
   });
 
-  test("a field-work entry files with no requests behind it", async () => {
-    await selectService(office, 8);
+  test("the list offers seventeen services and no field work, and the server refuses it", async () => {
+    // Field work is reported by officers as visits. The list holds the 17 the
+    // entry collects, numbered 01 to 17, under two groups, and no Field work group.
+    const list = office.getByRole("list", { name: "Municipal services" });
+    const rows = list.locator("button:not([aria-expanded])");
+    await expect(rows).toHaveCount(OFFERED_IDS.length);
+    await expect(rows.first()).toHaveText(/^01/);
+    await expect(rows.last()).toHaveText(/^17/);
+    await expect(list.locator("button[aria-expanded]")).toHaveCount(2);
+    await expect(list.getByText(/field work/i)).toHaveCount(0);
 
-    // Service 8 is labelled per service: "Trips", not "Completed".
-    await expect(office.locator("[data-opening]")).toHaveCount(0);
-    await expectFormFields(office, [...DATE_AND_WARD, "Trips", "Remarks"]);
+    // A stale page or a direct call is refused by the server, not merely hidden.
+    // One request per field-work service, each refused on the service alone.
+    for (const serviceId of FIELD_WORK_IDS) {
+      const refused = await callApi<{ fieldErrors?: Record<string, string> }>(
+        office,
+        "/office/entries",
+        "POST",
+        {
+          requestId: `fieldwork-${serviceId}-${Date.now()}`,
+          expectedVersion: null,
+          mode: "today",
+          reason: null,
+          input: {
+            serviceId,
+            serviceDate: today,
+            ward: "Ward 11",
+            received: 0,
+            completed: 4,
+            slaWithinTime: 0,
+            amountPaise: 0,
+            complaintsReceived: 0,
+            complaintsResolved: 0,
+            fieldReceived: 0,
+            fieldCompleted: 0,
+            avgDisposalDays: null,
+            remarks: "",
+            nothingToReport: false,
+          },
+        },
+      );
+      expect(refused.status, `a daily entry for service ${serviceId}`).toBe(422);
+      expect(Object.keys(refused.body.fieldErrors ?? {}), `service ${serviceId}`).toEqual(["serviceId"]);
+      expect(refused.body.fieldErrors?.serviceId).toMatch(/field officers/i);
+    }
 
-    await selectField(office, "Ward").selectOption("Ward 11");
-    await numberField(office, "Trips").fill("6");
-    // Six trips against zero requests: the completed-vs-received rule must not
-    // fire here. This is the pairing that was exempted in the validator but not
-    // in the deriver, so it is checked against the server, not the schema.
-    await submitEntry(office);
-
-    await selectService(office, 9);
-    await expectFormFields(office, [...DATE_AND_WARD, "Routes", "Remarks"]);
-    await selectField(office, "Ward").selectOption("Ward 12");
-    await numberField(office, "Routes").fill("5");
-    await submitEntry(office);
-
-    const trips = await storedEntry(office, 8, today);
-    expect(trips.received, "field work has no request figure").toBe(0);
-    expect(trips.completed).toBe(6);
-    expect(trips.opening.service).toBe(13);
-    expect(trips.closing.service, "work on the ground must not move the queue").toBe(13);
-
-    const routes = await storedEntry(office, 9, today);
-    expect(routes.completed).toBe(5);
+    // And nothing was stored for any of them.
+    const stored = await callApi<{ entries: LiveEntry[] }>(office, `/office/entries?date=${today}&mode=today`);
+    expect(stored.status).toBe(200);
+    for (const serviceId of FIELD_WORK_IDS)
+      expect(stored.body.entries.some((e) => e.serviceId === serviceId), `service ${serviceId} stored`).toBe(false);
   });
 
   test("nothing to report is a flag, and the server refuses it beside a figure", async () => {
@@ -611,11 +640,11 @@ test.describe("all four daily form shapes against a real backend", () => {
     expect(corrected.closing.service).toBe(7);
   });
 
-  // The queue-and-fee correction above is one of four shapes. Revenue and field
-  // work are the two where the hidden-field 422 was actually found, and they rest
-  // otherwise on a
-  // component test whose mocked api cannot return a 422 — so it could not have
-  // failed before the fix. These run against the real server.
+  // The queue-and-fee correction above is one of three shapes. Revenue is where the
+  // hidden-field 422 was found, and it rests otherwise on a component test whose
+  // mocked api cannot return a 422, so it could not have failed before the fix.
+  // This runs against the real server. (Field work had a twin of it; a field-work
+  // entry can no longer be filed or corrected, so there is nothing left to run.)
   test("a revenue correction keeps a stored disposal figure it never shows", async () => {
     await filePreCutover(office, 6, today, {
       ward: "Ward 14",
@@ -649,40 +678,7 @@ test.describe("all four daily form shapes against a real backend", () => {
     );
   });
 
-  test("a field-work correction keeps a stored within-SLA figure it never shows", async () => {
-    await filePreCutover(office, 10, today, {
-      ward: "Ward 15",
-      received: 6,
-      completed: 6,
-      slaWithinTime: 6,
-      complaintsReceived: 2,
-      complaintsResolved: 2,
-      avgDisposalDays: 3.5,
-    });
-
-    // Work done drops below the stored within-SLA figure. Nothing may object:
-    // the field-work form shows neither operand of that rule.
-    await correct(
-      office,
-      10,
-      async () => {
-        await numberField(office, "Animals picked up").fill("1");
-      },
-      "Only one animal was picked up.",
-    );
-
-    const entry = await storedEntry(office, 10, today);
-    expect(entry.completed, "work done lowered below the stored within-SLA").toBe(1);
-    expect(entry.slaWithinTime, "a figure the field-work form never showed").toBe(6);
-    expect(entry.received).toBe(6);
-    expect(entry.complaintsReceived).toBe(2);
-    expect(entry.avgDisposalDays).toBe(3.5);
-    expect(entry.closing.service, "field work still moves nothing").toBe(
-      entry.opening.service,
-    );
-  });
-
-  test("the commissioner dashboard shows work done and none of the retired tiles", async () => {
+  test("the commissioner dashboard has no work-done figure and none of the retired tiles", async () => {
     await signIn(commissioner, "commissioner", commissionerPassword);
     await expect(
       commissioner.getByRole("heading", { name: "Office monitoring dashboard" }),
@@ -692,19 +688,35 @@ test.describe("all four daily form shapes against a real backend", () => {
     await commissioner
       .getByLabel("Anchal", { exact: true })
       .selectOption({ label: `Anchal ${officeNumber}` });
-    await expect(commissioner.locator("[data-metrics] [data-metric]")).toHaveCount(4);
+    await expect(commissioner.locator("[data-metrics] [data-metric]")).toHaveCount(3);
     await expect(
       commissioner.locator("[data-report-count]"),
-      "one report per service filed",
-    ).toHaveText(`${FILED.entries} / 25 reports`);
+      "one report per service filed, out of the seventeen the entry collects",
+    ).toHaveText(`${FILED.entries} / ${FILED.expected} reports`);
 
-    // workDone crosses the wire. The server computes WorkDone and serialises it
-    // with the Web defaults, so it must arrive as workDone; read as WorkDone the
-    // tile would total undefined and show NaN, not 11.
-    const workDoneTile = commissioner.locator("[data-metric]", {
-      hasText: "Work done this period",
-    });
-    await expect(workDoneTile.locator("strong")).toHaveText(String(FILED.workDone));
+    // Field work is reported as visits, so the clerk's figure would read zero:
+    // neither the tile nor the column is on the page. The server still sends
+    // workDone and the page ignores it, so the figure must not reach the screen
+    // even though it is in the response.
+    await expect(commissioner.getByText("Work done"), "tile or column").toHaveCount(0);
+    const columns = await commissioner
+      .locator("[aria-label='Anchal-wise performance table'] thead th")
+      .allTextContents();
+    expect(columns.map((c) => c.trim())).toEqual([
+      "Anchal",
+      "Received",
+      "Completed",
+      "Pending",
+      "Disposal %",
+      "Amount Collected (₹)",
+    ]);
+    // The filter offers the 17 the entry collects, and none of the eight.
+    const offered = await commissioner
+      .getByLabel("Service", { exact: true })
+      .locator("option")
+      .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean).map(Number));
+    expect(offered).toEqual([...OFFERED_IDS].sort((a, b) => a - b));
+    await expect(commissioner.getByRole("option", { name: "All 17 services" })).toHaveCount(1);
 
     const rows = await callApi<{ rows: Record<string, unknown>[] }>(
       commissioner,
@@ -712,8 +724,9 @@ test.describe("all four daily form shapes against a real backend", () => {
     );
     expect(rows.status).toBe(200);
     const row = rows.body.rows[0];
-    expect(Object.keys(row), "the wire key is camelCase workDone").toContain("workDone");
-    expect(row.workDone).toBe(FILED.workDone);
+    // The seven it filed, out of the seventeen due; field work is in neither number.
+    expect(row.submitted, "filed count over the collected services").toBe(FILED.entries);
+    expect(row.expected, "the denominator is the seventeen the entry collects").toBe(FILED.expected);
 
     // The three tiles the form stopped feeding are gone, not zeroed.
     for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending"])
@@ -735,8 +748,9 @@ test.describe("all four daily form shapes against a real backend", () => {
       FILED.collectionPaise,
     );
 
-    // jsdom does no layout, so the six-tile-to-four CSS change has never been
-    // seen. Measured, not eyeballed: four tiles, one row, no overflow.
+    // jsdom does no layout, so the tile-count CSS change has never been
+    // seen. Measured, not eyeballed: three tiles, one row, no overflow, and no
+    // fourth column left empty beside them.
     const layout = await commissioner.evaluate(() => {
       const grid = document.querySelector("[data-metrics]") as HTMLElement;
       const tiles = Array.from(document.querySelectorAll("[data-metrics] [data-metric]")) as HTMLElement[];
@@ -750,9 +764,9 @@ test.describe("all four daily form shapes against a real backend", () => {
       };
     });
     expect(layout).toEqual({
-      tiles: 4,
+      tiles: 3,
       rows: 1,
-      columns: 4,
+      columns: 3,
       overflowsGrid: false,
       overflowsPage: false,
     });
@@ -765,7 +779,7 @@ test.describe("all four daily form shapes against a real backend", () => {
     });
     await commissioner.evaluate(() => window.scrollTo(0, 0));
     await commissioner.screenshot({
-      path: `${evidenceDir}/commissioner-dashboard-four-tiles.png`,
+      path: `${evidenceDir}/commissioner-dashboard-three-tiles.png`,
       fullPage: false,
     });
 
