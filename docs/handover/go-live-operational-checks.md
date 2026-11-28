@@ -258,8 +258,10 @@ The service filter and the reports count both drop from 25 to **17**, for the sa
 ### What does not change
 
 The eight services stay in the system. Field visits, the visit register and the officer's own list
-are untouched, and every daily entry already filed against those services stays readable in the
-audit trail. Such an entry can no longer be **corrected** by a clerk: the figure now belongs to
+are untouched, and every daily entry already filed against those services is kept. It is reachable by
+whoever can query the database or the API (`/office/history` and `/office/entries`), but not
+through the portal: no screen shows it, the clerk's register has no row for those services, and
+nothing in the frontend reads the audit trail. Such an entry can no longer be **corrected** by a clerk: the figure now belongs to
 officers, so the server refuses the correction rather than leaving two writable sources.
 
 ## Known gaps that are not checks
