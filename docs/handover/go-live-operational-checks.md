@@ -220,6 +220,48 @@ match.
 
 ---
 
+## Field work must not leave the daily entry before officers can sign in
+
+This release stops Anchal clerks reporting the eight field-work services on the daily entry. Those
+services move **entirely** to field officers, who file them as visits.
+
+**So it must not be deployed until field officers are provisioned and able to sign in.** Shipped
+before that, nobody reports field work at all — not the clerk, who can no longer see those
+services, and not the officer, who cannot log in. There is no partial state: the figure simply
+stops existing.
+
+Two things have to be true first.
+
+**RMC must have supplied the officer roster**, and those officers must have accounts. The role
+manager creates them.
+
+**The work must reach production at all.** As of writing it does not. The branches `ui-rebuild`
+(frontend) and `role-manager` (backend) have never been merged, and each host builds production
+from its production branch — so every push has produced a preview deployment while the production
+alias keeps serving a build that predates the field-officer role entirely. That is why "field
+officers cannot log in to production" has stayed open: not a hosting misconfiguration, but work
+that has never landed on the branch production is built from. Merging those two branches is the
+fix, and it is a decision for whoever owns the release, not a step to take quietly.
+
+Until both hold, this release is built and tested but should sit unshipped. The preceding section's
+rule still applies when it does ship: **backend first**.
+
+### What changes for the commissioner
+
+The dashboard loses the **"Work done this period"** tile and the **"Work done"** column. They were
+fed by the clerk's figure, so after the cutover they would have read zero — which does not say "this
+moved elsewhere", it says "no work was done". Per-service reporting from the visits themselves is
+deliberately deferred until officers are filing real data.
+
+The service filter and the reports count both drop from 25 to **17**, for the same reason.
+
+### What does not change
+
+The eight services stay in the system. Field visits, the visit register and the officer's own list
+are untouched, and every daily entry already filed against those services stays readable in the
+audit trail. Such an entry can no longer be **corrected** by a clerk: the figure now belongs to
+officers, so the server refuses the correction rather than leaving two writable sources.
+
 ## Known gaps that are not checks
 
 Recorded here so they are not discovered during go-live week.
