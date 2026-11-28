@@ -4,6 +4,7 @@ import { Button, leadingBody, leadingHeading } from "../ui";
 import { useText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
 import AnchalSection from "./dashboard/AnchalSection";
+import ServiceSection from "./dashboard/ServiceSection";
 
 export default function Dashboard() {
   const t = useText();
@@ -47,6 +48,7 @@ export default function Dashboard() {
         </Button>
       </header>
       <AnchalSection onStamp={setUpdated} />
+      <ServiceSection />
     </div>
   );
 }
