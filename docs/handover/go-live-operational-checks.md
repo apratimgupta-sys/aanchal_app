@@ -257,8 +257,9 @@ The service filter and the reports count both drop for the same reason. With the
 
 ### What does not change
 
-The eight services stay in the system. Field visits and the officer's own list
-are untouched. The visit register still lists every visit ever filed, including visits for services
+The eight services stay in the system, and an officer still files a visit the same way, though the
+form's Activity list now offers only those eight rather than all twenty-five. The officer's own list
+is untouched. The visit register still lists every visit ever filed, including visits for services
 the form no longer offers, but its Activity filter now offers only the eight field-work services.
 Every daily entry already filed against those services is kept. It is reachable by
 whoever can query the database or the API (`/office/history` and `/office/entries`), but not
