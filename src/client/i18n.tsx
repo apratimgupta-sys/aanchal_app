@@ -54,8 +54,11 @@ const runtimeHindi: Record<string, string> = {
   "Invalid username or password": "उपयोगकर्ता नाम या पासवर्ड गलत है",
   "Please sign in": "कृपया लॉगिन करें",
   "Enter username and password": "उपयोगकर्ता नाम और पासवर्ड दर्ज करें",
-  "Too many attempts. Try again in one minute.":
-    "बहुत अधिक प्रयास। एक मिनट बाद पुनः प्रयास करें।",
+  // Keyed to the server's own wording ("Try again later."), which this key used
+  // to disagree with, so its Hindi never applied. Drafted, not settled; waits on
+  // RMC's reviewer.
+  "Too many attempts. Try again later.":
+    "बहुत अधिक प्रयास। बाद में पुनः प्रयास करें।",
   "Enter rupees with at most two decimal places":
     "राशि अधिकतम दो दशमलव स्थानों में दर्ज करें",
   "Amount too large": "राशि बहुत अधिक है",
@@ -77,7 +80,10 @@ const runtimeHindi: Record<string, string> = {
   "A correction reason is required": "सुधार का कारण आवश्यक है",
   "A delayed-reporting reason is required":
     "विलंबित रिपोर्टिंग का कारण आवश्यक है",
-  "Service date is outside this reporting route":
+  // Keyed to the server's own wording (MonitoringRules.ValidateRoute), which this
+  // key used to disagree with ("Service date ..."), so its Hindi never applied.
+  // The Hindi is unchanged and still waits on RMC's reviewer.
+  "Date is outside this reporting route":
     "सेवा तिथि इस रिपोर्टिंग मार्ग के अंतर्गत नहीं है",
   "Date precedes reporting start date": "तिथि रिपोर्टिंग प्रारंभ से पहले है",
   "Invalid reporting filters": "रिपोर्टिंग फ़िल्टर गलत हैं",
@@ -122,6 +128,9 @@ const runtimeHindi: Record<string, string> = {
   // entry list used), daily entry = दैनिक प्रविष्टि (as in the deactivation notice).
   "Field work is reported by field officers, not on the daily entry":
     "क्षेत्रीय कार्य की रिपोर्ट क्षेत्रीय अधिकारी देते हैं, दैनिक प्रविष्टि में नहीं",
+  // The other refusal on the same `serviceId` key (an id outside the master, or
+  // an unreadable dashboard filter). Drafted, not settled; waits on RMC's reviewer.
+  "Select a service": "सेवा चुनें",
 };
 export function runtimeText(text: string, lang: Lang) {
   if (lang === "en") return text;

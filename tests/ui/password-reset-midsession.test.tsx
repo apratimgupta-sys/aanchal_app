@@ -71,6 +71,13 @@ describe("the Hindi for server messages", () => {
     "Officer not found",
     // MonitoringRules.ValidateEntry, Task 1 of the field-work change.
     "Field work is reported by field officers, not on the daily entry",
+    // The other refusal on the same `serviceId` key.
+    "Select a service",
+    // These two are the server's wording, character for character. Their keys once
+    // read "Service date is outside..." and "...Try again in one minute.", so the
+    // Hindi never applied and nothing said so.
+    "Date is outside this reporting route",
+    "Too many attempts. Try again later.",
   ])("has a Hindi key for %s", (message) => {
     const hindi = runtimeText(message, "hi");
     expect(hindi).not.toBe(message);
