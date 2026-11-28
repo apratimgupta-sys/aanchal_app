@@ -137,4 +137,88 @@ describe("the Anchal-wise performance section", () => {
 
     await waitFor(() => expect(onStamp).toHaveBeenLastCalledWith("2026-11-20T05:00:00.000Z"));
   });
+
+  it("shows no figures while the custom period cannot be asked for", async () => {
+    route(api, { anchals: [anchalRow()] });
+    await shown();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Custom" }));
+
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: addDays(today, -5) } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: addDays(today, -10) } });
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: addDays(today, -1) } });
+    await waitFor(() => expect(screen.getByRole("table")).toBeTruthy());
+  });
+
+  it("shows the refusal and no figures when the request for the new choice fails", async () => {
+    route(api, { anchals: [anchalRow()] });
+    await shown();
+    api.mockRejectedValue(new Error("Invalid reporting filters"));
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Past 7 days" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Invalid reporting filters");
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  // A recorded zero prints as zero; only an unrecorded figure is blank.
+  it.each([
+    ["1", ["Anchal 1", "0", "0", "0", "—", "₹0.00"]],
+    ["2", ["Anchal 1", "", "", "", "", "₹0.00"]],
+    ["11", ["Anchal 1", "0", "0", "0", "—", ""]],
+  ])("prints real zeros as zeros when pinned to service %s, blank only where unrecorded", async (serviceId, expected) => {
+    route(api, { anchals: [anchalRow({ received: 0, completed: 0, pending: 0, disposalPct: null, amountPaise: 0 })] });
+    await shown();
+
+    await userEvent.setup().selectOptions(screen.getByLabelText("Service"), serviceId);
+    await waitFor(() => expect(lastPath()).toContain(`serviceId=${serviceId}`));
+
+    await waitFor(() => expect(cells(bodyRows()[0])).toEqual(expected));
+  });
+
+  it("drops the service from the request when All services is chosen again", async () => {
+    route(api, { anchals: [anchalRow()] });
+    await shown();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Service"), "11");
+    await waitFor(() => expect(lastPath()).toContain("serviceId=11"));
+
+    await user.selectOptions(screen.getByLabelText("Service"), "All 10 services");
+
+    await waitFor(() => expect(lastPath()).toBe(`/dashboard?from=${today}&to=${today}`));
+  });
+
+  it("labels the service filter and names its services in Hindi", async () => {
+    route(api, { anchals: [anchalRow()] });
+    await shown("hi");
+    const select = screen.getByLabelText("सेवा") as HTMLSelectElement;
+    const name = (id: number) => services.find((s) => s.id === id)!.name;
+
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+      "सभी 10 सेवाएँ",
+      ...OFFERED_IDS.map((id) => `${servicePosition(id)} · ${name(id)}`),
+    ]);
+  });
+
+  it("keeps the table in a labelled scroll region", async () => {
+    route(api, { anchals: [anchalRow()] });
+    await shown();
+
+    expect(screen.getByLabelText("Anchal-wise performance table").contains(table())).toBe(true);
+  });
+
+  it("clears the time of its figures when there is nothing to show", async () => {
+    const onStamp = vi.fn();
+    route(api, { anchals: [anchalRow()] });
+    await shown("en", onStamp);
+    await waitFor(() => expect(onStamp).toHaveBeenLastCalledWith("2026-11-20T05:00:00.000Z"));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Custom" }));
+
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: addDays(today, -5) } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: addDays(today, -10) } });
+
+    await waitFor(() => expect(onStamp).toHaveBeenLastCalledWith(""));
+  });
 });

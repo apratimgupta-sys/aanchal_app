@@ -76,6 +76,7 @@ export default function ServiceSection() {
       }
       error={error}
     >
+      {data && (
       <Table
         role="table"
         className={cardTable}
@@ -141,6 +142,7 @@ export default function ServiceSection() {
           </tr>
         </tfoot>
       </Table>
+      )}
     </SectionCard>
   );
 }

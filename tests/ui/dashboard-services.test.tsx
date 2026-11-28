@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ServiceSection from "../../src/client/pages/dashboard/ServiceSection";
 import { todayIST } from "../../src/domain/ledger";
@@ -109,5 +109,16 @@ describe("the service-wise progress section", () => {
 
     await waitFor(() => expect(bodyRows().length).toBe(10));
     expect(cells(rowOf(1)).slice(2)).toEqual(["0", "0", "—", "0", "₹0.00"]);
+  });
+
+  it("shows no table while the custom period cannot be asked for", async () => {
+    await shown();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Custom" }));
+
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-11-05" } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: "2026-11-01" } });
+
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 });

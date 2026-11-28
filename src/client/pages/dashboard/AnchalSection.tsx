@@ -20,7 +20,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
   const rows = data?.rows ?? [];
 
   useEffect(() => {
-    if (data) onStamp?.(usableStamp(data.updatedAt) ?? usableStamp(data.retrievedAt) ?? "");
+    onStamp?.(data ? (usableStamp(data.updatedAt) ?? usableStamp(data.retrievedAt) ?? "") : "");
   }, [data, onStamp]);
 
   const totals = rows.reduce(
@@ -81,6 +81,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
       }
       error={error}
     >
+      {data && (
       <Table
         role="table"
         className={cardTable}
@@ -121,6 +122,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
           </tr>
         </tfoot>
       </Table>
+      )}
     </SectionCard>
   );
 }

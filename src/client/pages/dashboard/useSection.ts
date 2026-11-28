@@ -31,5 +31,8 @@ export function useSection<T>(
   } else if (query.error) {
     error = runtimeText((query.error as Error).message, lang);
   }
-  return { data: query.data, range, error };
+  // No figures without a valid range or after a failed request: the last period's
+  // figures are kept only while a new valid choice is loading.
+  const data = range === null || query.error ? undefined : query.data;
+  return { data, range, error };
 }
