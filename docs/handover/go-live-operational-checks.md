@@ -312,9 +312,22 @@ Besides `GET /dashboard`, it reads `GET /dashboard/services`, `GET /dashboard/da
 other five sections shows an error in its own card until the backend follows. Nothing is lost; it
 only looks broken.
 
-An open dashboard makes six small reads every 15 seconds while its tab is visible. That is by design;
+An open dashboard makes several small reads every 15 seconds while its tab is visible. That is by design;
 the server works them out from the same entries as before. A section that cannot refresh shows its
 error in place of its figures, and the other sections are unaffected.
+
+Each section shows its own dates under its title, and the sections are independent. The same figure
+(for example "Collected") can therefore differ between two sections that show different periods; check
+the dates printed under each title before comparing. The "Figures as of" stamp in the page header
+reflects the Anchal table's last refresh only, and is not shown while that table is on an invalid
+Custom range or has failed to load.
+
+The services and days endpoints each read the full entry history for the office (or all offices) on
+every request, so one open dashboard makes several such reads per refresh. That is acceptable at
+current volumes. If the data grows, an indexed query by date is the first thing to do.
+
+The field-visit summary accepts a range of any length, unlike the two chart sections, which refuse
+more than 92 days.
 
 The two charts refuse a period longer than 92 days and say so.
 

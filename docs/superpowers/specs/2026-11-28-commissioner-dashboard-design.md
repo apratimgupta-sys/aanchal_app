@@ -1,7 +1,7 @@
 # Commissioner dashboard — design
 
 Date: 28 November 2026
-Mockup (approved layout, sample figures): https://claude.ai/artifact/UqtdeQanM3yceorHCzGxPb
+The layout was agreed from a mockup with sample figures.
 
 ## Why
 
@@ -85,6 +85,11 @@ Shared filter pieces:
 
 Each section remembers its own choices while the page is open and starts from its default
 on a fresh load.
+
+Each section prints the dates it is showing under its title, in the same muted style as its
+subtitle: one date when the period is a single day ("28 Nov 2026"), otherwise both ends with
+an en dash ("1 Nov 2026 – 28 Nov 2026"), with Hindi month names in Hindi. Sections have
+independent periods, so this is what tells two totals apart when they cover different dates.
 
 ### 1. Anchal-wise performance
 
@@ -181,7 +186,9 @@ What a card calls its figure ("kg lifted") is wording, and lives with the page.
 ## Charts
 
 Two small chart components are built by hand as SVG: a bar chart and a two-line chart.
-They scale with the card, scroll sideways inside their card on a phone, and take their
+They scale with the card, have a minimum width of 960 px so the axis and tooltip text stays
+readable on a phone, scroll sideways inside their card there (the page itself never scrolls
+sideways), and take their
 colours from theme tokens (two series colours and a four-step ramp for the wards, each with
 a light and a dark value that pass the colour checks used for the mockup). Hovering or
 focusing a day shows its date and values. Each chart has a "View as table" switch that
