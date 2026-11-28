@@ -97,12 +97,6 @@ export type SetupCommand = {
   balances: Setup["balances"];
   reason: string | null;
 };
-export type PeriodFilter = {
-  from: string;
-  to: string;
-  officeId?: number;
-  serviceId?: number;
-};
 export type MonitoringRow = {
   officeId: number;
   received: number;

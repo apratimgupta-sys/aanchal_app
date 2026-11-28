@@ -4,7 +4,6 @@ import {
   deriveEntryViews,
   validateEntry,
   parseMoney,
-  summarizePeriod,
 } from "../../src/domain/ledger";
 const activity = {
   received: 2,
@@ -99,105 +98,4 @@ describe("ledger", () => {
     expect(parseMoney("1.01")).toBe(101);
     expect(() => parseMoney("1.001")).toThrow();
   });
-  it("totals flows but takes closing stocks and handles no denominator", () => {
-    const setup = {
-      officeId: 1,
-      startDate: "2026-10-01",
-      version: 1,
-      balances: Array.from({ length: 25 }, (_, i) => ({
-        serviceId: i + 1,
-        opening: {
-          service: i === 0 ? 10 : 0,
-          complaints: i === 0 ? 3 : 0,
-          field: i === 0 ? 5 : 0,
-        },
-      })),
-    };
-    const rows = summarizePeriod(
-      [setup],
-      [entry],
-      { from: "2026-10-01", to: "2026-10-03" },
-      "2026-10-03",
-    );
-    expect(rows[0]).toMatchObject({
-      pending: 8,
-      disposalPct: 200,
-      submitted: 1,
-      expected: 75,
-    });
-    expect(rows[1].disposalPct).toBeNull();
-    expect(rows[1].expected).toBe(0);
-  });
-});
-// The server scopes Received, Completed and Within-SLA to counter work
-// (MonitoringService.GetDashboardAsync), because a payment completes nothing
-// and field work completes against a Received of 0 — summing them in pushes
-// Disposal % past 100. This mirror has to agree, or it reports a different
-// dashboard from the one the commissioner sees.
-it("counts received, completed and within-SLA for counter work only", () => {
-  const setup = {
-    officeId: 1,
-    startDate: "2026-10-01",
-    version: 1,
-    balances: Array.from({ length: 25 }, (_, i) => ({
-      serviceId: i + 1,
-      opening: { service: 0, complaints: 0, field: 0 },
-    })),
-  };
-  const at = (serviceId: number, over: Partial<typeof entry> = {}) => ({
-    ...entry,
-    id: `e${serviceId}`,
-    serviceId,
-    received: 0,
-    completed: 0,
-    slaWithinTime: 0,
-    complaintsReceived: 0,
-    complaintsResolved: 0,
-    fieldReceived: 0,
-    fieldCompleted: 0,
-    ...over,
-  });
-  const r = summarizePeriod(
-    [setup],
-    [
-      at(1, { received: 9, completed: 4, slaWithinTime: 3 }), // counter
-      at(2, { received: 12, amountPaise: 500 }), // revenue: payments, not cases
-      at(8, { completed: 6 }), // field work: trips, not disposals
-    ],
-    { from: "2026-10-01", to: "2026-10-03" },
-    "2026-10-03",
-  )[0];
-  expect(r.received).toBe(9);
-  expect(r.completed).toBe(4);
-  expect(r.slaWithinTime).toBe(3);
-  // Field work keeps its own figure, and money is collected from every shape.
-  expect(r.workDone).toBe(6);
-  expect(r.amountPaise).toBe(500);
-  // 4/9, not 10/21: the ratio only means something over counter work.
-  expect(r.disposalPct).toBeCloseTo((4 / 9) * 100);
-  expect(r.submitted).toBe(3);
-});
-it("preserves zero denominators and strict review thresholds", () => {
-  const setup = {
-    officeId: 1,
-    startDate: "2026-10-01",
-    version: 1,
-    balances: Array.from({ length: 25 }, (_, i) => ({
-      serviceId: i + 1,
-      opening: {
-        service: i === 0 ? 10 : 0,
-        complaints: i === 0 ? 5 : 0,
-        field: i === 0 ? 10 : 0,
-      },
-    })),
-  };
-  const r = summarizePeriod(
-    [setup],
-    [],
-    { from: "2026-09-30", to: "2026-10-01" },
-    "2026-10-03",
-  )[0];
-  expect(r.expected).toBe(25);
-  expect(r.reviewReasons).toEqual([]);
-  expect(r.slaPct).toBeNull();
 });

@@ -1,22 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import services from "../../src/shared/services.json";
-import { collectedFields, collects, formShape, collectsWorkDone, dailyEntryCollects, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
+import { collectedFields, collects, formShape, dailyEntryCollects, movesPendingBalance, serviceKind, KNOWN_UNITS } from "../../src/domain/service-kind";
 
 describe("what kind of work a service is", () => {
   // From the Service Master's Primary Monitoring Unit column, not hand-listed:
   // 8 door-to-door vehicle, 9 fogging, 10 street dog, 13 street lighting,
   // 14 road and drain, 15 grass cutting, 16 tree pruning, 17 water bodies.
   it("finds the eight services that are work on the ground", () => {
-    const found = services.map((s) => s.id).filter(collectsWorkDone);
+    const found = services.map((s) => s.id).filter((id) => formShape(id) === "fieldwork");
     expect(found).toEqual([8, 9, 10, 13, 14, 15, 16, 17]);
-  });
-
-  // The server's MonitoringRules.IsFieldWork is a shape test; this side asks
-  // what is collected. They must name the same services or workDone differs.
-  it("names the same services as the field-work shape, which the server tests", () => {
-    for (const { id } of services)
-      expect(collectsWorkDone(id), `service ${id}`).toBe(formShape(id) === "fieldwork");
   });
 
   it("finds the three that only collect money", () => {
@@ -48,7 +41,6 @@ describe("what kind of work a service is", () => {
 
   it("treats an unknown service id as counter work, keeping the strict rules", () => {
     expect(serviceKind(99)).toBe("counter");
-    expect(collectsWorkDone(99)).toBe(false);
   });
 
   it("puts the grievance service on the counter shape", () => {

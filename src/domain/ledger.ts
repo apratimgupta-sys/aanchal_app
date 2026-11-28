@@ -1,4 +1,4 @@
-import { collects, collectsWorkDone, movesPendingBalance } from "./service-kind";
+import { collects, movesPendingBalance } from "./service-kind";
 import { isCanonicalWard, WARD_MESSAGE } from "./entry-rules";
 import type {
   Activity,
@@ -6,9 +6,6 @@ import type {
   EntryInput,
   EntryView,
   StoredEntry,
-  Setup,
-  PeriodFilter,
-  MonitoringRow,
   ApiError,
 } from "../shared/types";
 export const dateIST = (date: Date) =>
@@ -103,93 +100,5 @@ export function deriveEntryViews(
           `Invalid pending balance on ${e.serviceDate} (service ${e.serviceId})`,
         );
       return { ...e, opening, closing: { ...balance } };
-    });
-}
-export function summarizePeriod(
-  setups: Setup[],
-  entries: StoredEntry[],
-  filter: PeriodFilter,
-  today: string,
-): MonitoringRow[] {
-  return Array.from({ length: 6 }, (_, i) => i + 1)
-    .filter((id) => !filter.officeId || id === filter.officeId)
-    .map((officeId) => {
-      const setup = setups.find((s) => s.officeId === officeId);
-      const r: MonitoringRow = {
-        officeId,
-        received: 0,
-        completed: 0,
-        slaWithinTime: 0,
-        pending: 0,
-        disposalPct: null,
-        slaPct: null,
-        amountPaise: 0,
-        workDone: 0,
-        complaintsPending: 0,
-        fieldPending: 0,
-        submitted: 0,
-        expected: 0,
-        configured: !!setup,
-        reviewReasons: [],
-      };
-      if (!setup) {
-        r.reviewReasons = ["Initial balances not configured"];
-        return r;
-      }
-      const start =
-        filter.from > setup.startDate ? filter.from : setup.startDate;
-      const end = filter.to < today ? filter.to : today;
-      r.expected =
-        start <= end
-          ? (Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1) *
-            (filter.serviceId ? 1 : 25)
-          : 0;
-      for (const b of setup.balances.filter(
-        (b) => !filter.serviceId || b.serviceId === filter.serviceId,
-      )) {
-        const all = entries.filter(
-          (e) =>
-            e.officeId === officeId &&
-            e.serviceId === b.serviceId &&
-            e.serviceDate <= filter.to,
-        );
-        const views = deriveEntryViews(b.opening, all);
-        const close =
-          filter.to < setup.startDate
-            ? { service: 0, complaints: 0, field: 0 }
-            : (views.at(-1)?.closing ?? b.opening);
-        // Only a service with a queue has a pending balance to report. The
-        // service balance of the 11 revenue and field-work services is frozen,
-        // so counting it would report a pending figure nothing can ever work
-        // off.
-        if (movesPendingBalance(b.serviceId)) r.pending += close.service;
-        r.complaintsPending += close.complaints;
-        r.fieldPending += close.field;
-        for (const e of all.filter((e) => e.serviceDate >= filter.from)) {
-          // Queue work only (counter and counterRevenue), exactly as the server
-          // sums them: a payment completes no case, and field work completes
-          // against a received of 0, so counting either in pushes Disposal %
-          // past 100. Field work is reported separately as workDone; money
-          // comes from every service that collects it.
-          if (movesPendingBalance(b.serviceId)) {
-            r.received += e.received;
-            r.completed += e.completed;
-            r.slaWithinTime += e.slaWithinTime;
-          }
-          r.amountPaise += e.amountPaise;
-          if (collectsWorkDone(b.serviceId)) r.workDone += e.completed;
-          r.submitted++;
-        }
-      }
-      r.disposalPct = r.received ? (r.completed / r.received) * 100 : null;
-      r.slaPct = r.completed ? (r.slaWithinTime / r.completed) * 100 : null;
-      // Mirror of the server's review reasons. The three thresholds over SLA,
-      // complaints and field tasks are gone with the fields that fed them.
-      // These two literals are a cross-repo contract: they are translated by
-      // exact key match in i18n.tsx, so rewording one silently drops Hindi.
-      if (r.pending > 10) r.reviewReasons.push("Pending > 10");
-      if (r.disposalPct !== null && r.disposalPct < 90)
-        r.reviewReasons.push("Disposal < 90%");
-      return r;
     });
 }
