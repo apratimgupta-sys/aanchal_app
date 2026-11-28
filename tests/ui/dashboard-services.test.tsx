@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ServiceSection from "../../src/client/pages/dashboard/ServiceSection";
 import { todayIST } from "../../src/domain/ledger";
+import { addDays } from "../../src/domain/period";
 import services from "../../src/shared/services.json";
 import { paths, renderWithin, route, serviceRow } from "./dashboard-harness";
 import { OFFERED_IDS, servicePosition } from "./service-position";
@@ -115,10 +116,27 @@ describe("the service-wise progress section", () => {
     await shown();
     await userEvent.setup().click(screen.getByRole("button", { name: "Custom" }));
 
-    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-11-05" } });
-    fireEvent.change(screen.getByLabelText("To date"), { target: { value: "2026-11-01" } });
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: addDays(todayIST(), -5) } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: addDays(todayIST(), -10) } });
 
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("takes no line on a phone for a figure the service does not record", async () => {
+    await shown();
+    const tds = (id: number) => Array.from(rowOf(id).querySelectorAll("td"));
+
+    // A collection: the four queue cells are empty and hidden when empty; Collected has content.
+    for (const td of tds(2).slice(2, 6)) {
+      expect(td.childNodes.length).toBe(0);
+      expect(td.className).toContain("max-lg:empty:hidden");
+    }
+    expect(tds(2)[6].childNodes.length).toBeGreaterThan(0);
+    // A queue-only service: Collected is empty and hidden when empty.
+    expect(tds(11)[6].childNodes.length).toBe(0);
+    expect(tds(11)[6].className).toContain("max-lg:empty:hidden");
+    // The total row's empty number cell is hidden on a phone.
+    expect(totalRow().querySelector("td")!.className).toContain("max-lg:hidden");
   });
 });

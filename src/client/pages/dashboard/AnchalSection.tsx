@@ -43,7 +43,7 @@ export default function AnchalSection({ onStamp }: { onStamp?: (stamp: string) =
   const queueCell = gate(movesPendingBalance);
   const amountCell = gate((id) => collects(id, "amountPaise"));
 
-  const figure = "lg:text-right font-mono tabular-nums";
+  const figure = "lg:text-right font-mono tabular-nums max-lg:empty:hidden";
   const hAnchal = t("Anchal", "अंचल");
   const hReceived = t("Received", "प्राप्त");
   const hDisposed = t("Disposed", "निस्तारित");

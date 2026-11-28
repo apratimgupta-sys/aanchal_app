@@ -123,6 +123,26 @@ describe("the Anchal-wise performance section", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(message);
   });
 
+  it.each([
+    ["2", [1, 2, 3, 4]],
+    ["11", [5]],
+  ])("pinned to service %s, the cells left blank are empty and hidden when empty on a phone", async (serviceId, blank) => {
+    route(api, { anchals: [anchalRow()] });
+    await shown();
+
+    await userEvent.setup().selectOptions(screen.getByLabelText("Service"), serviceId);
+    await waitFor(() => expect(lastPath()).toContain(`serviceId=${serviceId}`));
+    await waitFor(() => expect(cells(bodyRows()[0])[blank[0]]).toBe(""));
+
+    for (const row of [bodyRows()[0], totalRow()]) {
+      const tds = Array.from(row.querySelectorAll("td"));
+      for (const i of blank) {
+        expect(tds[i].childNodes.length).toBe(0);
+        expect(tds[i].className).toContain("max-lg:empty:hidden");
+      }
+    }
+  });
+
   it("carries nothing about filing", async () => {
     route(api, { anchals: [anchalRow({ submitted: 7, expected: 10 })] });
     await shown();

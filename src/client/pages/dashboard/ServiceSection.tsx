@@ -41,7 +41,7 @@ export default function ServiceSection() {
   const pending = queue.reduce((a, { row }) => a + row.pending, 0);
   const amountPaise = rows.reduce((a, { row }) => a + row.amountPaise, 0);
 
-  const figure = "lg:text-right font-mono tabular-nums";
+  const figure = "lg:text-right font-mono tabular-nums max-lg:empty:hidden";
   const hNo = t("No.", "क्र.");
   const hService = t("Service", "सेवा");
   const hReceived = t("Received", "प्राप्त");
@@ -132,7 +132,7 @@ export default function ServiceSection() {
         </tbody>
         <tfoot role="rowgroup">
           <tr role="row">
-            <Td label={hNo}>{""}</Td>
+            <Td label={hNo} className="max-lg:hidden">{""}</Td>
             <Td label={hService} className={cardTitle}>{t("TOTAL", "कुल")}</Td>
             <Td label={hReceived} className={figure}>{formatCount(received)}</Td>
             <Td label={hDisposed} className={figure}>{formatCount(completed)}</Td>
