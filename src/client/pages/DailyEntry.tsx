@@ -807,7 +807,7 @@ export default function DailyEntry({
                   closing balance on the same control line where one exists. */}
               <div className="flex flex-wrap items-start gap-x-3 gap-y-4">
                 {shownFields.map(({ key: k, en, hi }) => (
-                  <Field key={k} className="max-w-[18rem]">
+                  <Field key={k} className="w-[176px]">
                     {t(en, hi)}
                     <Input
                       width="count"

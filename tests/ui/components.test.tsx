@@ -61,7 +61,7 @@ describe("Input", () => {
   it("stretches by default and is sized to its content for a count or money", () => {
     render(<><Input aria-label="full" /><Input aria-label="count" width="count" /><Input aria-label="money" width="money" /></>);
     expect(classes(screen.getByLabelText("full"))).toContain("w-full");
-    expect(classes(screen.getByLabelText("count"))).toContain("w-[84px]");
+    expect(classes(screen.getByLabelText("count"))).toContain("w-[176px]");
     expect(classes(screen.getByLabelText("count"))).not.toContain("w-full");
     expect(classes(screen.getByLabelText("money"))).toContain("w-[192px]");
     expect(classes(screen.getByLabelText("money"))).toContain("lg:w-[118px]");

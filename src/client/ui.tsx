@@ -39,7 +39,11 @@ const control = cva(
       // A figure is sized to its content, not stretched to the container.
       width: {
         full: "w-full",
-        count: "w-[84px] text-right font-mono tabular-nums",
+        // 176px, not the spec's 84px: the grievance service's labels run to ~50
+        // characters, and the label wraps inside this box's column (DailyEntry gives the
+        // Field the same width), measured at two lines in English and Hindi. 140px
+        // wrapped them to three. One rule for every count, not a special case.
+        count: "w-[176px] text-right font-mono tabular-nums",
         // 192px below lg: the 16px no-zoom type needs it for the widest amount the
         // validation permits (17 digits, measured); 118px is the design width at lg.
         money: "w-[192px] text-right font-mono tabular-nums lg:w-[118px]",
