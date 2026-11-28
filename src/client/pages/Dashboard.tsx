@@ -4,6 +4,8 @@ import { Button, leadingBody, leadingHeading } from "../ui";
 import { useText } from "../i18n";
 import { formatIndiaDateTime } from "../lib/dates";
 import AnchalSection from "./dashboard/AnchalSection";
+import FieldVisitsSection from "./dashboard/FieldVisitsSection";
+import WardSection from "./dashboard/WardSection";
 import ServiceSection from "./dashboard/ServiceSection";
 import CollectionSection from "./dashboard/CollectionSection";
 import TrendSection from "./dashboard/TrendSection";
@@ -50,6 +52,8 @@ export default function Dashboard() {
         </Button>
       </header>
       <AnchalSection onStamp={setUpdated} />
+      <FieldVisitsSection />
+      <WardSection />
       <ServiceSection />
       <CollectionSection />
       <TrendSection />
