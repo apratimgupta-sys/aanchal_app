@@ -36,7 +36,7 @@ function labels() {
 
 type Opening = { serviceId: number; opening: { service: number; complaints: number; field: number } };
 
-async function renderFor(id: number, entries: EntryView[] = [], openings: Opening[] = []) {
+async function renderFor(id: number, entries: EntryView[] = [], openings: Opening[] = [], lang: "en" | "hi" = "en") {
   cleanup();
   api.mockReset();
   api.mockImplementation(async (_path: string, method = "GET") =>
@@ -44,7 +44,7 @@ async function renderFor(id: number, entries: EntryView[] = [], openings: Openin
   );
   const user = userEvent.setup();
   render(
-    <Language.Provider value="en">
+    <Language.Provider value={lang}>
       <DailyEntry
         officeId={1}
         mode="today"
@@ -55,13 +55,11 @@ async function renderFor(id: number, entries: EntryView[] = [], openings: Openin
       />
     </Language.Provider>,
   );
-  await screen.findByText(/daily service entry/i);
+  await screen.findByText(lang === "hi" ? /दैनिक सेवा/ : /daily service entry/i);
   if (id !== 1) {
     await user.click(screen.getByRole("button", { name: new RegExp(`^${servicePosition(id)}(?!\\d)`) }));
   }
-  await screen.findByText(
-    new RegExp(`SERVICE ${servicePosition(id)}\\b`),
-  );
+  if (lang === "en") await screen.findByText(new RegExp(`SERVICE ${servicePosition(id)}\\b`));
   return user;
 }
 
@@ -352,6 +350,32 @@ describe("a server error on a field the form does not render", () => {
     const shown = await screen.findByText(/cannot be combined with reported/i);
     expect(shown.textContent).toContain("Nothing to report");
     expect(shown.textContent).not.toContain("nothingToReport");
+  });
+
+  // The server refuses a daily entry for a field-work service on `serviceId`
+  // alone. A clerk's tab still on the bundle from before the change can reach
+  // this; the refusal must read as a sentence about a service, not as a wire key.
+  it.each([
+    ["en", "Service"],
+    ["hi", "सेवा"],
+  ] as const)("names the service rather than printing its key (%s)", async (lang, label) => {
+    const user = await renderFor(11, [], [], lang);
+    api.mockImplementation(async (_path: string, method = "GET") => {
+      if (method === "GET") return { setup: null, entries: [], openings: [] };
+      throw new RequestError("Please correct the highlighted fields", {
+        fieldErrors: {
+          "input.serviceId": "Field work is reported by field officers, not on the daily entry",
+        },
+      });
+    });
+    await user.selectOptions(document.querySelector("form select")!, "Ward 24");
+    const [received, disposed] = Array.from(document.querySelectorAll<HTMLInputElement>("form input[inputmode=numeric], form input[type=number]"));
+    await user.type(received, "4");
+    await user.type(disposed, "3");
+    await user.click(screen.getByRole("button", { name: /submit entry|प्रविष्टि जमा करें/i }));
+    const shown = await screen.findByText(/क्षेत्रीय अधिकारी|field officers/i);
+    expect(shown.textContent).toContain(label);
+    expect(shown.textContent).not.toContain("serviceId");
   });
 });
 

@@ -1,6 +1,7 @@
 import services from "../shared/services.json";
 type Snapshot = Record<string, unknown>;
 export const auditFields: Record<string, [string, string]> = {
+  serviceId: ["Service", "सेवा"],
   serviceDate: ["Service date", "सेवा तिथि"],
   reportingDate: ["Registration date", "पंजीकरण तिथि"],
   startDate: ["Reporting start date", "रिपोर्टिंग आरंभ तिथि"],
