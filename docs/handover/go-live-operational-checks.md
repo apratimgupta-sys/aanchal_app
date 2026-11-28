@@ -301,6 +301,31 @@ server refuses a new visit for anything else; visits already filed for other ser
 the old backend still expects 17 reports a day, so every office reads as partly filed until the
 backend follows.
 
+## The Commissioner's dashboard reads three new routes
+
+The dashboard is now six sections, each with its own period and filters: Anchal-wise performance,
+field visits, where the visits were, service-wise progress, collection, and received and disposed.
+Besides `GET /dashboard`, it reads `GET /dashboard/services`, `GET /dashboard/days` and
+`GET /field-visits/summary`. All four are Commissioner-only.
+
+**Deploy order: backend first.** If the frontend ships first, the Anchal table works and each of the
+other five sections shows an error in its own card until the backend follows. Nothing is lost; it
+only looks broken.
+
+An open dashboard makes six small reads every 15 seconds while its tab is visible. That is by design;
+the server works them out from the same entries as before. A section that cannot refresh shows its
+error in place of its figures, and the other sections are unaffected.
+
+The two charts refuse a period longer than 92 days and say so.
+
+Filing status no longer appears anywhere on the dashboard. That was the client's decision.
+
+Still to confirm with RMC: the units on the visit cards (kg, metres, square metres); that one visit
+counts as one route for Fogging, one job for Street lighting and one site for Water body cleaning;
+and all the new Hindi.
+
+A visit's details are optional, so a visit card says how many of its visits gave no figure.
+
 ## Known gaps that are not checks
 
 Recorded here so they are not discovered during go-live week.

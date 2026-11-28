@@ -123,7 +123,8 @@ than letting the sum quietly understate.
 
 Filter: Period (default Today).
 All 53 wards as a grid of numbered cells, shaded in four steps by visits in the period:
-none, 1, 2, 3 or more, with a key. The heading line says how many wards had none. This
+none, 1, 2, 3 or more, with a key. A ward with visits also shows its count in figures under
+its number, as well as by shade. The heading line says how many wards had none. This
 section is about field visits only; a daily entry's ward is not charted.
 
 ### 4. Service-wise progress
@@ -152,7 +153,7 @@ labelled at the end of each line.
 - **Received, Disposed, Collected** for a period: sums of what was filed for the days in it.
 - **Pending**: the closing balance on the period's last day, as the server already derives
   it. It is not a sum over days.
-- **Disposal %**: disposed over received for the period; blank when nothing was received.
+- **Disposal %**: disposed over received for the period; shown as a dash when nothing was received, as the Anchal table already does. A dash is a ratio with nothing received; a figure that was never recorded is left blank, and a recorded zero is shown as 0.
 - **Totals and "all services"** cover only what the daily entry collects today, the same
   rule the present dashboard uses.
 - **Per-day charts** show a zero for a day with nothing filed.

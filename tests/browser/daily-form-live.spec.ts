@@ -719,16 +719,15 @@ test.describe("the daily form shapes against a real backend", () => {
     await expect(
       commissioner.getByRole("heading", { name: "Office monitoring dashboard" }),
     ).toBeVisible();
-    // Narrowed to this office so the totals below are exactly what was filed
-    // above, whatever other offices hold.
-    await commissioner
-      .getByLabel("Anchal", { exact: true })
-      .selectOption({ label: `Anchal ${officeNumber}` });
-    await expect(commissioner.locator("[data-metrics] [data-metric]")).toHaveCount(3);
-    await expect(
-      commissioner.locator("[data-report-count]"),
-      "one report per service filed, out of the ten the entry collects",
-    ).toHaveText(`${FILED.entries} / ${FILED.expected} reports`);
+    // The Anchal card has no office filter, so the figures below are read from
+    // this office's own row: exactly what was filed above, whatever other
+    // offices hold. The card opens on Today, the day everything was filed.
+    const anchalCard = commissioner
+      .locator("section")
+      .filter({ has: commissioner.getByRole("heading", { level: 2, name: "Anchal-wise performance" }) });
+    const officeRow = anchalCard
+      .getByRole("row")
+      .filter({ has: commissioner.getByRole("cell", { name: `Anchal ${officeNumber}`, exact: true }) });
 
     // Field work is reported as visits, so the clerk's figure would read zero:
     // neither the tile nor the column is on the page. The server still sends
@@ -741,18 +740,18 @@ test.describe("the daily form shapes against a real backend", () => {
     expect(columns.map((c) => c.trim())).toEqual([
       "Anchal",
       "Received",
-      "Completed",
+      "Disposed",
       "Pending",
       "Disposal %",
-      "Amount Collected (₹)",
+      "Collected (₹)",
     ]);
     // The filter offers the 10 the entry collects, and none of the eight.
-    const offered = await commissioner
+    const offered = await anchalCard
       .getByLabel("Service", { exact: true })
       .locator("option")
       .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean).map(Number));
     expect(offered).toEqual([...OFFERED_IDS].sort((a, b) => a - b));
-    await expect(commissioner.getByRole("option", { name: "All 10 services" })).toHaveCount(1);
+    await expect(anchalCard.getByRole("option", { name: "All 10 services" })).toHaveCount(1);
 
     const rows = await callApi<{ rows: Record<string, unknown>[] }>(
       commissioner,
@@ -764,48 +763,31 @@ test.describe("the daily form shapes against a real backend", () => {
     expect(row.submitted, "filed count over the collected services").toBe(FILED.entries);
     expect(row.expected, "the denominator is the ten the entry collects").toBe(FILED.expected);
 
-    // The three tiles the form stopped feeding are gone, not zeroed.
-    for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending"])
+    // The tiles and the filing count are gone from the page, not zeroed.
+    for (const gone of ["Within SLA", "Complaints pending", "Field tasks pending", "Total pending", "Total collection"])
       await expect(commissioner.getByText(gone), `${gone} tile`).toHaveCount(0);
+    await expect(commissioner.locator("[data-metric], [data-metrics], [data-report-count]")).toHaveCount(0);
 
-    const pendingTile = commissioner.locator("[data-metric]", { hasText: "Total pending" });
-    await expect(pendingTile.locator("strong")).toHaveText(String(FILED.counterPending));
+    const figure = (label: string) => officeRow.locator(`td[data-label='${label}']`);
+    await expect(figure("Pending")).toHaveText(String(FILED.counterPending));
+    await expect(figure("Received")).toHaveText(String(FILED.counterReceived));
+    await expect(figure("Disposed")).toHaveText(String(FILED.counterCompleted));
     const disposal = (FILED.counterCompleted / FILED.counterReceived) * 100;
-    const disposalTile = commissioner.locator("[data-metric]", { hasText: "Disposal" });
-    await expect(disposalTile.locator("strong")).toHaveText(disposal.toFixed(1) + "%");
-    await expect(disposalTile.locator("small")).toHaveText(
-      `${FILED.counterCompleted} / ${FILED.counterReceived}`,
-    );
+    await expect(figure("Disposal %")).toHaveText(disposal.toFixed(1) + "%");
     // The sum of every entry that took money (three revenue services and one
     // fee on applications), not any one of them.
-    const collectionTile = commissioner.locator("[data-metric]", { hasText: "Total collection" });
-    await expect(collectionTile.locator("strong")).toHaveText(FILED.collection);
+    await expect(figure("Collected (₹)")).toHaveText(FILED.collection);
     expect(row.amountPaise, "collection accumulates across every service that collects money").toBe(
       FILED.collectionPaise,
     );
 
-    // jsdom does no layout, so the tile-count CSS change has never been
-    // seen. Measured, not eyeballed: three tiles, one row, no overflow, and no
-    // fourth column left empty beside them.
-    const layout = await commissioner.evaluate(() => {
-      const grid = document.querySelector("[data-metrics]") as HTMLElement;
-      const tiles = Array.from(document.querySelectorAll("[data-metrics] [data-metric]")) as HTMLElement[];
-      return {
-        tiles: tiles.length,
-        rows: new Set(tiles.map((t) => t.getBoundingClientRect().top.toFixed(0))).size,
-        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
-        overflowsGrid: grid.scrollWidth > grid.clientWidth,
-        overflowsPage:
-          document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      };
-    });
-    expect(layout).toEqual({
-      tiles: 3,
-      rows: 1,
-      columns: 3,
-      overflowsGrid: false,
-      overflowsPage: false,
-    });
+    // The page itself must not scroll sideways at desktop width.
+    expect(
+      await commissioner.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      ),
+      "the document must not scroll sideways",
+    ).toBe(false);
 
     // Evidence for the eye as well as the assertion. The sign-in toast would
     // otherwise sit over the top of the page.
@@ -815,7 +797,7 @@ test.describe("the daily form shapes against a real backend", () => {
     });
     await commissioner.evaluate(() => window.scrollTo(0, 0));
     await commissioner.screenshot({
-      path: `${evidenceDir}/commissioner-dashboard-three-tiles.png`,
+      path: `${evidenceDir}/commissioner-dashboard.png`,
       fullPage: false,
     });
 
