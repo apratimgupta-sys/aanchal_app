@@ -81,9 +81,16 @@ describe("a tooltip box", () => {
     expect(tipWidth(["x".repeat(30)])).toBe(234);
     expect(tipWidth(["x".repeat(100)])).toBe(320);
   });
-  it("steps to the side of its mark away from the nearer edge, inside the plot", () => {
-    expect(tipLeft(56, 150, 56, 1110)).toBe(68);
-    expect(tipLeft(1110, 150, 56, 1110)).toBe(948);
-    expect(tipLeft(600, 150, 56, 1110)).toBe(438);
+  it("steps clear of its mark's edge, to the side away from the nearer plot edge", () => {
+    expect(tipLeft(56, 4, 150, 56, 1110)).toBe(72);
+    expect(tipLeft(100, 20, 150, 56, 1110)).toBe(132);
+    expect(tipLeft(1110, 4, 150, 56, 1110)).toBe(944);
+    expect(tipLeft(1000, 20, 150, 56, 1110)).toBe(818);
+    expect(tipLeft(600, 4, 150, 56, 1110)).toBe(434);
+  });
+  it("stays inside a plot too narrow to stand beside the mark", () => {
+    expect(tipLeft(30, 4, 150, 0, 100)).toBe(0);
+    expect(tipLeft(80, 4, 90, 0, 100)).toBe(0);
+    expect(tipLeft(50, 4, 150, 10, 100)).toBe(10);
   });
 });

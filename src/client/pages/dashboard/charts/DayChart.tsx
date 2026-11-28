@@ -44,6 +44,7 @@ const BOTTOM = 200;
 const TIP_PAD = 8;
 const TIP_LINE = 16;
 const LABEL_GAP = 14;
+const DOT_RADIUS = 4;
 
 type Props = {
   kind: "bars" | "lines";
@@ -96,7 +97,10 @@ export default function DayChart({
   );
 
   const table = (
-    <Table role="table" containerProps={scrollRegion(title)}>
+    <Table
+      role="table"
+      containerProps={{ ...scrollRegion(title), "aria-label": title }}
+    >
       <thead role="rowgroup">
         <tr role="row">
           <Th>{t("Date", "तिथि")}</Th>
@@ -143,7 +147,16 @@ export default function DayChart({
       ]
     : [];
   const tipW = tipWidth(tipLines);
-  const tipX = active === null ? 0 : tipLeft(centre(active), tipW, LEFT, RIGHT);
+  const tipX =
+    active === null
+      ? 0
+      : tipLeft(
+          centre(active),
+          kind === "bars" ? barWidth / 2 : DOT_RADIUS,
+          tipW,
+          LEFT,
+          RIGHT,
+        );
   const dotYs = series.map((_, si) =>
     count ? yAt(days[count - 1].values[si] ?? 0) : 0,
   );
@@ -256,7 +269,7 @@ export default function DayChart({
                         <circle
                           cx={centre(last)}
                           cy={yAt(days[last].values[si] ?? 0)}
-                          r={4}
+                          r={DOT_RADIUS}
                           strokeWidth={2}
                           className={`${c.fill} stroke-card`}
                         />

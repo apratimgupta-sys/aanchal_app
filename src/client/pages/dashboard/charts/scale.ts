@@ -74,9 +74,11 @@ export function tipWidth(lines: string[]): number {
   return Math.min(320, Math.max(120, longest * 7 + 24));
 }
 
-// Where a tooltip's left edge goes so it never covers its own mark: right of the mark
-// in the left half of the plot, left of it in the right half, then kept inside.
-export function tipLeft(mark: number, width: number, left: number, right: number, gap = 12): number {
-  const x = mark <= (left + right) / 2 ? mark + gap : mark - gap - width;
-  return Math.min(Math.max(x, left), right - width);
+// Where a tooltip's left edge goes so it never covers its own mark: `gap` beyond the
+// mark's right edge in the left half of the plot, `gap` before its left edge in the
+// right half (`half` is the mark's half-width). Staying inside the plot wins over
+// standing beside the mark, and the result is never left of `left`.
+export function tipLeft(mark: number, half: number, width: number, left: number, right: number, gap = 12): number {
+  const x = mark <= (left + right) / 2 ? mark + half + gap : mark - half - gap - width;
+  return Math.max(left, Math.min(x, right - width));
 }
