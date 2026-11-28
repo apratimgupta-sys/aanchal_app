@@ -328,7 +328,6 @@ describe("FieldVisit — the rebuilt screen", () => {
 async function pick(user: ReturnType<typeof userEvent.setup>, id: number) {
   await user.selectOptions(screen.getByLabelText(/^activity/i), String(id));
 }
-const controls = () => document.querySelectorAll("form input, form select, form textarea").length;
 
 describe("FieldVisit — each service's own details", () => {
   it("renders service 8's four fields in order, each with its own control", async () => {
@@ -433,7 +432,7 @@ describe("FieldVisit — each service's own details", () => {
     renderForm();
     await user.selectOptions(screen.getByLabelText(/^ward/i), "24");
     await pick(user, 17);
-    await user.type(screen.getByLabelText(/issue|description/i), "Counter checked; queue was short.");
+    await user.type(screen.getByLabelText(/issue|description/i), "Water body cleared of weeds along the north bank.");
     await user.click(screen.getByRole("button", { name: /capture location/i }));
     await user.click(await screen.findByRole("button", { name: /submit/i }));
     await waitFor(() => expect(createVisit).toHaveBeenCalled());

@@ -30,9 +30,8 @@ const ANCHALS = [1, 2, 3, 4, 5, 6];
 const WARDS = Array.from({ length: WARD_MAX - WARD_MIN + 1 }, (_, i) => WARD_MIN + i);
 
 // What a field-work service calls the date of its visit and the description of what
-// was found or done, kept by hand. A service
-// not listed (the counter services) keeps the plain pair. The date is always today
-// and is shown, not asked for; the description is the required Issue / Action text.
+// was found or done, kept by hand. The plain pair is what shows before an
+// activity is chosen. The date is always today and is shown, not asked for; the description is the required Issue / Action text.
 const PLAIN_LABELS = {
   date: ["Visit date", "निरीक्षण की तिथि"],
   description: ["Issue / Action", "समस्या / कार्रवाई"],
