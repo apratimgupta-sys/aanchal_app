@@ -249,7 +249,7 @@ const GROUPS = (["counter", "revenue", "fieldwork"] as const).filter((g) =>
   OFFERED.some((s) => groupOf(s.id) === g),
 );
 // The list is grouped, so a service's place in it is not its id. The clerk
-// reads the place (01 to 17, in list order); the id stays what is stored and
+// reads the place (01 to 10, in list order); the id stays what is stored and
 // sent. Display only: nothing keyed on a service id reads this.
 const displayNumber = new Map<number, string>(
   GROUPS.flatMap((g) => OFFERED.filter((s) => groupOf(s.id) === g)).map((s, i) => [

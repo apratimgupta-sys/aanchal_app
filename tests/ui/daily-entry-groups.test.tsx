@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // The service list: numbered in list order (not by service id), and grouped
 // under two collapsible headers (the eight field-work services are reported as
-// visits and are not on the daily entry).
+// visits, and the seven withdrawn ones are off the entry by decision; none is
+// on the daily entry).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -6,8 +6,9 @@
 // does, and this table is what says what the app should do.
 //
 // The eight field-work services (8, 9, 10, 13, 14, 15, 16, 17) are reported by
-// field officers as visits and are not on the daily entry, so they have no
-// position: asking for one is an error, not "undefined".
+// field officers as visits, and the seven withdrawn ones (18-23, 25) are off the
+// entry by decision. None is on the daily entry, so none has a position: asking
+// for one is an error, not "undefined".
 const POSITION: Record<number, number> = {
   1: 1, 3: 2, 4: 3, 7: 4, 11: 5, 12: 6, 24: 7,
   2: 8, 5: 9, 6: 10,

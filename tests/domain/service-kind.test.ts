@@ -94,8 +94,8 @@ describe("what kind of work a service is", () => {
   });
 });
 
-// Mirrors the server's DailyEntryCollects(id) => !IsFieldWork(id). The expected
-// sets are written out here on purpose: they are the oracle the derivation is
+// Mirrors the server's DailyEntryCollects(id): not field work, and not hidden
+// or removed by decision. The expected sets are written out here on purpose: they are the oracle the derivation is
 // held against, not something the derivation may be copied from.
 describe("which services the daily entry collects", () => {
   it("collects the ten left on the daily entry", () => {

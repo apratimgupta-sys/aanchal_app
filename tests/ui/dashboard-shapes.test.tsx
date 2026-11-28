@@ -333,9 +333,9 @@ describe("commissioner dashboard after the form shapes", () => {
   });
 
   describe("the notes under the tiles count the services that feed the figure", () => {
-    // Service ids by shape: counter 11, 12 and 18-25 (ten); counterRevenue 1, 3,
-    // 4, 7; revenue 2, 5, 6; field work 8-10 and 13-17 (eight). A note that
-    // counted one shape would say 10 and 3 where the figure spans 14 and 7.
+    // The ten offered services by what they carry: a queue on 1, 3, 4, 7, 11, 12
+    // and 24 (seven); an amount on 1, 3, 4, 7 and the collections 2, 5, 6 (seven).
+    // A note that counted one shape would say 3 and 3 where the figure spans 7.
     it("counts counter and counterRevenue services under pending, revenue and counterRevenue under collection", async () => {
       mockApi([row()]);
       await renderDashboard();
